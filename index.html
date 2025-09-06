@@ -26,19 +26,33 @@
             width: 100vw;
         }
 
-        /* Overlay form */
+        /* Overlay form at bottom */
         .overlay-form {
             position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: 0;
+            left: 0;
+            right: 0;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 90%;
-            max-width: 600px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        /* Bottom results area */
+        .bottom-results {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 50vh;
+            overflow-y: auto;
+            display: none;
         }
 
         /* Custom scrollbar for the results list */
@@ -60,17 +74,21 @@
             background: #555;
         }
 
-        /* Autocomplete suggestions */
-        .autocomplete-suggestions {
-            position: absolute;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 1001;
-            width: 100%;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .overlay-form {
+                padding: 10px;
+                max-height: 40vh;
+            }
+
+            .bottom-results {
+                padding: 10px;
+                max-height: 60vh;
+            }
+
+            .autocomplete-suggestions {
+                max-height: 150px;
+            }
         }
 
         .autocomplete-suggestion {
@@ -87,64 +105,59 @@
 <body class="bg-gray-100 font-sans antialiased">
     <div id="map"></div>
 
-    <!-- Overlay Input Form -->
-    <div class="overlay-form">
-        <header class="text-center mb-6">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Tesla Supercharger Route Planner</h1>
-            <p class="text-gray-600 mt-2">Find your route and the Superchargers along the way.</p>
+    <!-- Bottom Results Area -->
+    <div class="bottom-results" id="bottom-results">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Superchargers & Restaurants</h2>
+            <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                New Search
+            </button>
+        </div>
+        <div id="results-list">
+            <p class="text-gray-500">Search for a route to see results.</p>
+        </div>
+    </div> <!-- Overlay Input Form -->
+    <div class="overlay-form" id="search-form">
+        <header class="text-center mb-4">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Tesla Supercharger Route Planner</h1>
+            <p class="text-gray-600 text-sm">Find your route and nearby amenities.</p>
         </header>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div class="relative">
                 <label for="origin" class="block text-sm font-medium text-gray-700">Origin</label>
                 <input type="text" id="origin"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                     placeholder="e.g., San Francisco, CA">
                 <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
             <div class="relative">
                 <label for="destination" class="block text-sm font-medium text-gray-700">Destination</label>
                 <input type="text" id="destination"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                     placeholder="e.g., Los Angeles, CA">
                 <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
             <div class="md:col-span-2">
                 <button id="find-route-btn"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                    Find Route & Superchargers
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out text-sm">
+                    Find Route & Amenities
                 </button>
             </div>
         </div>
-        <div id="status-message" class="text-center mt-4 text-gray-600 font-medium"></div>
+        <div id="status-message" class="text-center mt-3 text-gray-600 font-medium text-sm"></div>
     </div>
 
-    <!-- Supercharger List Overlay -->
-    <div class="absolute top-20 right-20 bg-white p-6 rounded-xl shadow-lg max-h-80 overflow-y-auto custom-scrollbar hidden"
-        id="supercharger-overlay" style="z-index: 1000; width: 300px;">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Superchargers on Route</h2>
-        <div id="supercharger-list">
-            <p class="text-gray-500">Enter a route to see nearby Superchargers.</p>
+    <!-- Bottom Results Area -->
+    <div class="bottom-results" id="bottom-results">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Superchargers & Restaurants</h2>
+            <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">
+                New Search
+            </button>
         </div>
-    </div>
-
-    <!-- Restaurants Table Overlay -->
-    <div class="absolute bottom-20 right-20 bg-white p-6 rounded-xl shadow-lg max-h-80 overflow-y-auto custom-scrollbar hidden"
-        id="restaurants-overlay" style="z-index: 1000; width: 400px;">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Nearby Restaurants</h2>
-        <table id="restaurants-table" class="w-full text-sm">
-            <thead>
-                <tr class="border-b">
-                    <th class="text-left py-2">Name</th>
-                    <th class="text-left py-2">Cuisine</th>
-                    <th class="text-left py-2">Distance</th>
-                </tr>
-            </thead>
-            <tbody id="restaurants-tbody">
-                <tr>
-                    <td colspan="3" class="py-4 text-gray-500">No restaurants found yet.</td>
-                </tr>
-            </tbody>
-        </table>
+        <div id="results-list">
+            <p class="text-gray-500">Search for a route to see results.</p>
+        </div>
     </div>
 
     <script>
@@ -152,20 +165,20 @@
         // IMPORTANT: Get your free API key from https://openrouteservice.org/
         const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVjNDQ2NWRmYWFiODQ3ZmVhMTM2NTNhODA0YjRiYWI4IiwiaCI6Im11cm11cjY0In0='
         // Distance in miles to search for chargers from the route
-        const SEARCH_RADIUS_MILES = 10
+        const SEARCH_RADIUS_MILES = 5
 
         // --- DOM ELEMENTS ---
         const originInput = document.getElementById( 'origin' )
         const destinationInput = document.getElementById( 'destination' )
         const findRouteBtn = document.getElementById( 'find-route-btn' )
         const statusMessage = document.getElementById( 'status-message' )
-        const superchargerList = document.getElementById( 'supercharger-list' )
         const mapElement = document.getElementById( 'map' )
         const originSuggestions = document.getElementById( 'origin-suggestions' )
         const destinationSuggestions = document.getElementById( 'destination-suggestions' )
-        const superchargerOverlay = document.getElementById( 'supercharger-overlay' )
-        const restaurantsOverlay = document.getElementById( 'restaurants-overlay' )
-        const restaurantsTbody = document.getElementById( 'restaurants-tbody' )
+        const searchForm = document.getElementById( 'search-form' )
+        const bottomResults = document.getElementById( 'bottom-results' )
+        const resultsList = document.getElementById( 'results-list' )
+        const newSearchBtn = document.getElementById( 'new-search-btn' )
 
         // --- MAP INITIALIZATION ---
         let map = L.map( mapElement ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
@@ -178,6 +191,14 @@
 
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
+        newSearchBtn.addEventListener( 'click', () => {
+            clearMap()
+            originInput.value = ''
+            destinationInput.value = ''
+            searchForm.style.display = 'block'
+            bottomResults.style.display = 'none'
+            updateStatus( '' )
+        } )
 
         // Autocomplete for origin
         let originDebounceTimer
@@ -223,7 +244,11 @@
             // Clear previous results
             clearMap()
             updateStatus( "Finding route..." )
-            superchargerList.innerHTML = '<p class="text-gray-500">Searching for Superchargers...</p>'
+            resultsList.innerHTML = '<p class="text-gray-500">Searching...</p>'
+
+            // Hide search form and show results
+            searchForm.style.display = 'none'
+            bottomResults.style.display = 'block'
 
             try {
                 // Step 1: Geocode addresses to get coordinates
@@ -246,30 +271,14 @@
 
                 // Step 3: Fetch all Superchargers
                 updateStatus( "Finding Superchargers..." )
-                const allChargers = await getSuperchargers()
+                const allChargers = await getSuperchargers( routeCoords )
 
                 // Step 4: Find chargers along the route
                 const chargersOnRoute = findChargersNearRoute( allChargers, routeCoords, SEARCH_RADIUS_MILES )
 
                 // Step 5: Display the results
-                displaySuperchargers( chargersOnRoute )
-                updateStatus( `Found ${ chargersOnRoute.length } Superchargers on the route.`, false )
-                superchargerOverlay.classList.remove( 'hidden' )
-
-                // Step 6: Fetch restaurants near superchargers
-                updateStatus( "Finding nearby restaurants..." )
-                const allRestaurants = []
-                for ( const charger of chargersOnRoute.slice( 0, 3 ) ) { // Limit to first 3 to avoid too many calls
-                    try {
-                        const restaurants = await getNearbyRestaurants( charger.gps.latitude, charger.gps.longitude, 5000 )
-                        allRestaurants.push( ...restaurants )
-                    } catch ( error ) {
-                        console.error( 'Error fetching restaurants for charger:', charger.name, error )
-                    }
-                }
-                displayRestaurants( allRestaurants )
-                restaurantsOverlay.classList.remove( 'hidden' )
-                updateStatus( `Found ${ chargersOnRoute.length } Superchargers and ${ allRestaurants.length } nearby restaurants.`, false )
+                displaySuperchargersAndRestaurants( chargersOnRoute )
+                updateStatus( `Found ${ chargersOnRoute.length } Superchargers with restaurants.`, false )
 
 
             } catch ( error ) {
@@ -379,22 +388,20 @@
          * @param {number} radius Radius in meters
          * @returns {Promise<Array<object>>} Array of restaurant objects
          */
-        async function getNearbyRestaurants ( lat, lon, radius = 5000 ) {
+        async function getNearbyRestaurants ( lat, lon, radius = 1000 ) {
             const query = `
-                [out:json][timeout:25];
+                [out:json][timeout:15];
                 (
                     node["amenity"="restaurant"](around:${ radius },${ lat },${ lon });
-                    way["amenity"="restaurant"](around:${ radius },${ lat },${ lon });
-                    relation["amenity"="restaurant"](around:${ radius },${ lat },${ lon });
                 );
-                out center;
+                out meta;
             `
             const url = `https://overpass-api.de/api/interpreter?data=${ encodeURIComponent( query ) }`
             const response = await fetch( url )
             if ( !response.ok ) throw new Error( "Failed to fetch restaurant data." )
             const data = await response.json()
 
-            return data.elements.slice( 0, 10 ).map( element => ( {
+            return data.elements.slice( 0, 5 ).map( element => ( {
                 id: element.id,
                 name: element.tags?.name || `Restaurant ${ element.id }`,
                 cuisine: element.tags?.cuisine || 'Unknown',
@@ -404,22 +411,56 @@
                     state: element.tags?.[ 'addr:state' ] || ''
                 },
                 gps: {
-                    latitude: element.lat || element.center?.lat,
-                    longitude: element.lon || element.center?.lon
+                    latitude: element.lat,
+                    longitude: element.lon
                 }
             } ) )
         }
-        async function getSuperchargers () {
+        async function getSuperchargers ( routeCoords = null ) {
             // Using Overpass API to query OpenStreetMap for Tesla Superchargers
-            const query = `
-                [out:json][timeout:25];
-                (
-                    node["amenity"="charging_station"]["operator"~"Tesla"];
-                    way["amenity"="charging_station"]["operator"~"Tesla"];
-                    relation["amenity"="charging_station"]["operator"~"Tesla"];
-                );
-                out center;
-            `
+            let query
+
+            if ( routeCoords && routeCoords.length > 0 ) {
+                // Calculate bounding box of the route
+                let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity
+                routeCoords.forEach( coord => {
+                    minLat = Math.min( minLat, coord[ 0 ] )
+                    maxLat = Math.max( maxLat, coord[ 0 ] )
+                    minLon = Math.min( minLon, coord[ 1 ] )
+                    maxLon = Math.max( maxLon, coord[ 1 ] )
+                } )
+
+                // Add padding (about 50km)
+                const latPadding = 0.45 // ~50km
+                const lonPadding = 0.45 // ~50km
+                minLat -= latPadding
+                maxLat += latPadding
+                minLon -= lonPadding
+                maxLon += lonPadding
+
+                query = `
+                    [out:json][timeout:30];
+                    (
+                        node["amenity"="charging_station"]["operator"~"Tesla"](${ minLat },${ minLon },${ maxLat },${ maxLon });
+                        way["amenity"="charging_station"]["operator"~"Tesla"](${ minLat },${ minLon },${ maxLat },${ maxLon });
+                        relation["amenity"="charging_station"]["operator"~"Tesla"](${ minLat },${ minLon },${ maxLat },${ maxLon });
+                    );
+                    out center meta;
+                `
+            } else {
+                // Fallback: search in a smaller area (California)
+                query = `
+                    [out:json][timeout:30];
+                    area["ISO3166-1"="US-CA"]->.ca;
+                    (
+                        node["amenity"="charging_station"]["operator"~"Tesla"](area.ca);
+                        way["amenity"="charging_station"]["operator"~"Tesla"](area.ca);
+                        relation["amenity"="charging_station"]["operator"~"Tesla"](area.ca);
+                    );
+                    out center meta;
+                `
+            }
+
             const url = `https://overpass-api.de/api/interpreter?data=${ encodeURIComponent( query ) }`
             const response = await fetch( url )
             if ( !response.ok ) throw new Error( "Failed to fetch Supercharger data from OpenStreetMap." )
@@ -445,44 +486,17 @@
         }
 
         /**
-         * Filters a list of all chargers to find those within a certain radius of the route.
-         * @param {Array<object>} allChargers - Array of all supercharger sites.
-         * @param {Array<[number, number]>} routeCoords - Array of [lat, lon] points for the route.
-         * @param {number} radiusMiles - The search radius in miles.
-         * @returns {Array<object>} An array of filtered charger objects.
-         */
-        function findChargersNearRoute ( allChargers, routeCoords, radiusMiles ) {
-            const chargersOnRoute = []
-            for ( const charger of allChargers ) {
-                if ( charger.gps ) {
-                    const chargerPoint = { lat: charger.gps.latitude, lng: charger.gps.longitude }
-                    for ( let i = 0; i < routeCoords.length - 1; i++ ) {
-                        const segmentStart = { lat: routeCoords[ i ][ 0 ], lng: routeCoords[ i ][ 1 ] }
-                        const segmentEnd = { lat: routeCoords[ i + 1 ][ 0 ], lng: routeCoords[ i + 1 ][ 1 ] }
-                        const distance = pointToLineSegmentDistance( chargerPoint, segmentStart, segmentEnd )
-
-                        if ( distance <= radiusMiles ) {
-                            chargersOnRoute.push( charger )
-                            break // Found it's close, no need to check other segments
-                        }
-                    }
-                }
-            }
-            return chargersOnRoute
-        }
-
-        /**
-         * Displays Superchargers on the map and in the list.
+         * Displays Superchargers and their nearby restaurants in the results list.
          * @param {Array<object>} chargers - The chargers to display.
          */
-        function displaySuperchargers ( chargers ) {
+        async function displaySuperchargersAndRestaurants ( chargers ) {
             if ( chargers.length === 0 ) {
-                superchargerList.innerHTML = '<p class="text-gray-500">No Superchargers found within the search radius of your route.</p>'
+                resultsList.innerHTML = '<p class="text-gray-500">No Superchargers found within the search radius of your route.</p>'
                 return
             }
 
-            superchargerList.innerHTML = '' // Clear list
-            chargers.forEach( charger => {
+            resultsList.innerHTML = '' // Clear list
+            for ( const charger of chargers ) {
                 // Add marker to map
                 const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
                 const marker = L.marker( chargerLatLng, {
@@ -494,14 +508,32 @@
                     } )
                 } ).addTo( chargerLayer )
 
-                const popupContent = `
-                    <div class="font-sans">
+                // Fetch restaurants for this charger
+                let restaurants = []
+                try {
+                    restaurants = await getNearbyRestaurants( charger.gps.latitude, charger.gps.longitude, 2000 ) // 2km
+                    restaurants = restaurants.slice( 0, 3 ) // Limit to 3 restaurants per charger
+                } catch ( error ) {
+                    console.error( 'Error fetching restaurants for charger:', charger.name, error )
+                }
+
+                // Create popup content with restaurants
+                let popupContent = `
+                    <div class="font-sans max-w-xs">
                         <strong class="text-lg">${ charger.name }</strong><br>
                         <strong>Status:</strong> ${ charger.status }<br>
                         <strong>Stalls:</strong> ${ charger.stallCount }<br>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline">Open in Google Maps</a>
-                    </div>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
                 `
+
+                if ( restaurants.length > 0 ) {
+                    popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
+                    restaurants.forEach( restaurant => {
+                        popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine })</div>`
+                    } )
+                }
+
+                popupContent += '</div>'
                 marker.bindPopup( popupContent )
 
                 // Add entry to list
@@ -512,36 +544,147 @@
                     <p class="text-sm text-gray-600">${ charger.address.street }, ${ charger.address.city }</p>
                     <p class="text-sm text-gray-500">Stalls: ${ charger.stallCount } | Status: ${ charger.status }</p>
                 `
+                if ( restaurants.length > 0 ) {
+                    listItem.innerHTML += '<br><strong class="text-sm">Nearby Restaurants:</strong><br>'
+                    restaurants.forEach( restaurant => {
+                        listItem.innerHTML += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine })</div>`
+                    } )
+                }
                 listItem.addEventListener( 'click', () => {
                     map.setView( chargerLatLng, 15 )
                     marker.openPopup()
                 } )
-                superchargerList.appendChild( listItem )
-            } )
+                resultsList.appendChild( listItem )
+            }
         }
 
         /**
-         * Displays restaurants in the table.
-         * @param {Array<object>} restaurants - The restaurants to display.
+         * Filters a list of all chargers to find those within a certain radius of the route.
+         * @param {Array<object>} allChargers - Array of all supercharger sites.
+         * @param {Array<[number, number]>} routeCoords - Array of [lat, lon] points for the route.
+         * @param {number} radiusMiles - The search radius in miles.
+         * @returns {Array<object>} An array of filtered charger objects.
          */
-        function displayRestaurants ( restaurants ) {
-            if ( restaurants.length === 0 ) {
-                restaurantsTbody.innerHTML = '<tr><td colspan="3" class="py-4 text-gray-500">No restaurants found nearby.</td></tr>'
+        function findChargersNearRoute ( allChargers, routeCoords, radiusMiles ) {
+            const chargersOnRoute = []
+            for ( const charger of allChargers ) {
+                if ( charger.gps ) {
+                    const chargerPoint = { lat: charger.gps.latitude, lng: charger.gps.longitude }
+
+                    // Check distance to route segments
+                    for ( let i = 0; i < routeCoords.length - 1; i++ ) {
+                        const segmentStart = { lat: routeCoords[ i ][ 0 ], lng: routeCoords[ i ][ 1 ] }
+                        const segmentEnd = { lat: routeCoords[ i + 1 ][ 0 ], lng: routeCoords[ i + 1 ][ 1 ] }
+                        const segmentDistance = pointToLineSegmentDistance( chargerPoint, segmentStart, segmentEnd )
+
+                        if ( segmentDistance <= radiusMiles ) {
+                            chargersOnRoute.push( charger )
+                            break
+                        }
+                    }
+
+                    // Also check distance to individual route points (every 10th point to optimize)
+                    if ( chargersOnRoute.indexOf( charger ) === -1 ) {
+                        for ( let i = 0; i < routeCoords.length; i += 10 ) {
+                            const routePoint = { lat: routeCoords[ i ][ 0 ], lng: routeCoords[ i ][ 1 ] }
+                            const pointDistance = distance( chargerPoint.lat, chargerPoint.lng, routePoint.lat, routePoint.lng )
+
+                            if ( pointDistance <= radiusMiles ) {
+                                chargersOnRoute.push( charger )
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+            return chargersOnRoute
+        }
+
+        /**
+         * Displays Superchargers and their nearby restaurants.
+         * @param {Array<object>} chargers - The chargers to display.
+         */
+        async function displaySuperchargersAndRestaurants ( chargers ) {
+            if ( chargers.length === 0 ) {
+                resultsList.innerHTML = '<p class="text-gray-500">No Superchargers found within 1km of your route.</p>'
                 return
             }
 
-            restaurantsTbody.innerHTML = '' // Clear table
-            restaurants.forEach( restaurant => {
-                const row = document.createElement( 'tr' )
-                row.className = 'border-b hover:bg-gray-50'
-                row.innerHTML = `
-                    <td class="py-2">${ restaurant.name }</td>
-                    <td class="py-2">${ restaurant.cuisine }</td>
-                    <td class="py-2">~5km</td>
+            resultsList.innerHTML = '' // Clear list
+            for ( const charger of chargers ) {
+                // Add marker to map
+                const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
+                const marker = L.marker( chargerLatLng, {
+                    icon: L.divIcon( {
+                        className: 'custom-div-icon',
+                        html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="#cc0000" class="w-6 h-8"><path d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-35.464 0zM192 256a64 64 0 1 0 0-128 64 64 0 1 0 0 128z"/></svg>`,
+                        iconSize: [ 24, 32 ],
+                        iconAnchor: [ 12, 32 ]
+                    } )
+                } ).addTo( chargerLayer )
+
+                // Fetch restaurants for this charger
+                let restaurants = []
+                try {
+                    restaurants = await getNearbyRestaurants( charger.gps.latitude, charger.gps.longitude, 1000 )
+                } catch ( error ) {
+                    console.error( 'Error fetching restaurants for charger:', charger.name, error )
+                }
+
+                // Create popup content with restaurants
+                let popupContent = `
+                    <div class="font-sans max-w-xs">
+                        <strong class="text-lg">${ charger.name }</strong><br>
+                        <strong>Status:</strong> ${ charger.status }<br>
+                        <strong>Stalls:</strong> ${ charger.stallCount }<br>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
                 `
-                restaurantsTbody.appendChild( row )
-            } )
+
+                if ( restaurants.length > 0 ) {
+                    popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
+                    restaurants.slice( 0, 5 ).forEach( restaurant => {
+                        popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine || 'Restaurant' })</div>`
+                    } )
+                }
+
+                popupContent += '</div>'
+                marker.bindPopup( popupContent )
+
+                // Add entry to list
+                const chargerDiv = document.createElement( 'div' )
+                chargerDiv.className = 'mb-6 p-4 bg-white rounded-lg shadow-sm border'
+
+                chargerDiv.innerHTML = `
+                    <h3 class="font-bold text-gray-800 text-lg mb-2">${ charger.name }</h3>
+                    <p class="text-sm text-gray-600 mb-2">${ charger.address.street || '' } ${ charger.address.city || '' }</p>
+                    <p class="text-sm text-gray-500 mb-3">Stalls: ${ charger.stallCount } | Status: ${ charger.status }</p>
+                `
+
+                if ( restaurants.length > 0 ) {
+                    chargerDiv.innerHTML += '<h4 class="font-semibold text-gray-700 mb-2">Nearby Restaurants:</h4>'
+                    const restaurantList = document.createElement( 'ul' )
+                    restaurantList.className = 'space-y-1'
+
+                    restaurants.slice( 0, 5 ).forEach( restaurant => {
+                        const li = document.createElement( 'li' )
+                        li.className = 'text-sm text-gray-600'
+                        li.innerHTML = `<strong>${ restaurant.name }</strong> - ${ restaurant.cuisine || 'Restaurant' }`
+                        restaurantList.appendChild( li )
+                    } )
+
+                    chargerDiv.appendChild( restaurantList )
+                }
+
+                chargerDiv.addEventListener( 'click', () => {
+                    map.setView( chargerLatLng, 15 )
+                    marker.openPopup()
+                } )
+
+                resultsList.appendChild( chargerDiv )
+            }
         }
+
+
 
         // --- MAP UTILITY FUNCTIONS ---
 
@@ -552,8 +695,9 @@
         function clearMap () {
             routeLayer.clearLayers()
             chargerLayer.clearLayers()
-            superchargerOverlay.classList.add( 'hidden' )
-            restaurantsOverlay.classList.add( 'hidden' )
+            // Show search form and hide results
+            searchForm.style.display = 'block'
+            bottomResults.style.display = 'none'
         }
 
         function updateStatus ( message, isError = false ) {
