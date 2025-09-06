@@ -1052,50 +1052,87 @@
                 const chargerRow = document.createElement( 'tr' )
                 chargerRow.className = 'cursor-pointer'
 
+                // Extract suburb/city from charger name (remove "Supercharger" and "Tesla Supercharger")
+                const suburbName = charger.name
+                    .replace( / Tesla Supercharger$/i, '' )
+                    .replace( / Supercharger$/i, '' )
+                    .trim()
+
+                // Get actual city using reverse geocoding
+                let cityName = suburbName // fallback to extracted name
+                try {
+                    // Use browser's geolocation API to reverse geocode
+                    const geocodeUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${ charger.gps.latitude }&longitude=${ charger.gps.longitude }&localityLanguage=en`
+                    fetch( geocodeUrl )
+                        .then( response => response.json() )
+                        .then( data => {
+                            if ( data.city ) {
+                                cityName = data.city
+                                // Update the distance cell with the correct city
+                                const distanceCell = chargerRow.querySelector( 'td[rowspan]' )
+                                if ( distanceCell ) {
+                                    distanceCell.innerHTML = `${ distanceFromOrigin }m<br><span class="text-xs text-gray-600">${ cityName }</span>`
+                                }
+                            }
+                        } )
+                        .catch( err => {
+                            console.log( 'Geocoding failed, using fallback:', err )
+                        } )
+                } catch ( e ) {
+                    console.log( 'Geocoding not available, using fallback' )
+                }
+
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
-                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
+                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">
+                            ${ distanceFromOrigin }m<br>
+                            <span class="text-xs text-gray-600">${ suburbName }</span>
+                        </td>
                         <td class="px-1 py-0 text-sm text-gray-700">
-                            ${ restaurants[ 0 ].name } (${ restaurants[ 0 ].distance }m)
+                            <span class="text-blue-600 hover:text-blue-800 cursor-pointer restaurant-link">${ restaurants[ 0 ].name }</span> (${ restaurants[ 0 ].distance }m)
                         </td>
                     `
                 } else {
                     chargerRow.innerHTML = `
-                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200">${ distanceFromOrigin }</td>
+                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200">
+                            ${ distanceFromOrigin }m<br>
+                            <span class="text-xs text-gray-600">${ suburbName }</span>
+                        </td>
                         <td class="px-1 py-0 text-sm text-gray-700">
                             No restaurants found
                         </td>
                     `
                 }
 
-                // Add click handler to the row
-                const handleRowClick = () => {
-                    // Check if marker is within map bounds before opening popup
-                    if ( map.getBounds().contains( chargerLatLng ) ) {
-                        map.setView( chargerLatLng, 15 )
-                        marker.openPopup()
-                        // Hide the results list
-                        bottomResults.style.display = 'none'
-                        toggleBtn.textContent = 'Show Results'
-                        map.invalidateSize()
-                    }
-                }
-
-                chargerRow.addEventListener( 'click', handleRowClick )
-
-                // Add click handlers to all cells in the row for maximum reliability
-                const chargerCells = chargerRow.querySelectorAll( 'td' )
-                chargerCells.forEach( cell => {
-                    cell.addEventListener( 'click', ( e ) => {
-                        e.stopPropagation() // Prevent double firing
-                        handleRowClick()
+                // Add click handler for restaurant links
+                const restaurantLinks = chargerRow.querySelectorAll( '.restaurant-link' )
+                restaurantLinks.forEach( ( link, index ) => {
+                    link.addEventListener( 'click', ( e ) => {
+                        e.stopPropagation()
+                        const restaurant = restaurants[ index ]
+                        if ( restaurant ) {
+                            const restaurantLatLng = [ restaurant.gps.latitude, restaurant.gps.longitude ]
+                            map.setView( restaurantLatLng, 15 )
+                            // Find and open the restaurant marker popup
+                            const restaurantMarker = allRestaurantMarkers.find( marker =>
+                                marker.getLatLng().lat === restaurant.gps.latitude &&
+                                marker.getLatLng().lng === restaurant.gps.longitude
+                            )
+                            if ( restaurantMarker ) {
+                                restaurantMarker.openPopup()
+                            }
+                            // Hide the results list
+                            bottomResults.style.display = 'none'
+                            toggleBtn.textContent = 'Show Results'
+                            map.invalidateSize()
+                        }
                     } )
                 } )
 
                 fragment.appendChild( chargerRow )
 
                 // Store reference to the distance cell for rowspan handling
-                const distanceCell = chargerRow.querySelector('td[rowspan]')
+                const distanceCell = chargerRow.querySelector( 'td[rowspan]' )
 
                 // Create subrows for additional restaurants
                 for ( let i = 1; i < restaurants.length; i++ ) {
@@ -1103,61 +1140,36 @@
                     restaurantRow.className = 'cursor-pointer'
                     restaurantRow.innerHTML = `
                         <td class="px-1 py-0 text-sm text-gray-700">
-                            ${ restaurants[ i ].name } (${ restaurants[ i ].distance }m)
+                            <span class="text-blue-600 hover:text-blue-800 cursor-pointer restaurant-link">${ restaurants[ i ].name }</span> (${ restaurants[ i ].distance }m)
                         </td>
                     `
 
-                    // Add click handler to the row
-                    const handleRestaurantRowClick = () => {
-                        map.setView( chargerLatLng, 15 )
-                        marker.openPopup()
-                        // Hide the results list
-                        bottomResults.style.display = 'none'
-                        toggleBtn.textContent = 'Show Results'
-                        map.invalidateSize()
-                    }
-
-                    restaurantRow.addEventListener( 'click', handleRestaurantRowClick )
-
-                    // Add click handlers to all cells in the row for maximum reliability
-                    const restaurantCells = restaurantRow.querySelectorAll( 'td' )
-                    restaurantCells.forEach( cell => {
-                        cell.addEventListener( 'click', ( e ) => {
-                            e.stopPropagation() // Prevent double firing
-                            handleRestaurantRowClick()
+                    // Add click handler for restaurant links in subrows
+                    const subRestaurantLinks = restaurantRow.querySelectorAll( '.restaurant-link' )
+                    subRestaurantLinks.forEach( ( link ) => {
+                        link.addEventListener( 'click', ( e ) => {
+                            e.stopPropagation()
+                            const restaurant = restaurants[ i ]
+                            if ( restaurant ) {
+                                const restaurantLatLng = [ restaurant.gps.latitude, restaurant.gps.longitude ]
+                                map.setView( restaurantLatLng, 15 )
+                                // Find and open the restaurant marker popup
+                                const restaurantMarker = allRestaurantMarkers.find( marker =>
+                                    marker.getLatLng().lat === restaurant.gps.latitude &&
+                                    marker.getLatLng().lng === restaurant.gps.longitude
+                                )
+                                if ( restaurantMarker ) {
+                                    restaurantMarker.openPopup()
+                                }
+                                // Hide the results list
+                                bottomResults.style.display = 'none'
+                                toggleBtn.textContent = 'Show Results'
+                                map.invalidateSize()
+                            }
                         } )
                     } )
 
                     fragment.appendChild( restaurantRow )
-                }
-
-                // Add special click handler to the distance cell to handle rowspan clicks
-                if (distanceCell && restaurants.length > 1) {
-                    distanceCell.addEventListener('click', (e) => {
-                        // Find which row was actually clicked by checking Y position
-                        const allRows = [chargerRow]
-                        // Get all restaurant rows that were just added
-                        const restaurantRows = Array.from(fragment.querySelectorAll('tr')).slice(-restaurants.length + 1)
-                        allRows.push(...restaurantRows)
-
-                        for (let i = 0; i < allRows.length; i++) {
-                            const row = allRows[i]
-                            const rect = row.getBoundingClientRect()
-                            if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                                e.stopPropagation()
-                                if (i === 0) {
-                                    handleRowClick()
-                                } else {
-                                    // Trigger the appropriate restaurant row click
-                                    const targetRow = restaurantRows[i - 1]
-                                    if (targetRow) {
-                                        targetRow.click()
-                                    }
-                                }
-                                break
-                            }
-                        }
-                    })
                 }
             } )
 
