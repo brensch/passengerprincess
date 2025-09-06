@@ -99,19 +99,81 @@
         .autocomplete-suggestion:hover {
             background: #f0f0f0;
         }
+
+        /* Custom emoji icons for map markers */
+        .emoji-icon {
+            font-size: 48px;
+            line-height: 1;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+        }
+
+        /* Fullscreen map mode */
+        .map-fullscreen {
+            height: 100vh !important;
+            width: 100vw !important;
+        }
+
+        .bottom-results-hidden {
+            display: none !important;
+        }
+
+        /* Fullscreen toggle button */
+        .fullscreen-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+            /* Hidden by default, shown when results are visible */
+            transition: all 0.2s ease;
+        }
+
+        .fullscreen-toggle:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 
 <body class="bg-gray-100 font-sans antialiased">
     <div id="map"></div>
 
+    <!-- Fullscreen Toggle Button -->
+    <button id="fullscreen-toggle" class="fullscreen-toggle" title="Toggle Fullscreen">
+        <span id="fullscreen-icon">⛶</span> Fullscreen
+    </button>
+
     <!-- Bottom Results Area -->
     <div class="bottom-results" id="bottom-results">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-gray-800">Superchargers & Restaurants</h2>
-            <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
-                New Search
-            </button>
+            <div class="flex gap-2">
+                <button id="new-search-btn"
+                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                    New Search
+                </button>
+                <button id="hide-results-btn"
+                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">
+                    Hide List
+                </button>
+            </div>
         </div>
         <div id="results-list">
             <p class="text-gray-500">Search for a route to see results.</p>
@@ -179,6 +241,9 @@
         const bottomResults = document.getElementById( 'bottom-results' )
         const resultsList = document.getElementById( 'results-list' )
         const newSearchBtn = document.getElementById( 'new-search-btn' )
+        const fullscreenToggle = document.getElementById( 'fullscreen-toggle' )
+        const hideResultsBtn = document.getElementById( 'hide-results-btn' )
+        const fullscreenIcon = document.getElementById( 'fullscreen-icon' )
 
         // --- MAP INITIALIZATION ---
         let map = L.map( mapElement ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
@@ -207,7 +272,17 @@
             destinationInput.value = ''
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
+            fullscreenToggle.style.display = 'none'
             updateStatus( '' )
+        } )
+
+        // Fullscreen toggle functionality
+        let isFullscreen = false
+        hideResultsBtn.addEventListener( 'click', () => {
+            toggleFullscreen( true )
+        } )
+        fullscreenToggle.addEventListener( 'click', () => {
+            toggleFullscreen( false )
         } )
 
         // Autocomplete for origin
@@ -235,6 +310,35 @@
         // --- CORE FUNCTIONS ---
 
         /**
+         * Toggles between fullscreen and normal map view
+         * @param {boolean} hideResults - If true, hide the results; if false, show them
+         */
+        function toggleFullscreen ( hideResults ) {
+            isFullscreen = hideResults
+
+            if ( hideResults ) {
+                // Hide bottom results and make map fullscreen
+                bottomResults.classList.add( 'bottom-results-hidden' )
+                mapElement.classList.add( 'map-fullscreen' )
+                fullscreenToggle.style.display = 'block'
+                fullscreenIcon.textContent = '⛶'
+                fullscreenToggle.innerHTML = '<span id="fullscreen-icon">⛶</span> Show List'
+            } else {
+                // Show bottom results and return to normal view
+                bottomResults.classList.remove( 'bottom-results-hidden' )
+                mapElement.classList.remove( 'map-fullscreen' )
+                fullscreenToggle.style.display = 'none'
+                fullscreenIcon.textContent = '⛶'
+                fullscreenToggle.innerHTML = '<span id="fullscreen-icon">⛶</span> Fullscreen'
+            }
+
+            // Trigger map resize to handle the new dimensions
+            setTimeout( () => {
+                map.invalidateSize()
+            }, 100 )
+        }
+
+        /**
          * Main function to handle the route search process.
          */
         async function handleRouteSearch () {
@@ -259,6 +363,7 @@
             // Hide search form and show results
             searchForm.style.display = 'none'
             bottomResults.style.display = 'block'
+            fullscreenToggle.style.display = 'block'
 
             try {
                 // Step 1: Geocode addresses to get coordinates
@@ -609,8 +714,8 @@
                     icon: L.divIcon( {
                         className: 'emoji-icon',
                         html: '⚡',
-                        iconSize: [ 60, 60 ],
-                        iconAnchor: [ 30, 30 ]
+                        iconSize: [ 100, 100 ],
+                        iconAnchor: [ 50, 50 ]
                     } )
                 } )
 
@@ -627,8 +732,8 @@
                         icon: L.divIcon( {
                             className: 'emoji-icon',
                             html: '🌭',
-                            iconSize: [ 50, 50 ],
-                            iconAnchor: [ 25, 25 ]
+                            iconSize: [ 70, 70 ],
+                            iconAnchor: [ 35, 35 ]
                         } )
                     } )
                     restaurantMarker.bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.cuisine || 'Restaurant' }<br>${ restaurant.distance }m away` )
@@ -783,6 +888,7 @@
             // Show search form and hide results
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
+            fullscreenToggle.style.display = 'none'
         }
 
         function updateStatus ( message, isError = false ) {
