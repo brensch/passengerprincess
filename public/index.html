@@ -302,12 +302,17 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* Hide table headers when loading */
-        #loading-container:not(.hidden) ~ #chargers-table thead {
+        #loading-container:not(.hidden)~#chargers-table thead {
             display: none;
         }
     </style>
@@ -335,13 +340,13 @@
                     class="w-full px-3 py-2 border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm"
                     placeholder="Search restaurants...">
             </div>
-            
+
             <!-- Loading Container -->
             <div id="loading-container" class="loading-container hidden">
                 <div class="spinner"></div>
                 <p class="loading-text" id="loading-text">Retrieving superchargers...</p>
             </div>
-            
+
             <table id="chargers-table" class="w-full hidden table-fixed">
                 <thead class="sticky top-0 bg-white z-10">
                     <tr>
@@ -470,6 +475,13 @@
             bottomResults.style.display = 'none'
             toggleBtn.textContent = 'Show Results'
             updateStatus( '' )
+
+            // Clear data arrays
+            currentChargers = []
+            currentRestaurants = []
+
+            // Clear results list
+            resultsList.innerHTML = '<p class="text-pink-500">Search for a route to see results.</p>'
 
             // Clear query parameters
             const url = new URL( window.location )
@@ -609,7 +621,7 @@
             const noResults = document.getElementById( 'no-results' )
             const loadingContainer = document.getElementById( 'loading-container' )
             const loadingText = document.getElementById( 'loading-text' )
-            
+
             if ( chargersTable ) chargersTable.classList.add( 'hidden' )
             if ( noResults ) noResults.classList.add( 'hidden' )
             if ( loadingContainer ) {
@@ -1010,7 +1022,7 @@
             const noResults = document.getElementById( 'no-results' )
             const loadingContainer = document.getElementById( 'loading-container' )
             const loadingText = document.getElementById( 'loading-text' )
-            
+
             if ( chargersTable ) chargersTable.classList.remove( 'hidden' )
             if ( noResults ) noResults.classList.add( 'hidden' )
             if ( loadingContainer ) loadingContainer.classList.add( 'hidden' )
