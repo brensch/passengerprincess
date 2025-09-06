@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesla Supercharger Route Planner</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- LeafletJS for the map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        /* Full screen map */
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Overlay form */
+        .overlay-form {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+        }
+
+        /* Custom scrollbar for the results list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Autocomplete suggestions */
+        .autocomplete-suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1001;
+            width: 100%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .autocomplete-suggestion {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .autocomplete-suggestion:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 font-sans antialiased">
+    <div id="map"></div>
+
+    <!-- Overlay Input Form -->
+    <div class="overlay-form">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Tesla Supercharger Route Planner</h1>
+            <p class="text-gray-600 mt-2">Find your route and the Superchargers along the way.</p>
+        </header>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <div class="relative">
+                <label for="origin" class="block text-sm font-medium text-gray-700">Origin</label>
+                <input type="text" id="origin"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="e.g., San Francisco, CA">
+                <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
+            </div>
+            <div class="relative">
+                <label for="destination" class="block text-sm font-medium text-gray-700">Destination</label>
+                <input type="text" id="destination"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    placeholder="e.g., Los Angeles, CA">
+                <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
+            </div>
+            <div class="md:col-span-2">
+                <button id="find-route-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    Find Route & Superchargers
+                </button>
+            </div>
+        </div>
+        <div id="status-message" class="text-center mt-4 text-gray-600 font-medium"></div>
+    </div>
+
+    <!-- Supercharger List Overlay -->
+    <div class="absolute top-20 right-20 bg-white p-6 rounded-xl shadow-lg max-h-80 overflow-y-auto custom-scrollbar hidden"
+        id="supercharger-overlay" style="z-index: 1000; width: 300px;">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Superchargers on Route</h2>
+        <div id="supercharger-list">
+            <p class="text-gray-500">Enter a route to see nearby Superchargers.</p>
+        </div>
+    </div>
+
+    <!-- Restaurants Table Overlay -->
+    <div class="absolute bottom-20 right-20 bg-white p-6 rounded-xl shadow-lg max-h-80 overflow-y-auto custom-scrollbar hidden"
+        id="restaurants-overlay" style="z-index: 1000; width: 400px;">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Nearby Restaurants</h2>
+        <table id="restaurants-table" class="w-full text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-2">Name</th>
+                    <th class="text-left py-2">Cuisine</th>
+                    <th class="text-left py-2">Distance</th>
+                </tr>
+            </thead>
+            <tbody id="restaurants-tbody">
+                <tr>
+                    <td colspan="3" class="py-4 text-gray-500">No restaurants found yet.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // IMPORTANT: Get your free API key from https://openrouteservice.org/
+        const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVjNDQ2NWRmYWFiODQ3ZmVhMTM2NTNhODA0YjRiYWI4IiwiaCI6Im11cm11cjY0In0='
+        // Distance in miles to search for chargers from the route
+        const SEARCH_RADIUS_MILES = 10
+
+        // --- DOM ELEMENTS ---
+        const originInput = document.getElementById( 'origin' )
+        const destinationInput = document.getElementById( 'destination' )
+        const findRouteBtn = document.getElementById( 'find-route-btn' )
+        const statusMessage = document.getElementById( 'status-message' )
+        const superchargerList = document.getElementById( 'supercharger-list' )
+        const mapElement = document.getElementById( 'map' )
+        const originSuggestions = document.getElementById( 'origin-suggestions' )
+        const destinationSuggestions = document.getElementById( 'destination-suggestions' )
+        const superchargerOverlay = document.getElementById( 'supercharger-overlay' )
+        const restaurantsOverlay = document.getElementById( 'restaurants-overlay' )
+        const restaurantsTbody = document.getElementById( 'restaurants-tbody' )
+
+        // --- MAP INITIALIZATION ---
+        let map = L.map( mapElement ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
+        L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        } ).addTo( map )
+
+        let routeLayer = L.layerGroup().addTo( map )
+        let chargerLayer = L.layerGroup().addTo( map )
+
+        // --- EVENT LISTENERS ---
+        findRouteBtn.addEventListener( 'click', handleRouteSearch )
+
+        // Autocomplete for origin
+        let originDebounceTimer
+        originInput.addEventListener( 'input', () => {
+            clearTimeout( originDebounceTimer )
+            originDebounceTimer = setTimeout( () => fetchSuggestions( originInput.value, originSuggestions, originInput ), 300 )
+        } )
+        originInput.addEventListener( 'focus', () => {
+            if ( originInput.value ) fetchSuggestions( originInput.value, originSuggestions, originInput )
+        } )
+        originInput.addEventListener( 'blur', () => setTimeout( () => originSuggestions.classList.add( 'hidden' ), 150 ) )
+
+        // Autocomplete for destination
+        let destinationDebounceTimer
+        destinationInput.addEventListener( 'input', () => {
+            clearTimeout( destinationDebounceTimer )
+            destinationDebounceTimer = setTimeout( () => fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput ), 300 )
+        } )
+        destinationInput.addEventListener( 'focus', () => {
+            if ( destinationInput.value ) fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput )
+        } )
+        destinationInput.addEventListener( 'blur', () => setTimeout( () => destinationSuggestions.classList.add( 'hidden' ), 150 ) )
+
+        // --- CORE FUNCTIONS ---
+
+        /**
+         * Main function to handle the route search process.
+         */
+        async function handleRouteSearch () {
+            const origin = originInput.value.trim()
+            const destination = destinationInput.value.trim()
+
+            if ( !origin || !destination ) {
+                updateStatus( "Please enter both an origin and a destination.", true )
+                return
+            }
+            if ( ORS_API_KEY === 'YOUR_API_KEY_HERE' ) {
+                updateStatus( "Please add your OpenRouteService API key to the script.", true )
+                alert( "API Key missing. Please edit the HTML file and add your free API key from openrouteservice.org." )
+                return
+            }
+
+            // Clear previous results
+            clearMap()
+            updateStatus( "Finding route..." )
+            superchargerList.innerHTML = '<p class="text-gray-500">Searching for Superchargers...</p>'
+
+            try {
+                // Step 1: Geocode addresses to get coordinates
+                const [ originCoords, destCoords ] = await Promise.all( [
+                    geocodeAddress( origin ),
+                    geocodeAddress( destination )
+                ] )
+
+                if ( !originCoords || !destCoords ) {
+                    updateStatus( "Could not find one or both locations. Please be more specific.", true )
+                    return
+                }
+
+                // Step 2: Fetch the route geometry
+                updateStatus( "Calculating route..." )
+                const routeData = await getRoute( originCoords, destCoords )
+                const routeCoords = routeData.geometry.coordinates.map( c => [ c[ 1 ], c[ 0 ] ] ) // Flip coords for Leaflet
+                drawRoute( routeCoords )
+                map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
+
+                // Step 3: Fetch all Superchargers
+                updateStatus( "Finding Superchargers..." )
+                const allChargers = await getSuperchargers()
+
+                // Step 4: Find chargers along the route
+                const chargersOnRoute = findChargersNearRoute( allChargers, routeCoords, SEARCH_RADIUS_MILES )
+
+                // Step 5: Display the results
+                displaySuperchargers( chargersOnRoute )
+                updateStatus( `Found ${ chargersOnRoute.length } Superchargers on the route.`, false )
+                superchargerOverlay.classList.remove( 'hidden' )
+
+                // Step 6: Fetch restaurants near superchargers
+                updateStatus( "Finding nearby restaurants..." )
+                const allRestaurants = []
+                for ( const charger of chargersOnRoute.slice( 0, 3 ) ) { // Limit to first 3 to avoid too many calls
+                    try {
+                        const restaurants = await getNearbyRestaurants( charger.gps.latitude, charger.gps.longitude, 5000 )
+                        allRestaurants.push( ...restaurants )
+                    } catch ( error ) {
+                        console.error( 'Error fetching restaurants for charger:', charger.name, error )
+                    }
+                }
+                displayRestaurants( allRestaurants )
+                restaurantsOverlay.classList.remove( 'hidden' )
+                updateStatus( `Found ${ chargersOnRoute.length } Superchargers and ${ allRestaurants.length } nearby restaurants.`, false )
+
+
+            } catch ( error ) {
+                console.error( "Error during route search:", error )
+                if ( error.message && error.message.includes( "routable point" ) ) {
+                    updateStatus( "Could not find a routable location near one of the addresses. Please try a different or more specific location.", true )
+                } else {
+                    updateStatus( "An error occurred. Please check the console for details.", true )
+                }
+            }
+        }
+
+        /**
+         * Converts an address string to latitude/longitude coordinates.
+         * @param {string} address The address to geocode.
+         * @returns {Promise<[number, number]|null>} A promise resolving to [lon, lat] or null.
+         */
+        async function geocodeAddress ( address ) {
+            const url = `https://api.openrouteservice.org/geocode/search?api_key=${ ORS_API_KEY }&text=${ encodeURIComponent( address ) }`
+            const response = await fetch( url )
+            if ( !response.ok ) throw new Error( `Geocoding failed: ${ response.statusText }` )
+            const data = await response.json()
+            if ( data.features && data.features.length > 0 ) {
+                return data.features[ 0 ].geometry.coordinates // [lon, lat]
+            }
+            return null
+        }
+
+        /**
+         * Fetches autocomplete suggestions for an address.
+         * @param {string} query The partial address query.
+         * @param {HTMLElement} suggestionsDiv The div to display suggestions.
+         * @param {HTMLElement} input The input element.
+         */
+        async function fetchSuggestions ( query, suggestionsDiv, input ) {
+            if ( query.length < 3 ) {
+                suggestionsDiv.classList.add( 'hidden' )
+                return
+            }
+            try {
+                const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ ORS_API_KEY }&text=${ encodeURIComponent( query ) }&size=5`
+                const response = await fetch( url )
+                if ( !response.ok ) throw new Error( `Autocomplete failed: ${ response.statusText }` )
+                const data = await response.json()
+                displaySuggestions( data.features, suggestionsDiv, input )
+            } catch ( error ) {
+                console.error( 'Autocomplete error:', error )
+                suggestionsDiv.classList.add( 'hidden' )
+            }
+        }
+
+        /**
+         * Displays the suggestions in the dropdown.
+         * @param {Array} features The geocoding features.
+         * @param {HTMLElement} suggestionsDiv The div to display suggestions.
+         * @param {HTMLElement} input The input element.
+         */
+        function displaySuggestions ( features, suggestionsDiv, input ) {
+            suggestionsDiv.innerHTML = ''
+            if ( features && features.length > 0 ) {
+                features.forEach( feature => {
+                    const suggestion = document.createElement( 'div' )
+                    suggestion.className = 'autocomplete-suggestion'
+                    suggestion.textContent = feature.properties.label
+                    suggestion.addEventListener( 'click', () => {
+                        input.value = feature.properties.label
+                        suggestionsDiv.classList.add( 'hidden' )
+                    } )
+                    suggestionsDiv.appendChild( suggestion )
+                } )
+                suggestionsDiv.classList.remove( 'hidden' )
+            } else {
+                suggestionsDiv.classList.add( 'hidden' )
+            }
+        }
+
+        /**
+         * Fetches a route between two coordinates from OpenRouteService.
+         * @param {[number, number]} startCoords [lon, lat] for the start point.
+         * @param {[number, number]} endCoords [lon, lat] for the end point.
+         * @returns {Promise<object>} A promise resolving to the route data.
+         */
+        async function getRoute ( startCoords, endCoords ) {
+            const url = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson'
+            const body = JSON.stringify( {
+                "coordinates": [ startCoords, endCoords ],
+                "radiuses": [ 5000, 5000 ]  // Allow snapping within 5km
+            } )
+            const response = await fetch( url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': ORS_API_KEY,
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+                },
+                body: body
+            } )
+            if ( !response.ok ) throw new Error( `Routing failed: ${ response.statusText }` )
+            const data = await response.json()
+            return data.features[ 0 ]
+        }
+
+        /**
+         * Fetches restaurants near a given location using Overpass API.
+         * @param {number} lat Latitude
+         * @param {number} lon Longitude
+         * @param {number} radius Radius in meters
+         * @returns {Promise<Array<object>>} Array of restaurant objects
+         */
+        async function getNearbyRestaurants ( lat, lon, radius = 5000 ) {
+            const query = `
+                [out:json][timeout:25];
+                (
+                    node["amenity"="restaurant"](around:${ radius },${ lat },${ lon });
+                    way["amenity"="restaurant"](around:${ radius },${ lat },${ lon });
+                    relation["amenity"="restaurant"](around:${ radius },${ lat },${ lon });
+                );
+                out center;
+            `
+            const url = `https://overpass-api.de/api/interpreter?data=${ encodeURIComponent( query ) }`
+            const response = await fetch( url )
+            if ( !response.ok ) throw new Error( "Failed to fetch restaurant data." )
+            const data = await response.json()
+
+            return data.elements.slice( 0, 10 ).map( element => ( {
+                id: element.id,
+                name: element.tags?.name || `Restaurant ${ element.id }`,
+                cuisine: element.tags?.cuisine || 'Unknown',
+                address: {
+                    street: element.tags?.[ 'addr:street' ] || '',
+                    city: element.tags?.[ 'addr:city' ] || '',
+                    state: element.tags?.[ 'addr:state' ] || ''
+                },
+                gps: {
+                    latitude: element.lat || element.center?.lat,
+                    longitude: element.lon || element.center?.lon
+                }
+            } ) )
+        }
+        async function getSuperchargers () {
+            // Using Overpass API to query OpenStreetMap for Tesla Superchargers
+            const query = `
+                [out:json][timeout:25];
+                (
+                    node["amenity"="charging_station"]["operator"~"Tesla"];
+                    way["amenity"="charging_station"]["operator"~"Tesla"];
+                    relation["amenity"="charging_station"]["operator"~"Tesla"];
+                );
+                out center;
+            `
+            const url = `https://overpass-api.de/api/interpreter?data=${ encodeURIComponent( query ) }`
+            const response = await fetch( url )
+            if ( !response.ok ) throw new Error( "Failed to fetch Supercharger data from OpenStreetMap." )
+            const data = await response.json()
+
+            // Transform OSM data to match expected format
+            return data.elements.map( element => ( {
+                id: element.id,
+                name: element.tags?.name || `Tesla Supercharger ${ element.id }`,
+                address: {
+                    street: element.tags?.[ 'addr:street' ] || '',
+                    city: element.tags?.[ 'addr:city' ] || '',
+                    state: element.tags?.[ 'addr:state' ] || '',
+                    zip: element.tags?.[ 'addr:postcode' ] || ''
+                },
+                gps: {
+                    latitude: element.lat || element.center?.lat,
+                    longitude: element.lon || element.center?.lon
+                },
+                status: element.tags?.opening_hours ? 'open' : 'unknown',
+                stallCount: parseInt( element.tags?.capacity ) || 0
+            } ) )
+        }
+
+        /**
+         * Filters a list of all chargers to find those within a certain radius of the route.
+         * @param {Array<object>} allChargers - Array of all supercharger sites.
+         * @param {Array<[number, number]>} routeCoords - Array of [lat, lon] points for the route.
+         * @param {number} radiusMiles - The search radius in miles.
+         * @returns {Array<object>} An array of filtered charger objects.
+         */
+        function findChargersNearRoute ( allChargers, routeCoords, radiusMiles ) {
+            const chargersOnRoute = []
+            for ( const charger of allChargers ) {
+                if ( charger.gps ) {
+                    const chargerPoint = { lat: charger.gps.latitude, lng: charger.gps.longitude }
+                    for ( let i = 0; i < routeCoords.length - 1; i++ ) {
+                        const segmentStart = { lat: routeCoords[ i ][ 0 ], lng: routeCoords[ i ][ 1 ] }
+                        const segmentEnd = { lat: routeCoords[ i + 1 ][ 0 ], lng: routeCoords[ i + 1 ][ 1 ] }
+                        const distance = pointToLineSegmentDistance( chargerPoint, segmentStart, segmentEnd )
+
+                        if ( distance <= radiusMiles ) {
+                            chargersOnRoute.push( charger )
+                            break // Found it's close, no need to check other segments
+                        }
+                    }
+                }
+            }
+            return chargersOnRoute
+        }
+
+        /**
+         * Displays Superchargers on the map and in the list.
+         * @param {Array<object>} chargers - The chargers to display.
+         */
+        function displaySuperchargers ( chargers ) {
+            if ( chargers.length === 0 ) {
+                superchargerList.innerHTML = '<p class="text-gray-500">No Superchargers found within the search radius of your route.</p>'
+                return
+            }
+
+            superchargerList.innerHTML = '' // Clear list
+            chargers.forEach( charger => {
+                // Add marker to map
+                const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
+                const marker = L.marker( chargerLatLng, {
+                    icon: L.divIcon( {
+                        className: 'custom-div-icon',
+                        html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="#cc0000" class="w-6 h-8"><path d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-35.464 0zM192 256a64 64 0 1 0 0-128 64 64 0 1 0 0 128z"/></svg>`,
+                        iconSize: [ 24, 32 ],
+                        iconAnchor: [ 12, 32 ]
+                    } )
+                } ).addTo( chargerLayer )
+
+                const popupContent = `
+                    <div class="font-sans">
+                        <strong class="text-lg">${ charger.name }</strong><br>
+                        <strong>Status:</strong> ${ charger.status }<br>
+                        <strong>Stalls:</strong> ${ charger.stallCount }<br>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline">Open in Google Maps</a>
+                    </div>
+                `
+                marker.bindPopup( popupContent )
+
+                // Add entry to list
+                const listItem = document.createElement( 'div' )
+                listItem.className = 'p-4 border-b hover:bg-gray-50 cursor-pointer rounded-lg'
+                listItem.innerHTML = `
+                    <h3 class="font-bold text-gray-800">${ charger.name }</h3>
+                    <p class="text-sm text-gray-600">${ charger.address.street }, ${ charger.address.city }</p>
+                    <p class="text-sm text-gray-500">Stalls: ${ charger.stallCount } | Status: ${ charger.status }</p>
+                `
+                listItem.addEventListener( 'click', () => {
+                    map.setView( chargerLatLng, 15 )
+                    marker.openPopup()
+                } )
+                superchargerList.appendChild( listItem )
+            } )
+        }
+
+        /**
+         * Displays restaurants in the table.
+         * @param {Array<object>} restaurants - The restaurants to display.
+         */
+        function displayRestaurants ( restaurants ) {
+            if ( restaurants.length === 0 ) {
+                restaurantsTbody.innerHTML = '<tr><td colspan="3" class="py-4 text-gray-500">No restaurants found nearby.</td></tr>'
+                return
+            }
+
+            restaurantsTbody.innerHTML = '' // Clear table
+            restaurants.forEach( restaurant => {
+                const row = document.createElement( 'tr' )
+                row.className = 'border-b hover:bg-gray-50'
+                row.innerHTML = `
+                    <td class="py-2">${ restaurant.name }</td>
+                    <td class="py-2">${ restaurant.cuisine }</td>
+                    <td class="py-2">~5km</td>
+                `
+                restaurantsTbody.appendChild( row )
+            } )
+        }
+
+        // --- MAP UTILITY FUNCTIONS ---
+
+        function drawRoute ( coords ) {
+            L.polyline( coords, { color: 'blue', weight: 5, opacity: 0.7 } ).addTo( routeLayer )
+        }
+
+        function clearMap () {
+            routeLayer.clearLayers()
+            chargerLayer.clearLayers()
+            superchargerOverlay.classList.add( 'hidden' )
+            restaurantsOverlay.classList.add( 'hidden' )
+        }
+
+        function updateStatus ( message, isError = false ) {
+            statusMessage.textContent = message
+            statusMessage.className = isError
+                ? 'text-center mt-4 text-red-600 font-medium'
+                : 'text-center mt-4 text-gray-600 font-medium'
+        }
+
+        // --- GEOMETRY HELPER FUNCTIONS ---
+
+        /**
+         * Calculates the shortest distance from a point to a line segment in miles.
+         * @param {{lat: number, lng: number}} p - The point.
+         * @param {{lat: number, lng: number}} a - Start point of the line segment.
+         * @param {{lat: number, lng: number}} b - End point of the line segment.
+         * @returns {number} The distance in miles.
+         */
+        function pointToLineSegmentDistance ( p, a, b ) {
+            const l2 = latLngDistSqr( a, b )
+            if ( l2 == 0 ) return distance( p.lat, p.lng, a.lat, a.lng )
+
+            let t = ( ( p.lat - a.lat ) * ( b.lat - a.lat ) + ( p.lng - a.lng ) * ( b.lng - a.lng ) ) / l2
+            t = Math.max( 0, Math.min( 1, t ) )
+
+            const projection = {
+                lat: a.lat + t * ( b.lat - a.lat ),
+                lng: a.lng + t * ( b.lng - a.lng )
+            }
+
+            return distance( p.lat, p.lng, projection.lat, projection.lng )
+        }
+
+        function latLngDistSqr ( p1, p2 ) {
+            const dx = p1.lat - p2.lat
+            const dy = p1.lng - p2.lng
+            return dx * dx + dy * dy
+        }
+
+        /**
+         * Calculates distance between two lat/lon points using Haversine formula.
+         * @returns {number} Distance in miles.
+         */
+        function distance ( lat1, lon1, lat2, lon2 ) {
+            const R = 3958.8 // Radius of the Earth in miles
+            const dLat = ( lat2 - lat1 ) * Math.PI / 180
+            const dLon = ( lon2 - lon1 ) * Math.PI / 180
+            const a = Math.sin( dLat / 2 ) * Math.sin( dLat / 2 ) +
+                Math.cos( lat1 * Math.PI / 180 ) * Math.cos( lat2 * Math.PI / 180 ) *
+                Math.sin( dLon / 2 ) * Math.sin( dLon / 2 )
+            const c = 2 * Math.atan2( Math.sqrt( a ), Math.sqrt( 1 - a ) )
+            return R * c
+        }
+
+    </script>
+
+</body>
+
+</html>
