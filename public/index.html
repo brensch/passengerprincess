@@ -271,15 +271,20 @@
                 New Search
             </button>
         </div>
-        <div id="results-list" class="custom-scrollbar" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+        <div id="results-list" class="custom-scrollbar"
+            style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
             <table id="chargers-table" class="w-full hidden table-fixed">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">Supercharger
+                        <th
+                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
+                            Supercharger
                         </th>
-                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
+                        <th
+                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
                             Distance</th>
-                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
+                        <th
+                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
                             Nearby Restaurants</th>
                     </tr>
                 </thead>
@@ -355,6 +360,23 @@
         const newSearchBtn = document.getElementById( 'new-search-btn' )
         const dragHandle = document.getElementById( 'drag-handle' )
 
+        // Check for query parameters and auto-populate search
+        const urlParams = new URLSearchParams( window.location.search )
+        const originParam = urlParams.get( 'origin' )
+        const destinationParam = urlParams.get( 'destination' )
+
+        if ( originParam && destinationParam ) {
+            originInput.value = decodeURIComponent( originParam )
+            destinationInput.value = decodeURIComponent( destinationParam )
+            // Auto-trigger search after a short delay to ensure everything is loaded
+            // Only if we're not already showing results
+            if ( bottomResults.style.display === 'none' ) {
+                setTimeout( () => {
+                    handleRouteSearch()
+                }, 500 )
+            }
+        }
+
         // --- MAP INITIALIZATION ---
         let map = L.map( mapElement ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
         L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -385,6 +407,33 @@
             bottomResults.classList.remove( 'bottom-results-minimized' )
             bottomResults.style.height = 'auto'
             updateStatus( '' )
+
+            // Clear query parameters
+            const url = new URL( window.location )
+            url.searchParams.delete( 'origin' )
+            url.searchParams.delete( 'destination' )
+            window.history.pushState( {}, '', url )
+        } )
+
+        // Handle browser back/forward navigation
+        window.addEventListener( 'popstate', () => {
+            const urlParams = new URLSearchParams( window.location.search )
+            const originParam = urlParams.get( 'origin' )
+            const destinationParam = urlParams.get( 'destination' )
+
+            if ( originParam && destinationParam ) {
+                originInput.value = decodeURIComponent( originParam )
+                destinationInput.value = decodeURIComponent( destinationParam )
+                handleRouteSearch()
+            } else {
+                // Clear the form if no parameters
+                clearMap()
+                originInput.value = ''
+                destinationInput.value = ''
+                searchForm.style.display = 'block'
+                bottomResults.style.display = 'none'
+                updateStatus( '' )
+            }
         } )
 
         // Drag functionality for resizing bottom panel
@@ -491,6 +540,12 @@
                 alert( "API Key missing. Please edit the HTML file and add your free API key from openrouteservice.org." )
                 return
             }
+
+            // Update URL with search parameters immediately
+            const url = new URL( window.location )
+            url.searchParams.set( 'origin', encodeURIComponent( origin ) )
+            url.searchParams.set( 'destination', encodeURIComponent( destination ) )
+            window.history.pushState( {}, '', url )
 
             // Clear previous results
             clearMap()
@@ -941,13 +996,13 @@
                 // Create table rows - main charger row
                 const chargerRow = document.createElement( 'tr' )
                 chargerRow.className = 'hover:bg-gray-50 cursor-pointer bg-blue-50'
-                
+
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
                         <td class="px-2 py-2 text-sm font-medium text-gray-900 border-r border-gray-200" rowspan="${ restaurants.length }">${ charger.name }</td>
                         <td class="px-2 py-2 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
                         <td class="px-2 py-2 text-sm text-gray-700">
-                            ${ restaurants[0].name } (${ restaurants[0].distance }m)
+                            ${ restaurants[ 0 ].name } (${ restaurants[ 0 ].distance }m)
                         </td>
                     `
                 } else {
@@ -973,15 +1028,15 @@
                     restaurantRow.className = 'hover:bg-gray-50 cursor-pointer'
                     restaurantRow.innerHTML = `
                         <td class="px-2 py-2 text-sm text-gray-700 border-t border-gray-100">
-                            ${ restaurants[i].name } (${ restaurants[i].distance }m)
+                            ${ restaurants[ i ].name } (${ restaurants[ i ].distance }m)
                         </td>
                     `
-                    
+
                     restaurantRow.addEventListener( 'click', () => {
                         map.setView( chargerLatLng, 15 )
                         marker.openPopup()
                     } )
-                    
+
                     tbody.appendChild( restaurantRow )
                 }
             } )
