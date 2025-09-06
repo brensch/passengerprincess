@@ -61,6 +61,24 @@
             height: calc(100vh - 41px);
         }
 
+        /* Compact table styling */
+        #chargers-table {
+            border-collapse: collapse;
+            line-height: 1.2;
+            height: auto;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            width: 100%;
+        }
+        
+        #chargers-table tr {
+            height: 24px;
+        }
+        
+        #chargers-table td, #chargers-table th {
+            border-bottom: 1px solid #f3f4f6;
+        }
+
         /* Compact list items */
         .compact-charger-item {
             margin-bottom: 8px !important;
@@ -253,17 +271,15 @@
     <!-- Top Toolbar -->
     <div id="top-toolbar"
         class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-300 p-2 flex justify-center space-x-2">
-        <button id="fullscreen-btn"
-            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">Fullscreen</button>
-        <button id="half-btn" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Half</button>
-        <button id="hide-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Hide</button>
+        <button id="toggle-btn"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">▼</button>
         <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">New
             Search</button>
     </div>
 
     <!-- Top Results Area -->
     <div class="bottom-results" id="bottom-results">
-        <div id="results-list" class="custom-scrollbar px-4"
+        <div id="results-list" class="custom-scrollbar px-2"
             style="height: 100%; overflow-y: auto; overflow-x: hidden;">
             <!-- Restaurant Search -->
             <div class="mb-4 pt-4">
@@ -271,19 +287,19 @@
                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     placeholder="Search restaurants...">
             </div>
-            <table id="chargers-table" class="w-full hidden table-fixed" style="height: 100%;">
+            <table id="chargers-table" class="w-full hidden table-fixed">
                 <thead class="sticky top-0 bg-white z-10">
                     <tr>
                         <th
-                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">
+                            class="px-1 py-0.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                             Distance
                         </th>
                         <th
-                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">
+                            class="px-1 py-0.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Nearby Restaurants</th>
                     </tr>
                 </thead>
-                <tbody id="chargers-tbody" class="divide-y divide-gray-200">
+                <tbody id="chargers-tbody">
                 </tbody>
             </table>
             <p id="no-results" class="text-gray-500">Search for a route to see results.</p>
@@ -399,6 +415,7 @@
             restaurantSearchInput.value = ''
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
+            toggleBtn.textContent = 'Show Results'
             updateStatus( '' )
 
             // Clear query parameters
@@ -430,21 +447,20 @@
         } )
 
         // Button event listeners for results panel
-        document.getElementById( 'fullscreen-btn' ).addEventListener( 'click', () => {
-            bottomResults.style.display = 'block'
-            bottomResults.style.height = 'calc(100vh - 60px)'
-            map.invalidateSize()
-        } )
-
-        document.getElementById( 'half-btn' ).addEventListener( 'click', () => {
-            bottomResults.style.display = 'block'
-            bottomResults.style.height = 'calc(50vh - 30px)'
-            map.invalidateSize()
-        } )
-
-        document.getElementById( 'hide-btn' ).addEventListener( 'click', () => {
-            bottomResults.style.display = 'none'
-            map.invalidateSize()
+        const toggleBtn = document.getElementById( 'toggle-btn' )
+        toggleBtn.addEventListener( 'click', () => {
+            if ( bottomResults.style.display === 'none' ) {
+                // Show results
+                bottomResults.style.display = 'block'
+                bottomResults.style.height = 'calc(100vh - 41px)'
+                toggleBtn.textContent = 'Hide Results'
+                map.invalidateSize()
+            } else {
+                // Hide results
+                bottomResults.style.display = 'none'
+                toggleBtn.textContent = 'Show Results'
+                map.invalidateSize()
+            }
         } )
 
         // Restaurant search functionality
@@ -539,7 +555,8 @@
             // Hide search form and show results
             searchForm.style.display = 'none'
             bottomResults.style.display = 'block'
-            bottomResults.style.height = 'calc(50vh - 30px)'
+            bottomResults.style.height = 'calc(100vh - 41px)'
+            toggleBtn.textContent = 'Hide Results'
 
             try {
                 // Step 1: Geocode addresses to get coordinates
@@ -993,15 +1010,15 @@
 
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
-                        <td class="px-2 py-2 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
-                        <td class="px-2 py-2 text-sm text-gray-700">
+                        <td class="px-1 py-0.5 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
+                        <td class="px-1 py-0.5 text-sm text-gray-700">
                             ${ restaurants[ 0 ].name } (${ restaurants[ 0 ].distance }m)
                         </td>
                     `
                 } else {
                     chargerRow.innerHTML = `
-                        <td class="px-2 py-2 text-sm text-gray-500 border-r border-gray-200">${ distanceFromOrigin }</td>
-                        <td class="px-2 py-2 text-sm text-gray-700">
+                        <td class="px-1 py-0.5 text-sm text-gray-500 border-r border-gray-200">${ distanceFromOrigin }</td>
+                        <td class="px-1 py-0.5 text-sm text-gray-700">
                             No restaurants found
                         </td>
                     `
@@ -1012,6 +1029,10 @@
                     if ( map.getBounds().contains( chargerLatLng ) ) {
                         map.setView( chargerLatLng, 15 )
                         marker.openPopup()
+                        // Hide the results list
+                        bottomResults.style.display = 'none'
+                        toggleBtn.textContent = 'Show Results'
+                        map.invalidateSize()
                     }
                 } )
 
@@ -1022,7 +1043,7 @@
                     const restaurantRow = document.createElement( 'tr' )
                     restaurantRow.className = 'cursor-pointer'
                     restaurantRow.innerHTML = `
-                        <td class="px-2 py-2 text-sm text-gray-700 border-t border-gray-100">
+                        <td class="px-1 py-0.5 text-sm text-gray-700">
                             ${ restaurants[ i ].name } (${ restaurants[ i ].distance }m)
                         </td>
                     `
@@ -1030,6 +1051,10 @@
                     restaurantRow.addEventListener( 'click', () => {
                         map.setView( chargerLatLng, 15 )
                         marker.openPopup()
+                        // Hide the results list
+                        bottomResults.style.display = 'none'
+                        toggleBtn.textContent = 'Show Results'
+                        map.invalidateSize()
                     } )
 
                     tbody.appendChild( restaurantRow )
@@ -1081,6 +1106,7 @@
             // Show search form and hide results
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
+            toggleBtn.textContent = 'Show Results'
         }
 
         function updateStatus ( message, isError = false ) {
