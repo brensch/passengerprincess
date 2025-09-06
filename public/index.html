@@ -279,18 +279,49 @@
         #chargers-table tbody tr {
             height: 32px;
         }
+
+        /* Loading spinner styles */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            min-height: 200px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #ec4899;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Hide table headers when loading */
+        #loading-container:not(.hidden) ~ #chargers-table thead {
+            display: none;
+        }
     </style>
 </head>
 
-<body class="bg-gray-100 font-sans antialiased">
+<body class="bg-pink-100 font-sans antialiased">
     <div id="map" style="position: relative;">
     </div>
 
     <!-- Top Toolbar -->
     <div id="top-toolbar"
-        class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-300 p-2 flex justify-center space-x-2">
-        <button id="toggle-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">▼</button>
-        <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">New
+        class="fixed top-0 left-0 right-0 z-50 bg-pink-50 border-b border-pink-300 p-2 flex justify-center space-x-2">
+        <button id="toggle-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded text-sm">▼</button>
+        <button id="new-search-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded text-sm">New
             Search</button>
     </div>
 
@@ -301,67 +332,74 @@
             <!-- Restaurant Search -->
             <div class="mb-4 pt-4">
                 <input type="text" id="restaurant-search"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    class="w-full px-3 py-2 border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm"
                     placeholder="Search restaurants...">
             </div>
+            
+            <!-- Loading Container -->
+            <div id="loading-container" class="loading-container hidden">
+                <div class="spinner"></div>
+                <p class="loading-text" id="loading-text">Retrieving superchargers...</p>
+            </div>
+            
             <table id="chargers-table" class="w-full hidden table-fixed">
                 <thead class="sticky top-0 bg-white z-10">
                     <tr>
-                        <th class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                        <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-20">
                             Distance
                         </th>
-                        <th class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider">
                             Nearby Restaurants</th>
                     </tr>
                 </thead>
                 <tbody id="chargers-tbody">
                 </tbody>
             </table>
-            <p id="no-results" class="text-gray-500">Search for a route to see results.</p>
+            <p id="no-results" class="text-pink-500">Search for a route to see results.</p>
         </div>
-        <hr class="border-gray-300">
+        <hr class="border-pink-300">
     </div>
 
     <!-- Overlay Input Form -->
     <div class="overlay-form" id="search-form">
         <header class="text-center mb-4">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Passenger Princess Protector</h1>
+            <h1 class="text-2xl md:text-3xl font-bold text-pink-800">Passenger Princess Protector</h1>
         </header>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div class="relative">
-                <label for="origin" class="block text-sm font-medium text-gray-700">Origin</label>
+                <label for="origin" class="block text-sm font-medium text-pink-700">Origin</label>
                 <input type="text" id="origin"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                    class="mt-1 block w-full rounded-md border-pink-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 text-sm"
                     placeholder="e.g., San Francisco, CA">
                 <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
             <div class="relative">
-                <label for="destination" class="block text-sm font-medium text-gray-700">Destination</label>
+                <label for="destination" class="block text-sm font-medium text-pink-700">Destination</label>
                 <input type="text" id="destination"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                    class="mt-1 block w-full rounded-md border-pink-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 text-sm"
                     placeholder="e.g., Los Angeles, CA">
                 <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
             <div class="md:col-span-2">
                 <button id="find-route-btn"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out text-sm">
+                    class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out text-sm">
                     Find Route & Amenities
                 </button>
             </div>
         </div>
-        <div id="status-message" class="text-center mt-3 text-gray-600 font-medium text-sm"></div>
+        <div id="status-message" class="text-center mt-3 text-pink-600 font-medium text-sm"></div>
     </div>
 
     <!-- Bottom Results Area -->
     <div class="bottom-results" id="bottom-results">
         <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-gray-800">Superchargers & Restaurants</h2>
-            <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">
+            <h2 class="text-xl font-bold text-pink-800">Superchargers & Restaurants</h2>
+            <button id="new-search-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded text-sm">
                 New Search
             </button>
         </div>
         <div id="results-list">
-            <p class="text-gray-500">Search for a route to see results.</p>
+            <p class="text-pink-500">Search for a route to see results.</p>
         </div>
     </div>
 
@@ -569,10 +607,14 @@
             // Hide table and show searching message
             const chargersTable = document.getElementById( 'chargers-table' )
             const noResults = document.getElementById( 'no-results' )
+            const loadingContainer = document.getElementById( 'loading-container' )
+            const loadingText = document.getElementById( 'loading-text' )
+            
             if ( chargersTable ) chargersTable.classList.add( 'hidden' )
-            if ( noResults ) {
-                noResults.textContent = 'Searching...'
-                noResults.classList.remove( 'hidden' )
+            if ( noResults ) noResults.classList.add( 'hidden' )
+            if ( loadingContainer ) {
+                loadingContainer.classList.remove( 'hidden' )
+                loadingText.textContent = 'Retrieving superchargers...'
             }
 
             // Hide search form and show results
@@ -601,7 +643,7 @@
                 map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
 
                 // Step 3: Fetch all Superchargers
-                updateStatus( "Finding Superchargers..." )
+                updateStatus( "Retrieving superchargers..." )
                 const allChargers = await getSuperchargers( routeCoords )
 
                 // Step 4: Find chargers along the route
@@ -966,8 +1008,12 @@
             // Show table, hide no results message
             const chargersTable = document.getElementById( 'chargers-table' )
             const noResults = document.getElementById( 'no-results' )
+            const loadingContainer = document.getElementById( 'loading-container' )
+            const loadingText = document.getElementById( 'loading-text' )
+            
             if ( chargersTable ) chargersTable.classList.remove( 'hidden' )
             if ( noResults ) noResults.classList.add( 'hidden' )
+            if ( loadingContainer ) loadingContainer.classList.add( 'hidden' )
 
             const tbody = document.getElementById( 'chargers-tbody' )
             if ( tbody ) tbody.innerHTML = ''
@@ -976,17 +1022,17 @@
             const locations = chargers.map( charger => charger.gps )
 
             // Show loading message for restaurants
-            if ( noResults ) {
-                noResults.textContent = 'Retrieving restaurant info...'
-                noResults.classList.remove( 'hidden' )
+            if ( loadingContainer ) {
+                loadingContainer.classList.remove( 'hidden' )
+                loadingText.textContent = 'Retrieving restaurants...'
             }
 
             // Fetch all restaurants in one request
             const bulkResults = await getNearbyRestaurantsBulk( locations, 500 )
 
             // Hide loading message
-            if ( noResults ) {
-                noResults.classList.add( 'hidden' )
+            if ( loadingContainer ) {
+                loadingContainer.classList.add( 'hidden' )
             }
 
             // Use document fragment for better performance
@@ -1047,7 +1093,7 @@
                         <strong>Status:</strong> ${ charger.status }<br>
                         <strong>Stalls:</strong> ${ charger.stallCount }<br>
                         <strong>Distance from origin:</strong> ${ distanceFromOrigin }<br>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                 `
 
                 if ( restaurants.length > 0 ) {
@@ -1058,7 +1104,7 @@
                     } )
                     if ( restaurants.length > 10 ) {
                         const moreCount = restaurants.length - 10
-                        popupContent += `<div class="text-sm mt-1 text-gray-600">and ${ moreCount } more...</div>`
+                        popupContent += `<div class="text-sm mt-1 text-pink-600">and ${ moreCount } more...</div>`
                     }
                 }
 
@@ -1096,7 +1142,7 @@
                                     distanceCell.innerHTML = `
                                         <div class="flex flex-col">
                                             <span>${ distanceFromOrigin }</span>
-                                            <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ cityName }</span>
+                                            <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ cityName }</span>
                                         </div>
                                     `
                                     // Re-add click handler for the updated city link
@@ -1119,25 +1165,25 @@
 
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
-                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">
+                        <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ restaurants.length }">
                             <div class="flex flex-col">
                                 <span>${ distanceFromOrigin }</span>
-                                <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ suburbName }</span>
+                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ suburbName }</span>
                             </div>
                         </td>
-                        <td class="px-1 py-0 text-sm text-gray-700">
-                            <span class="text-blue-600 hover:text-blue-800 cursor-pointer restaurant-link">${ restaurants[ 0 ].name }</span> (${ restaurants[ 0 ].distance }m)
+                        <td class="px-1 py-0 text-sm text-pink-700">
+                            <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link">${ restaurants[ 0 ].name }</span> (${ restaurants[ 0 ].distance }m)
                         </td>
                     `
                 } else {
                     chargerRow.innerHTML = `
-                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200">
+                        <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200">
                             <div class="flex flex-col">
                                 <span>${ distanceFromOrigin }</span>
-                                <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ suburbName }</span>
+                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ suburbName }</span>
                             </div>
                         </td>
-                        <td class="px-1 py-0 text-sm text-gray-700">
+                        <td class="px-1 py-0 text-sm text-pink-700">
                             No restaurants found
                         </td>
                     `
@@ -1198,8 +1244,8 @@
                     const restaurantRow = document.createElement( 'tr' )
                     restaurantRow.className = 'cursor-pointer'
                     restaurantRow.innerHTML = `
-                        <td class="px-1 py-0 text-sm text-gray-700">
-                            <span class="text-blue-600 hover:text-blue-800 cursor-pointer restaurant-link">${ restaurants[ i ].name }</span> (${ restaurants[ i ].distance }m)
+                        <td class="px-1 py-0 text-sm text-pink-700">
+                            <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link">${ restaurants[ i ].name }</span> (${ restaurants[ i ].distance }m)
                         </td>
                     `
 
@@ -1268,7 +1314,7 @@
                         <strong class="text-lg">${ charger.name }</strong><br>
                         <strong>Status:</strong> ${ charger.status }<br>
                         <strong>Stalls:</strong> ${ charger.stallCount }<br>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                     </div>
                 `
 
@@ -1312,7 +1358,7 @@
         }
 
         function drawRoute ( coords ) {
-            L.polyline( coords, { color: 'blue', weight: 5, opacity: 0.7 } ).addTo( routeLayer )
+            L.polyline( coords, { color: 'hotpink', weight: 5, opacity: 0.7 } ).addTo( routeLayer )
         }
 
         function clearMap () {
@@ -1329,7 +1375,7 @@
             statusMessage.textContent = message
             statusMessage.className = isError
                 ? 'text-center mt-4 text-red-600 font-medium'
-                : 'text-center mt-4 text-gray-600 font-medium'
+                : 'text-center mt-4 text-pink-600 font-medium'
         }
 
         // --- GEOMETRY HELPER FUNCTIONS ---
