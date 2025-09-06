@@ -51,9 +51,8 @@
             padding: 15px;
             box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
             max-height: 50vh;
-            overflow-y: auto;
+            overflow: visible;
             display: none;
-            transition: all 0.3s ease;
         }
 
         /* Compact list items */
@@ -98,19 +97,21 @@
         /* Drag handle */
         .drag-handle {
             position: absolute;
-            top: -8px;
+            top: -10px;
             left: 50%;
             transform: translateX(-50%);
-            width: 60px;
-            height: 6px;
+            width: 80px;
+            height: 8px;
             background: #d1d5db;
-            border-radius: 3px;
+            border-radius: 4px;
             cursor: ns-resize;
-            z-index: 1001;
+            z-index: 1002;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .drag-handle:hover {
             background: #9ca3af;
+            transform: translateX(-50%) scale(1.05);
         }
 
         /* Minimized state */
@@ -121,31 +122,6 @@
 
         .bottom-results-minimized .drag-handle {
             top: -6px;
-        }
-
-        /* Show list button at bottom */
-        .show-list-bottom {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1001;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            padding: 8px 12px;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            font-size: 12px;
-            font-weight: 500;
-            display: none;
-            transition: all 0.2s ease;
-        }
-
-        .show-list-bottom:hover {
-            background: rgba(255, 255, 255, 1);
-            transform: translateX(-50%) translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         /* Custom scrollbar for the results list */
@@ -165,6 +141,16 @@
 
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #555;
+        }
+
+        /* Table styles */
+        #chargers-table {
+            table-layout: fixed;
+        }
+
+        #chargers-table td {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         /* Mobile optimizations */
@@ -192,6 +178,28 @@
             .show-list-bottom {
                 padding: 6px 10px;
                 font-size: 11px;
+            }
+
+            /* Table responsive design */
+            #chargers-table {
+                font-size: 10px;
+            }
+
+            #chargers-table th,
+            #chargers-table td {
+                padding: 4px 6px;
+            }
+
+            #chargers-table th:nth-child(3),
+            #chargers-table td:nth-child(3) {
+                display: none;
+                /* Hide distance column on mobile */
+            }
+
+            #chargers-table th:nth-child(4),
+            #chargers-table td:nth-child(4) {
+                display: none;
+                /* Hide stalls column on mobile */
             }
         }
 
@@ -229,40 +237,30 @@
             display: none !important;
         }
 
-        /* Fullscreen toggle button */
-        .fullscreen-toggle {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1001;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            padding: 10px 14px;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            font-size: 14px;
-            font-weight: 500;
-            display: none;
-            /* Hidden by default, shown when results are visible */
-            transition: all 0.2s ease;
+        /* Table styling for compact layout */
+        #chargers-table {
+            font-size: 12px;
+            line-height: 1.2;
         }
 
-        .fullscreen-toggle:hover {
-            background: rgba(255, 255, 255, 1);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        #chargers-table th {
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+
+        #chargers-table td {
+            padding: 6px 8px;
+        }
+
+        #chargers-table tbody tr {
+            height: 32px;
         }
     </style>
 </head>
 
 <body class="bg-gray-100 font-sans antialiased">
-    <div id="map"></div>
-
-    <!-- Fullscreen Toggle Button -->
-    <button id="fullscreen-toggle" class="fullscreen-toggle" title="Toggle Fullscreen">
-        <span id="fullscreen-icon">⛶</span> Fullscreen
-    </button>
+    <div id="map" style="position: relative;">
+    </div>
 
     <!-- Bottom Results Area -->
     <div class="bottom-results" id="bottom-results">
@@ -273,15 +271,26 @@
                 New Search
             </button>
         </div>
-        <div id="results-list" class="custom-scrollbar">
-            <p class="text-gray-500">Search for a route to see results.</p>
+        <div id="results-list" class="custom-scrollbar" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+            <table id="chargers-table" class="w-full hidden table-fixed">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">Supercharger
+                        </th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
+                            Distance</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
+                            Nearby Restaurants</th>
+                    </tr>
+                </thead>
+                <tbody id="chargers-tbody" class="bg-white divide-y divide-gray-200">
+                </tbody>
+            </table>
+            <p id="no-results" class="text-gray-500">Search for a route to see results.</p>
         </div>
     </div>
 
-    <!-- Show List Button (bottom) -->
-    <button id="show-list-bottom" class="show-list-bottom">
-        <span>↑</span> Show List
-    </button> <!-- Overlay Input Form -->
+    <!-- Overlay Input Form -->
     <div class="overlay-form" id="search-form">
         <header class="text-center mb-4">
             <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Tesla Supercharger Route Planner</h1>
@@ -344,10 +353,7 @@
         const bottomResults = document.getElementById( 'bottom-results' )
         const resultsList = document.getElementById( 'results-list' )
         const newSearchBtn = document.getElementById( 'new-search-btn' )
-        const fullscreenToggle = document.getElementById( 'fullscreen-toggle' )
-        const fullscreenIcon = document.getElementById( 'fullscreen-icon' )
         const dragHandle = document.getElementById( 'drag-handle' )
-        const showListBottom = document.getElementById( 'show-list-bottom' )
 
         // --- MAP INITIALIZATION ---
         let map = L.map( mapElement ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
@@ -378,8 +384,6 @@
             bottomResults.style.display = 'none'
             bottomResults.classList.remove( 'bottom-results-minimized' )
             bottomResults.style.height = 'auto'
-            fullscreenToggle.style.display = 'none'
-            showListBottom.style.display = 'none'
             updateStatus( '' )
         } )
 
@@ -407,10 +411,8 @@
             // If dragged to minimum height, minimize it
             if ( newHeight <= 60 ) {
                 bottomResults.classList.add( 'bottom-results-minimized' )
-                showListBottom.style.display = 'block'
             } else {
                 bottomResults.classList.remove( 'bottom-results-minimized' )
-                showListBottom.style.display = 'none'
             }
 
             // Trigger map resize
@@ -424,22 +426,6 @@
                 isDragging = false
                 document.body.style.cursor = ''
             }
-        } )
-
-        // Show list from bottom button
-        showListBottom.addEventListener( 'click', () => {
-            bottomResults.classList.remove( 'bottom-results-minimized' )
-            bottomResults.style.height = 'auto'
-            showListBottom.style.display = 'none'
-            setTimeout( () => {
-                map.invalidateSize()
-            }, 300 )
-        } )
-
-        // Fullscreen toggle functionality
-        let isFullscreen = false
-        fullscreenToggle.addEventListener( 'click', () => {
-            toggleFullscreen( false )
         } )
 
         // Autocomplete for origin
@@ -477,16 +463,10 @@
                 // Hide bottom results and make map fullscreen
                 bottomResults.classList.add( 'bottom-results-hidden' )
                 mapElement.classList.add( 'map-fullscreen' )
-                fullscreenToggle.style.display = 'block'
-                fullscreenIcon.textContent = '⛶'
-                fullscreenToggle.innerHTML = '<span id="fullscreen-icon">⛶</span> Show List'
             } else {
                 // Show bottom results and return to normal view
                 bottomResults.classList.remove( 'bottom-results-hidden' )
                 mapElement.classList.remove( 'map-fullscreen' )
-                fullscreenToggle.style.display = 'none'
-                fullscreenIcon.textContent = '⛶'
-                fullscreenToggle.innerHTML = '<span id="fullscreen-icon">⛶</span> Fullscreen'
             }
 
             // Trigger map resize to handle the new dimensions
@@ -515,15 +495,21 @@
             // Clear previous results
             clearMap()
             updateStatus( "Finding route..." )
-            resultsList.innerHTML = '<p class="text-gray-500">Searching...</p>'
+
+            // Hide table and show searching message
+            const chargersTable = document.getElementById( 'chargers-table' )
+            const noResults = document.getElementById( 'no-results' )
+            if ( chargersTable ) chargersTable.classList.add( 'hidden' )
+            if ( noResults ) {
+                noResults.textContent = 'Searching...'
+                noResults.classList.remove( 'hidden' )
+            }
 
             // Hide search form and show results
             searchForm.style.display = 'none'
             bottomResults.style.display = 'block'
             bottomResults.classList.remove( 'bottom-results-minimized' )
             bottomResults.style.height = 'auto'
-            fullscreenToggle.style.display = 'block'
-            showListBottom.style.display = 'none'
 
             try {
                 // Step 1: Geocode addresses to get coordinates
@@ -552,8 +538,13 @@
                 const chargersOnRoute = findChargersNearRoute( allChargers, routeCoords, SEARCH_RADIUS_MILES )
 
                 // Step 5: Display the results
-                displaySuperchargersAndRestaurants( chargersOnRoute )
+                await displaySuperchargersAndRestaurants( chargersOnRoute )
                 updateStatus( `Found ${ chargersOnRoute.length } Superchargers with restaurants.`, false )
+
+                // Ensure map resizes properly
+                setTimeout( () => {
+                    map.invalidateSize()
+                }, 100 )
 
 
             } catch ( error ) {
@@ -851,7 +842,13 @@
          */
         async function displaySuperchargersAndRestaurants ( chargers ) {
             if ( chargers.length === 0 ) {
-                resultsList.innerHTML = '<p class="text-gray-500">No Superchargers found within 1km of your route.</p>'
+                const chargersTable = document.getElementById( 'chargers-table' )
+                const noResults = document.getElementById( 'no-results' )
+                if ( chargersTable ) chargersTable.classList.add( 'hidden' )
+                if ( noResults ) {
+                    noResults.textContent = 'No Superchargers found within 1km of your route.'
+                    noResults.classList.remove( 'hidden' )
+                }
                 return
             }
 
@@ -859,7 +856,15 @@
             allChargerMarkers = []
             allRestaurantMarkers = []
             currentChargers = chargers
-            resultsList.innerHTML = '' // Clear list
+
+            // Show table, hide no results message
+            const chargersTable = document.getElementById( 'chargers-table' )
+            const noResults = document.getElementById( 'no-results' )
+            if ( chargersTable ) chargersTable.classList.remove( 'hidden' )
+            if ( noResults ) noResults.classList.add( 'hidden' )
+
+            const tbody = document.getElementById( 'chargers-tbody' )
+            if ( tbody ) tbody.innerHTML = ''
 
             // Extract locations for bulk restaurant query
             const locations = chargers.map( charger => charger.gps )
@@ -867,7 +872,11 @@
             // Fetch all restaurants in one request
             const bulkResults = await getNearbyRestaurantsBulk( locations, 500 )
 
-            // Process results and create UI
+            // Get origin coordinates for distance calculation
+            const originElement = document.getElementById( 'origin' )
+            const originCoords = originElement ? await geocodeAddress( originElement.value.trim() ) : null
+
+            // Process results and create table rows
             chargers.forEach( ( charger, index ) => {
                 const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
                 const marker = L.marker( chargerLatLng, {
@@ -885,6 +894,15 @@
                 // Get restaurants for this charger
                 const restaurants = bulkResults[ index ]?.restaurants || []
 
+                // Calculate distance from origin
+                let distanceFromOrigin = 'N/A'
+                if ( originCoords ) {
+                    distanceFromOrigin = distance(
+                        originCoords[ 1 ], originCoords[ 0 ],
+                        charger.gps.latitude, charger.gps.longitude
+                    ).toFixed( 1 ) + ' mi'
+                }
+
                 // Add restaurant markers
                 restaurants.forEach( restaurant => {
                     const restaurantLatLng = [ restaurant.gps.latitude, restaurant.gps.longitude ]
@@ -897,17 +915,16 @@
                         } )
                     } )
                     restaurantMarker.bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.cuisine || 'Restaurant' }<br>${ restaurant.distance }m away` )
-
-                    // Store marker for later viewport filtering
                     allRestaurantMarkers.push( restaurantMarker )
                 } )
 
-                // Create popup content with restaurants
+                // Create popup content
                 let popupContent = `
                     <div class="font-sans max-w-xs">
                         <strong class="text-lg">${ charger.name }</strong><br>
                         <strong>Status:</strong> ${ charger.status }<br>
                         <strong>Stalls:</strong> ${ charger.stallCount }<br>
+                        <strong>Distance from origin:</strong> ${ distanceFromOrigin }<br>
                         <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
                 `
 
@@ -921,93 +938,57 @@
                 popupContent += '</div>'
                 marker.bindPopup( popupContent )
 
-                // Add entry to list
-                const chargerDiv = document.createElement( 'div' )
-                chargerDiv.className = 'compact-charger-item'
-
-                chargerDiv.innerHTML = `
-                    <h3 class="font-bold text-gray-800 text-lg mb-2">${ charger.name }</h3>
-                    <p class="text-sm text-gray-600 mb-2">${ charger.address.street || '' } ${ charger.address.city || '' }</p>
-                    <p class="text-sm text-gray-500 mb-3">Stalls: ${ charger.stallCount } | Status: ${ charger.status }</p>
-                `
-
+                // Create table rows - main charger row
+                const chargerRow = document.createElement( 'tr' )
+                chargerRow.className = 'hover:bg-gray-50 cursor-pointer bg-blue-50'
+                
                 if ( restaurants.length > 0 ) {
-                    chargerDiv.innerHTML += '<h4 class="font-semibold text-gray-700 mb-2">Nearby Restaurants:</h4>'
-                    const restaurantList = document.createElement( 'ul' )
-                    restaurantList.className = 'space-y-1'
-
-                    restaurants.slice( 0, 5 ).forEach( restaurant => {
-                        const li = document.createElement( 'li' )
-                        li.className = 'text-sm text-gray-600'
-                        li.innerHTML = `<strong>${ restaurant.name }</strong> - ${ restaurant.cuisine || 'Restaurant' } (${ restaurant.distance }m)`
-                        restaurantList.appendChild( li )
-                    } )
-
-                    chargerDiv.appendChild( restaurantList )
+                    chargerRow.innerHTML = `
+                        <td class="px-2 py-2 text-sm font-medium text-gray-900 border-r border-gray-200" rowspan="${ restaurants.length }">${ charger.name }</td>
+                        <td class="px-2 py-2 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
+                        <td class="px-2 py-2 text-sm text-gray-700">
+                            ${ restaurants[0].name } (${ restaurants[0].distance }m)
+                        </td>
+                    `
+                } else {
+                    chargerRow.innerHTML = `
+                        <td class="px-2 py-2 text-sm font-medium text-gray-900 border-r border-gray-200">${ charger.name }</td>
+                        <td class="px-2 py-2 text-sm text-gray-500 border-r border-gray-200">${ distanceFromOrigin }</td>
+                        <td class="px-2 py-2 text-sm text-gray-700">
+                            No restaurants found
+                        </td>
+                    `
                 }
 
-                chargerDiv.addEventListener( 'click', () => {
+                chargerRow.addEventListener( 'click', () => {
                     map.setView( chargerLatLng, 15 )
                     marker.openPopup()
                 } )
 
-                resultsList.appendChild( chargerDiv )
+                tbody.appendChild( chargerRow )
+
+                // Create subrows for additional restaurants
+                for ( let i = 1; i < restaurants.length; i++ ) {
+                    const restaurantRow = document.createElement( 'tr' )
+                    restaurantRow.className = 'hover:bg-gray-50 cursor-pointer'
+                    restaurantRow.innerHTML = `
+                        <td class="px-2 py-2 text-sm text-gray-700 border-t border-gray-100">
+                            ${ restaurants[i].name } (${ restaurants[i].distance }m)
+                        </td>
+                    `
+                    
+                    restaurantRow.addEventListener( 'click', () => {
+                        map.setView( chargerLatLng, 15 )
+                        marker.openPopup()
+                    } )
+                    
+                    tbody.appendChild( restaurantRow )
+                }
             } )
 
-            // Create popup content with restaurants
-            let popupContent = `
-                    <div class="font-sans max-w-xs">
-                        <strong class="text-lg">${ charger.name }</strong><br>
-                        <strong>Status:</strong> ${ charger.status }<br>
-                        <strong>Stalls:</strong> ${ charger.stallCount }<br>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
-                `
-
-            if ( restaurants.length > 0 ) {
-                popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
-                restaurants.slice( 0, 5 ).forEach( restaurant => {
-                    popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine || 'Restaurant' }) - ${ restaurant.distance }m</div>`
-                } )
-            }
-
-            popupContent += '</div>'
-            marker.bindPopup( popupContent )
-
-            // Add entry to list
-            const chargerDiv = document.createElement( 'div' )
-            chargerDiv.className = 'compact-charger-item'
-
-            chargerDiv.innerHTML = `
-                    <h3 class="font-bold text-gray-800 text-lg mb-2">${ charger.name }</h3>
-                    <p class="text-sm text-gray-600 mb-2">${ charger.address.street || '' } ${ charger.address.city || '' }</p>
-                    <p class="text-sm text-gray-500 mb-3">Stalls: ${ charger.stallCount } | Status: ${ charger.status }</p>
-                `
-
-            if ( restaurants.length > 0 ) {
-                chargerDiv.innerHTML += '<h4 class="font-semibold text-gray-700 mb-2">Nearby Restaurants:</h4>'
-                const restaurantList = document.createElement( 'ul' )
-                restaurantList.className = 'space-y-1'
-
-                restaurants.slice( 0, 5 ).forEach( restaurant => {
-                    const li = document.createElement( 'li' )
-                    li.className = 'text-sm text-gray-600'
-                    li.innerHTML = `<strong>${ restaurant.name }</strong> - ${ restaurant.cuisine || 'Restaurant' } (${ restaurant.distance }m)`
-                    restaurantList.appendChild( li )
-                } )
-
-                chargerDiv.appendChild( restaurantList )
-            }
-
-            chargerDiv.addEventListener( 'click', () => {
-                map.setView( chargerLatLng, 15 )
-                marker.openPopup()
-            } )
-
-            resultsList.appendChild( chargerDiv )
+            // Update visible markers based on current viewport
+            updateVisibleMarkers()
         }
-
-        // Update visible markers based on current viewport
-        updateVisibleMarkers()
 
 
         // --- VIEWPORT MANAGEMENT ---
@@ -1050,8 +1031,6 @@
             bottomResults.style.display = 'none'
             bottomResults.classList.remove( 'bottom-results-minimized' )
             bottomResults.style.height = 'auto'
-            fullscreenToggle.style.display = 'none'
-            showListBottom.style.display = 'none'
         }
 
         function updateStatus ( message, isError = false ) {
