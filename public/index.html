@@ -696,7 +696,7 @@
         }
 
         /**
-         * Fetches restaurants near multiple locations using a single Overpass API request.
+         * Fetches restaurants near multiple locations using sequential Overpass API requests for each amenity type.
          * @param {Array<{latitude: number, longitude: number}>} locations Array of GPS coordinates
          * @param {number} radius Radius in meters
          * @returns {Promise<Array<{locationIndex: number, restaurants: Array<object>}>>} Array of restaurant data grouped by location
@@ -704,10 +704,24 @@
         async function getNearbyRestaurantsBulk ( locations, radius = 500 ) {
             if ( locations.length === 0 ) return []
 
-            // Build Overpass query with multiple around clauses
+            // Initialize results array
+            const results = locations.map( ( loc, index ) => ( {
+                locationIndex: index,
+                restaurants: []
+            } ) )
+
+            // Build Overpass query with all amenity types for all locations
             let queryParts = []
             locations.forEach( ( loc, index ) => {
-                queryParts.push( `node["amenity"="restaurant"](around:${ radius },${ loc.latitude },${ loc.longitude });` )
+                queryParts.push( `
+                    node["amenity"="restaurant"](around:${ radius },${ loc.latitude },${ loc.longitude });
+                    node["amenity"="fast_food"](around:${ radius },${ loc.latitude },${ loc.longitude });
+                    node["amenity"="cafe"](around:${ radius },${ loc.latitude },${ loc.longitude });
+                    node["amenity"="bar"](around:${ radius },${ loc.latitude },${ loc.longitude });
+                    node["amenity"="pub"](around:${ radius },${ loc.latitude },${ loc.longitude });
+                    node["amenity"="food_court"](around:${ radius },${ loc.latitude },${ loc.longitude });
+                    node["amenity"="ice_cream"](around:${ radius },${ loc.latitude },${ loc.longitude });
+                    node["amenity"="bakery"](around:${ radius },${ loc.latitude },${ loc.longitude });` )
             } )
 
             const query = `
@@ -718,47 +732,55 @@
                 out meta;
             `
 
-            const url = `https://overpass-api.de/api/interpreter?data=${ encodeURIComponent( query ) }`
-            const response = await fetch( url )
-            if ( !response.ok ) throw new Error( "Failed to fetch restaurant data." )
-            const data = await response.json()
+            try {
+                // Use POST request to handle large query data
+                const response = await fetch( 'https://overpass-api.de/api/interpreter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `data=${ encodeURIComponent( query ) }`
+                } )
+                if ( !response.ok ) throw new Error( "Failed to fetch restaurant data." )
+                const data = await response.json()
 
-            // Group restaurants by which location they're closest to
-            const results = locations.map( ( loc, index ) => ( {
-                locationIndex: index,
-                restaurants: []
-            } ) )
+                // Group restaurants by which location they're closest to
+                data.elements.forEach( element => {
+                    let closestIndex = 0
+                    let closestDistance = Infinity
 
-            data.elements.forEach( element => {
-                let closestIndex = 0
-                let closestDistance = Infinity
+                    locations.forEach( ( loc, index ) => {
+                        const distance = getDistance( loc.latitude, loc.longitude, element.lat, element.lon )
+                        if ( distance < closestDistance ) {
+                            closestDistance = distance
+                            closestIndex = index
+                        }
+                    } )
 
-                locations.forEach( ( loc, index ) => {
-                    const distance = getDistance( loc.latitude, loc.longitude, element.lat, element.lon )
-                    if ( distance < closestDistance ) {
-                        closestDistance = distance
-                        closestIndex = index
+                    if ( closestDistance <= radius ) {
+                        results[ closestIndex ].restaurants.push( {
+                            id: element.id,
+                            name: element.tags?.name || `Restaurant ${ element.id }`,
+                            cuisine: element.tags?.cuisine || 'Unknown',
+                            address: {
+                                street: element.tags?.[ 'addr:street' ] || '',
+                                city: element.tags?.[ 'addr:city' ] || '',
+                                state: element.tags?.[ 'addr:state' ] || ''
+                            },
+                            gps: {
+                                latitude: element.lat,
+                                longitude: element.lon
+                            },
+                            distance: closestDistance,
+                            type: element.tags?.amenity || 'restaurant'
+                        } )
                     }
                 } )
 
-                if ( closestDistance <= radius ) {
-                    results[ closestIndex ].restaurants.push( {
-                        id: element.id,
-                        name: element.tags?.name || `Restaurant ${ element.id }`,
-                        cuisine: element.tags?.cuisine || 'Unknown',
-                        address: {
-                            street: element.tags?.[ 'addr:street' ] || '',
-                            city: element.tags?.[ 'addr:city' ] || '',
-                            state: element.tags?.[ 'addr:state' ] || ''
-                        },
-                        gps: {
-                            latitude: element.lat,
-                            longitude: element.lon
-                        },
-                        distance: closestDistance
-                    } )
-                }
-            } )
+            } catch ( error ) {
+                console.warn( "Error fetching restaurant data:", error )
+                // Return empty results if the query fails
+            }
 
             // Sort restaurants by distance for each location
             results.forEach( result => {
@@ -1066,7 +1088,7 @@
             } )
 
             // Append all rows at once for better performance
-            tbody.appendChild(fragment)
+            tbody.appendChild( fragment )
 
             // Add markers to map for current viewport
             updateVisibleMarkers()
@@ -1076,38 +1098,38 @@
          * Display superchargers only (without restaurants) for initial load
          * @param {Array<object>} chargers - The chargers to display.
          */
-        async function displaySuperchargersOnly(chargers) {
-            if (chargers.length === 0) return
+        async function displaySuperchargersOnly ( chargers ) {
+            if ( chargers.length === 0 ) return
 
             // Clear previous data
             allChargerMarkers = []
             currentChargers = chargers
 
             // Create markers for all chargers
-            chargers.forEach((charger) => {
-                const chargerLatLng = [charger.gps.latitude, charger.gps.longitude]
-                const marker = L.marker(chargerLatLng, {
-                    icon: L.divIcon({
+            chargers.forEach( ( charger ) => {
+                const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
+                const marker = L.marker( chargerLatLng, {
+                    icon: L.divIcon( {
                         className: 'emoji-icon',
                         html: '⚡',
-                        iconSize: [100, 100],
-                        iconAnchor: [50, 50]
-                    })
-                })
+                        iconSize: [ 100, 100 ],
+                        iconAnchor: [ 50, 50 ]
+                    } )
+                } )
 
                 // Create popup content
                 const popupContent = `
                     <div class="font-sans max-w-xs">
-                        <strong class="text-lg">${charger.name}</strong><br>
-                        <strong>Status:</strong> ${charger.status}<br>
-                        <strong>Stalls:</strong> ${charger.stallCount}<br>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${charger.gps.latitude},${charger.gps.longitude}" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
+                        <strong class="text-lg">${ charger.name }</strong><br>
+                        <strong>Status:</strong> ${ charger.status }<br>
+                        <strong>Stalls:</strong> ${ charger.stallCount }<br>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
                     </div>
                 `
 
-                marker.bindPopup(popupContent)
-                allChargerMarkers.push(marker)
-            })
+                marker.bindPopup( popupContent )
+                allChargerMarkers.push( marker )
+            } )
 
             // Update visible markers based on current viewport
             updateVisibleMarkers()
