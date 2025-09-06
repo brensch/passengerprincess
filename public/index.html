@@ -202,6 +202,20 @@
             }
         }
 
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
         .autocomplete-suggestion {
             padding: 8px;
             cursor: pointer;
@@ -479,7 +493,11 @@
         originInput.addEventListener( 'focus', () => {
             if ( originInput.value ) fetchSuggestions( originInput.value, originSuggestions, originInput )
         } )
-        originInput.addEventListener( 'blur', () => setTimeout( () => originSuggestions.classList.add( 'hidden' ), 150 ) )
+        originInput.addEventListener( 'blur', () => setTimeout( () => {
+            if (!originSuggestions.contains(document.activeElement)) {
+                originSuggestions.classList.add( 'hidden' )
+            }
+        }, 150 ) )
 
         // Autocomplete for destination
         let destinationDebounceTimer
@@ -490,7 +508,11 @@
         destinationInput.addEventListener( 'focus', () => {
             if ( destinationInput.value ) fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput )
         } )
-        destinationInput.addEventListener( 'blur', () => setTimeout( () => destinationSuggestions.classList.add( 'hidden' ), 150 ) )
+        destinationInput.addEventListener( 'blur', () => setTimeout( () => {
+            if (!destinationSuggestions.contains(document.activeElement)) {
+                destinationSuggestions.classList.add( 'hidden' )
+            }
+        }, 150 ) )
 
         // --- CORE FUNCTIONS ---
 
@@ -1148,15 +1170,13 @@
 
                 // Add click handler for supercharger (city link)
                 const handleRowClick = () => {
-                    // Check if marker is within map bounds before opening popup
-                    if ( map.getBounds().contains( chargerLatLng ) ) {
-                        map.setView( chargerLatLng, 15 )
-                        marker.openPopup()
-                        // Hide the results list
-                        bottomResults.style.display = 'none'
-                        toggleBtn.textContent = 'Show Results'
-                        map.invalidateSize()
-                    }
+                    // Always pan to the charger location and open popup
+                    map.setView( chargerLatLng, 15 )
+                    marker.openPopup()
+                    // Hide the results list
+                    bottomResults.style.display = 'none'
+                    toggleBtn.textContent = 'Show Results'
+                    map.invalidateSize()
                 }
 
                 // Add click handlers for city links (superchargers)
