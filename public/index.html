@@ -953,8 +953,19 @@
             // Extract locations for bulk restaurant query
             const locations = chargers.map( charger => charger.gps )
 
+            // Show loading message for restaurants
+            if ( noResults ) {
+                noResults.textContent = 'Retrieving restaurant info...'
+                noResults.classList.remove( 'hidden' )
+            }
+
             // Fetch all restaurants in one request
             const bulkResults = await getNearbyRestaurantsBulk( locations, 500 )
+
+            // Hide loading message
+            if ( noResults ) {
+                noResults.classList.add( 'hidden' )
+            }
 
             // Use document fragment for better performance
             const fragment = document.createDocumentFragment()
