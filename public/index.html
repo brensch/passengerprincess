@@ -729,8 +729,9 @@
                 (
                     ${ queryParts.join( '\n' ) }
                 );
-                out meta;
+                out;
             `
+
 
             try {
                 // Use POST request to handle large query data
@@ -743,6 +744,7 @@
                 } )
                 if ( !response.ok ) throw new Error( "Failed to fetch restaurant data." )
                 const data = await response.json()
+
 
                 // Group restaurants by which location they're closest to
                 data.elements.forEach( element => {
@@ -782,10 +784,10 @@
                 // Return empty results if the query fails
             }
 
-            // Sort restaurants by distance for each location
+            // Sort restaurants by distance for each location (closest first)
             results.forEach( result => {
                 result.restaurants.sort( ( a, b ) => a.distance - b.distance )
-                result.restaurants = result.restaurants.slice( 0, 5 ) // Limit to 5 per location
+                console.log( `Location ${ result.locationIndex }: ${ result.restaurants.length } restaurants sorted by distance` )
             } )
 
             return results
@@ -1017,9 +1019,14 @@
 
                 if ( restaurants.length > 0 ) {
                     popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
-                    restaurants.slice( 0, 5 ).forEach( restaurant => {
+                    const displayRestaurants = restaurants.slice( 0, 10 )
+                    displayRestaurants.forEach( restaurant => {
                         popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine || 'Restaurant' }) - ${ restaurant.distance }m</div>`
                     } )
+                    if ( restaurants.length > 10 ) {
+                        const moreCount = restaurants.length - 10
+                        popupContent += `<div class="text-sm mt-1 text-gray-600">and ${ moreCount } more...</div>`
+                    }
                 }
 
                 popupContent += '</div>'
