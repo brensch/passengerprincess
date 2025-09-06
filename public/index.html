@@ -1211,32 +1211,36 @@
                 const chargerRow = document.createElement( 'tr' )
                 chargerRow.className = 'cursor-pointer'
 
-                // Extract suburb/city from charger name (remove "Supercharger" and "Tesla Supercharger")
-                const suburbName = charger.name
-                    .replace( / Tesla Supercharger$/i, '' )
-                    .replace( / Supercharger$/i, '' )
-                    .trim()
+                // Construct address from charger data
+                const addressParts = []
+                if ( charger.address.street ) addressParts.push( charger.address.street )
+                if ( charger.address.city ) addressParts.push( charger.address.city )
+                if ( charger.address.state ) addressParts.push( charger.address.state )
+                if ( charger.address.zip ) addressParts.push( charger.address.zip )
+                const fullAddress = addressParts.join( ', ' ) || charger.name // fallback to name if no address
 
-                // Get actual city using reverse geocoding
-                let cityName = suburbName // fallback to extracted name
+                // Get actual city using reverse geocoding for fallback
+                let displayAddress = fullAddress // use constructed address
                 try {
                     // Use browser's geolocation API to reverse geocode
                     const geocodeUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${ charger.gps.latitude }&longitude=${ charger.gps.longitude }&localityLanguage=en`
                     fetch( geocodeUrl )
                         .then( response => response.json() )
                         .then( data => {
-                            if ( data.city ) {
-                                cityName = data.city
-                                // Update the distance cell with the correct city
+                            if ( data.city && !charger.address.city ) {
+                                // Only use geocoded city if we don't have address city
+                                const geocodedAddress = [ charger.address.street, data.city, charger.address.state, charger.address.zip ].filter( Boolean ).join( ', ' )
+                                displayAddress = geocodedAddress
+                                // Update the distance cell with the correct address
                                 const distanceCell = chargerRow.querySelector( 'td[rowspan]' )
                                 if ( distanceCell ) {
                                     distanceCell.innerHTML = `
                                         <div class="flex flex-col">
                                             <span>${ distanceFromOrigin }</span>
-                                            <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ cityName }</span>
+                                            <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ displayAddress }</span>
                                         </div>
                                     `
-                                    // Re-add click handler for the updated city link
+                                    // Re-add click handler for the updated address link
                                     const updatedCityLink = distanceCell.querySelector( '.city-link' )
                                     if ( updatedCityLink ) {
                                         updatedCityLink.addEventListener( 'click', ( e ) => {
@@ -1257,10 +1261,10 @@
                             }
                         } )
                         .catch( err => {
-                            console.log( 'Geocoding failed, using fallback:', err )
+                            console.log( 'Geocoding failed, using constructed address:', err )
                         } )
                 } catch ( e ) {
-                    console.log( 'Geocoding not available, using fallback' )
+                    console.log( 'Geocoding not available, using constructed address' )
                 }
 
                 if ( restaurants.length > 0 ) {
@@ -1268,7 +1272,7 @@
                         <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ restaurants.length }">
                             <div class="flex flex-col">
                                 <span>${ distanceFromOrigin }</span>
-                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ suburbName }</span>
+                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ displayAddress }</span>
                             </div>
                         </td>
                         <td class="px-1 py-0 text-sm text-pink-700">
@@ -1280,7 +1284,7 @@
                         <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200">
                             <div class="flex flex-col">
                                 <span>${ distanceFromOrigin }</span>
-                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ suburbName }</span>
+                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ displayAddress }</span>
                             </div>
                         </td>
                         <td class="px-1 py-0 text-sm text-pink-700">
