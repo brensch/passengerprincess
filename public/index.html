@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tesla Supercharger Route Planner</title>
+    <title>Passenger Princess Protector</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- LeafletJS for the map -->
@@ -22,36 +22,43 @@
         }
 
         #map {
-            height: 100vh;
+            height: calc(100vh - 41px);
             width: 100vw;
+            position: absolute;
+            top: 41px;
+            margin: 0;
+            padding: 0;
         }
 
         /* Overlay form at bottom */
         .overlay-form {
-            position: absolute;
-            bottom: 0;
+            position: fixed;
+            top: 0;
             left: 0;
             right: 0;
+            width: 100vw;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.95);
             padding: 15px;
-            box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             max-height: 50vh;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
-        /* Bottom results area */
+        /* Top results area */
         .bottom-results {
             position: absolute;
-            bottom: 0;
+            top: 41px;
             left: 0;
             right: 0;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.95);
             padding: 0;
-            box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             overflow: visible;
             display: none;
+            height: calc(100vh - 41px);
         }
 
         /* Compact list items */
@@ -93,36 +100,6 @@
             line-height: 1.2;
         }
 
-        /* Drag handle */
-        .drag-handle {
-            position: absolute;
-            top: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80px;
-            height: 8px;
-            background: #d1d5db;
-            border-radius: 4px;
-            cursor: ns-resize;
-            z-index: 1002;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .drag-handle:hover {
-            background: #9ca3af;
-            transform: translateX(-50%) scale(1.05);
-        }
-
-        /* Minimized state */
-        .bottom-results-minimized {
-            height: 40px !important;
-            overflow: hidden;
-        }
-
-        .bottom-results-minimized .drag-handle {
-            top: -6px;
-        }
-
         /* Custom scrollbar for the results list */
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
@@ -157,6 +134,8 @@
             .overlay-form {
                 padding: 10px;
                 max-height: 40vh;
+                position: fixed;
+                top: 0;
             }
 
             .bottom-results {
@@ -262,29 +241,30 @@
     <div id="map" style="position: relative;">
     </div>
 
-    <!-- Bottom Results Area -->
+    <!-- Top Toolbar -->
+    <div id="top-toolbar"
+        class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-300 p-2 flex justify-center space-x-2">
+        <button id="fullscreen-btn"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">Fullscreen</button>
+        <button id="half-btn" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Half</button>
+        <button id="hide-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Hide</button>
+        <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">New
+            Search</button>
+    </div>
+
+    <!-- Top Results Area -->
     <div class="bottom-results" id="bottom-results">
-        <div class="drag-handle" id="drag-handle"></div>
-        <div class="flex justify-between items-center mb-2 px-4 pt-4">
-            <h2 class="text-lg font-bold text-gray-800">Superchargers & Restaurants</h2>
-            <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">
-                New Search
-            </button>
-        </div>
         <div id="results-list" class="custom-scrollbar px-4"
-            style="height: calc(100% - 60px); overflow-y: auto; overflow-x: hidden;">
+            style="height: 100%; overflow-y: auto; overflow-x: hidden;">
             <table id="chargers-table" class="w-full hidden table-fixed" style="height: 100%;">
-                <thead>
+                <thead class="sticky top-0 bg-white z-10">
                     <tr>
                         <th
-                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
-                            Supercharger
+                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">
+                            Distance
                         </th>
                         <th
-                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
-                            Distance</th>
-                        <th
-                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
+                            class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">
                             Nearby Restaurants</th>
                     </tr>
                 </thead>
@@ -293,13 +273,13 @@
             </table>
             <p id="no-results" class="text-gray-500">Search for a route to see results.</p>
         </div>
+        <hr class="border-gray-300">
     </div>
 
     <!-- Overlay Input Form -->
     <div class="overlay-form" id="search-form">
         <header class="text-center mb-4">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Tesla Supercharger Route Planner</h1>
-            <p class="text-gray-600 text-sm">Find your route and nearby amenities.</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Passenger Princess Protector</h1>
         </header>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div class="relative">
@@ -358,7 +338,6 @@
         const bottomResults = document.getElementById( 'bottom-results' )
         const resultsList = document.getElementById( 'results-list' )
         const newSearchBtn = document.getElementById( 'new-search-btn' )
-        const dragHandle = document.getElementById( 'drag-handle' )
 
         // Check for query parameters and auto-populate search
         const urlParams = new URLSearchParams( window.location.search )
@@ -378,7 +357,7 @@
         }
 
         // --- MAP INITIALIZATION ---
-        let map = L.map( mapElement ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
+        let map = L.map( mapElement, { zoomControl: false } ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
         L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         } ).addTo( map )
@@ -404,8 +383,6 @@
             destinationInput.value = ''
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
-            bottomResults.classList.remove( 'bottom-results-minimized' )
-            bottomResults.style.height = 'auto'
             updateStatus( '' )
 
             // Clear query parameters
@@ -436,46 +413,22 @@
             }
         } )
 
-        // Drag functionality for resizing bottom panel
-        let isDragging = false
-        let startY = 0
-        let startHeight = 0
-
-        dragHandle.addEventListener( 'mousedown', ( e ) => {
-            isDragging = true
-            startY = e.clientY
-            startHeight = bottomResults.offsetHeight
-            document.body.style.cursor = 'ns-resize'
-            e.preventDefault()
+        // Button event listeners for results panel
+        document.getElementById( 'fullscreen-btn' ).addEventListener( 'click', () => {
+            bottomResults.style.display = 'block'
+            bottomResults.style.height = 'calc(100vh - 60px)'
+            map.invalidateSize()
         } )
 
-        document.addEventListener( 'mousemove', ( e ) => {
-            if ( !isDragging ) return
-
-            const deltaY = startY - e.clientY
-            const maxHeight = document.documentElement.clientHeight * 0.9
-            let newHeight
-            if ( deltaY > 0 ) {
-                // Dragging up - allow up to max height
-                newHeight = Math.min( maxHeight, startHeight + deltaY )
-            } else {
-                // Dragging down - allow down to minimum
-                newHeight = Math.max( 40, startHeight + deltaY )
-            }
-
-            bottomResults.style.height = newHeight + 'px'
-
-            // Trigger map resize
-            setTimeout( () => {
-                map.invalidateSize()
-            }, 10 )
+        document.getElementById( 'half-btn' ).addEventListener( 'click', () => {
+            bottomResults.style.display = 'block'
+            bottomResults.style.height = 'calc(50vh - 30px)'
+            map.invalidateSize()
         } )
 
-        document.addEventListener( 'mouseup', () => {
-            if ( isDragging ) {
-                isDragging = false
-                document.body.style.cursor = ''
-            }
+        document.getElementById( 'hide-btn' ).addEventListener( 'click', () => {
+            bottomResults.style.display = 'none'
+            map.invalidateSize()
         } )
 
         // Autocomplete for origin
@@ -564,8 +517,7 @@
             // Hide search form and show results
             searchForm.style.display = 'none'
             bottomResults.style.display = 'block'
-            bottomResults.classList.remove( 'bottom-results-minimized' )
-            bottomResults.style.height = 'auto'
+            bottomResults.style.height = 'calc(50vh - 30px)'
 
             try {
                 // Step 1: Geocode addresses to get coordinates
@@ -908,6 +860,18 @@
                 return
             }
 
+            // Sort chargers by distance from origin
+            const originElement = document.getElementById( 'origin' )
+            const originCoords = originElement ? await geocodeAddress( originElement.value.trim() ) : null
+            
+            if ( originCoords ) {
+                chargers.sort( ( a, b ) => {
+                    const distA = distance( originCoords[ 1 ], originCoords[ 0 ], a.gps.latitude, a.gps.longitude )
+                    const distB = distance( originCoords[ 1 ], originCoords[ 0 ], b.gps.latitude, b.gps.longitude )
+                    return distA - distB
+                } )
+            }
+
             // Clear previous data
             allChargerMarkers = []
             allRestaurantMarkers = []
@@ -927,10 +891,6 @@
 
             // Fetch all restaurants in one request
             const bulkResults = await getNearbyRestaurantsBulk( locations, 500 )
-
-            // Get origin coordinates for distance calculation
-            const originElement = document.getElementById( 'origin' )
-            const originCoords = originElement ? await geocodeAddress( originElement.value.trim() ) : null
 
             // Process results and create table rows
             chargers.forEach( ( charger, index ) => {
@@ -1000,7 +960,6 @@
 
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
-                        <td class="px-2 py-2 text-sm font-medium text-gray-900 border-r border-gray-200" rowspan="${ restaurants.length }">${ charger.name }</td>
                         <td class="px-2 py-2 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
                         <td class="px-2 py-2 text-sm text-gray-700">
                             ${ restaurants[ 0 ].name } (${ restaurants[ 0 ].distance }m)
@@ -1008,7 +967,6 @@
                     `
                 } else {
                     chargerRow.innerHTML = `
-                        <td class="px-2 py-2 text-sm font-medium text-gray-900 border-r border-gray-200">${ charger.name }</td>
                         <td class="px-2 py-2 text-sm text-gray-500 border-r border-gray-200">${ distanceFromOrigin }</td>
                         <td class="px-2 py-2 text-sm text-gray-700">
                             No restaurants found
@@ -1085,8 +1043,6 @@
             // Show search form and hide results
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
-            bottomResults.classList.remove( 'bottom-results-minimized' )
-            bottomResults.style.height = 'auto'
         }
 
         function updateStatus ( message, isError = false ) {
