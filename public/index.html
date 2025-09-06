@@ -537,7 +537,7 @@
                 // Show results
                 bottomResults.style.display = 'block'
                 bottomResults.style.height = 'calc(100vh - 41px)'
-                toggleBtn.textContent = 'Hide Results'
+                toggleBtn.textContent = 'Show map'
                 map.invalidateSize()
             } else {
                 // Hide results
@@ -1241,7 +1241,16 @@
                                     if ( updatedCityLink ) {
                                         updatedCityLink.addEventListener( 'click', ( e ) => {
                                             e.stopPropagation()
-                                            handleRowClick()
+                                            // Ensure marker is added to layer before opening popup
+                                            if ( !chargerLayer.hasLayer( marker ) ) {
+                                                chargerLayer.addLayer( marker )
+                                            }
+                                            map.setView( chargerLatLng, 15 )
+                                            marker.openPopup()
+                                            // Hide the results list
+                                            bottomResults.style.display = 'none'
+                                            toggleBtn.textContent = 'Show Results'
+                                            map.invalidateSize()
                                         } )
                                     }
                                 }
@@ -1295,6 +1304,10 @@
                                 marker.getLatLng().lng === restaurant.gps.longitude
                             )
                             if ( restaurantMarker ) {
+                                // Ensure marker is added to layer before opening popup
+                                if ( !restaurantLayer.hasLayer( restaurantMarker ) ) {
+                                    restaurantLayer.addLayer( restaurantMarker )
+                                }
                                 restaurantMarker.openPopup()
                             }
                             // Hide the results list
@@ -1309,6 +1322,10 @@
                 const handleRowClick = () => {
                     // Always pan to the charger location and open popup
                     map.setView( chargerLatLng, 15 )
+                    // Ensure marker is added to layer before opening popup
+                    if ( !chargerLayer.hasLayer( marker ) ) {
+                        chargerLayer.addLayer( marker )
+                    }
                     marker.openPopup()
                     // Hide the results list
                     bottomResults.style.display = 'none'
@@ -1355,6 +1372,10 @@
                                     marker.getLatLng().lng === restaurant.gps.longitude
                                 )
                                 if ( restaurantMarker ) {
+                                    // Ensure marker is added to layer before opening popup
+                                    if ( !restaurantLayer.hasLayer( restaurantMarker ) ) {
+                                        restaurantLayer.addLayer( restaurantMarker )
+                                    }
                                     restaurantMarker.openPopup()
                                 }
                                 // Hide the results list
@@ -1542,9 +1563,9 @@
 
             // First pass: remove all highlights
             rows.forEach( row => {
-                const cells = row.querySelectorAll( 'td' )
-                cells.forEach( cell => {
-                    cell.innerHTML = cell.innerHTML.replace( /<mark[^>]*>(.*?)<\/mark>/g, '$1' )
+                const links = row.querySelectorAll( '.restaurant-link' )
+                links.forEach( link => {
+                    link.innerHTML = link.innerHTML.replace( /<mark[^>]*>(.*?)<\/mark>/g, '$1' )
                 } )
             } )
 
@@ -1601,13 +1622,16 @@
 
                         // Highlight main row restaurant
                         if ( cells.length > 1 ) {
-                            const restaurantText = cells[ 1 ].textContent
-                            if ( restaurantText.toLowerCase().includes( searchLower ) ) {
-                                const highlightedText = restaurantText.replace(
-                                    new RegExp( `(${ searchTerm })`, 'gi' ),
-                                    '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
-                                )
-                                cells[ 1 ].innerHTML = highlightedText
+                            const restaurantLink = cells[ 1 ].querySelector( '.restaurant-link' )
+                            if ( restaurantLink ) {
+                                const restaurantText = restaurantLink.textContent
+                                if ( restaurantText.toLowerCase().includes( searchLower ) ) {
+                                    const highlightedText = restaurantText.replace(
+                                        new RegExp( `(${ searchTerm })`, 'gi' ),
+                                        '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
+                                    )
+                                    restaurantLink.innerHTML = highlightedText
+                                }
                             }
                         }
                         row.style.display = ''
@@ -1618,13 +1642,16 @@
                             if ( subRow ) {
                                 const subCells = subRow.querySelectorAll( 'td' )
                                 if ( subCells.length > 0 ) {
-                                    const subRestaurantText = subCells[ 0 ].textContent
-                                    if ( subRestaurantText.toLowerCase().includes( searchLower ) ) {
-                                        const highlightedText = subRestaurantText.replace(
-                                            new RegExp( `(${ searchTerm })`, 'gi' ),
-                                            '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
-                                        )
-                                        subCells[ 0 ].innerHTML = highlightedText
+                                    const subRestaurantLink = subCells[ 0 ].querySelector( '.restaurant-link' )
+                                    if ( subRestaurantLink ) {
+                                        const subRestaurantText = subRestaurantLink.textContent
+                                        if ( subRestaurantText.toLowerCase().includes( searchLower ) ) {
+                                            const highlightedText = subRestaurantText.replace(
+                                                new RegExp( `(${ searchTerm })`, 'gi' ),
+                                                '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
+                                            )
+                                            subRestaurantLink.innerHTML = highlightedText
+                                        }
                                     }
                                 }
                                 subRow.style.display = ''
