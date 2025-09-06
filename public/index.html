@@ -1071,7 +1071,20 @@
                                 // Update the distance cell with the correct city
                                 const distanceCell = chargerRow.querySelector( 'td[rowspan]' )
                                 if ( distanceCell ) {
-                                    distanceCell.innerHTML = `${ distanceFromOrigin }m<br><span class="text-xs text-gray-600">${ cityName }</span>`
+                                    distanceCell.innerHTML = `
+                                        <div class="flex flex-col">
+                                            <span>${ distanceFromOrigin }m</span>
+                                            <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ cityName }</span>
+                                        </div>
+                                    `
+                                    // Re-add click handler for the updated city link
+                                    const updatedCityLink = distanceCell.querySelector( '.city-link' )
+                                    if ( updatedCityLink ) {
+                                        updatedCityLink.addEventListener( 'click', ( e ) => {
+                                            e.stopPropagation()
+                                            handleRowClick()
+                                        } )
+                                    }
                                 }
                             }
                         } )
@@ -1085,8 +1098,10 @@
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
                         <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">
-                            ${ distanceFromOrigin }m<br>
-                            <span class="text-xs text-gray-600">${ suburbName }</span>
+                            <div class="flex flex-col">
+                                <span>${ distanceFromOrigin }m</span>
+                                <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ suburbName }</span>
+                            </div>
                         </td>
                         <td class="px-1 py-0 text-sm text-gray-700">
                             <span class="text-blue-600 hover:text-blue-800 cursor-pointer restaurant-link">${ restaurants[ 0 ].name }</span> (${ restaurants[ 0 ].distance }m)
@@ -1095,8 +1110,10 @@
                 } else {
                     chargerRow.innerHTML = `
                         <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200">
-                            ${ distanceFromOrigin }m<br>
-                            <span class="text-xs text-gray-600">${ suburbName }</span>
+                            <div class="flex flex-col">
+                                <span>${ distanceFromOrigin }m</span>
+                                <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ suburbName }</span>
+                            </div>
                         </td>
                         <td class="px-1 py-0 text-sm text-gray-700">
                             No restaurants found
@@ -1126,6 +1143,28 @@
                             toggleBtn.textContent = 'Show Results'
                             map.invalidateSize()
                         }
+                    } )
+                } )
+
+                // Add click handler for supercharger (city link)
+                const handleRowClick = () => {
+                    // Check if marker is within map bounds before opening popup
+                    if ( map.getBounds().contains( chargerLatLng ) ) {
+                        map.setView( chargerLatLng, 15 )
+                        marker.openPopup()
+                        // Hide the results list
+                        bottomResults.style.display = 'none'
+                        toggleBtn.textContent = 'Show Results'
+                        map.invalidateSize()
+                    }
+                }
+
+                // Add click handlers for city links (superchargers)
+                const cityLinks = chargerRow.querySelectorAll( '.city-link' )
+                cityLinks.forEach( link => {
+                    link.addEventListener( 'click', ( e ) => {
+                        e.stopPropagation()
+                        handleRowClick()
                     } )
                 } )
 
