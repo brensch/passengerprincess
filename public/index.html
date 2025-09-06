@@ -539,33 +539,7 @@
 
         document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
             document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
-            clearMap()
-            originInput.value = ''
-            destinationInput.value = ''
-            restaurantSearchInput.value = ''
-            searchForm.style.display = 'block'
-            searchForm.style.zIndex = '1000'
-            bottomResults.style.display = 'none'
-            toggleBtn.textContent = 'Show Results'
-            updateStatus( '' )
-
-            // Reset location button
-            locationText.textContent = '👑 Use Current Location'
-            loadingSpinner.classList.add( 'hidden' )
-            locationBtn.disabled = false
-
-            // Clear data arrays
-            currentChargers = []
-            currentRestaurants = []
-
-            // Clear results list
-            resultsList.innerHTML = '<p class="text-pink-500">Search for a route to see results.</p>'
-
-            // Clear query parameters
-            const url = new URL( window.location )
-            url.searchParams.delete( 'origin' )
-            url.searchParams.delete( 'destination' )
-            window.history.pushState( {}, '', url )
+            window.location.href = window.location.pathname
         } )
 
         // Handle browser back/forward navigation
@@ -845,6 +819,23 @@
         }
 
         /**
+         * Converts latitude/longitude coordinates to an address string.
+         * @param {number} lat The latitude.
+         * @param {number} lon The longitude.
+         * @returns {Promise<string|null>} A promise resolving to the address string or null.
+         */
+        async function reverseGeocode ( lat, lon ) {
+            const url = `https://api.openrouteservice.org/geocode/reverse?api_key=${ ORS_API_KEY }&point.lon=${ lon }&point.lat=${ lat }&size=1`
+            const response = await fetch( url )
+            if ( !response.ok ) throw new Error( `Reverse geocoding failed: ${ response.statusText }` )
+            const data = await response.json()
+            if ( data.features && data.features.length > 0 ) {
+                return data.features[ 0 ].properties.label
+            }
+            return null
+        }
+
+        /**
          * Requests the user's current location and populates the origin field.
          */
         async function requestUserLocation () {
@@ -886,8 +877,22 @@
                         const lat = position.coords.latitude
                         const lon = position.coords.longitude
 
-                        // Just set coordinates without reverse geocoding
-                        originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
+                        try {
+                            // Try to reverse geocode to get address name
+                            const address = await reverseGeocode( lat, lon )
+                            if ( address ) {
+                                originInput.value = address
+                            } else {
+                                // Fallback to coordinates if reverse geocoding fails
+                                originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
+                            }
+                        } catch ( error ) {
+                            console.log( "Reverse geocoding error:", error )
+                            // Fallback to coordinates
+                            originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
+                        }
+
+                        updateStatus( "Location detected and set as origin.", false )
 
                         // Hide loading spinner
                         locationText.textContent = '👑 Use Current Location'
