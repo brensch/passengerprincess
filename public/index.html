@@ -953,6 +953,12 @@
                         } )
                     } )
                     restaurantMarker.bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.cuisine || 'Restaurant' }<br>${ restaurant.distance }m away` )
+                    
+                    // Handle popup close - just close the popup, don't remove marker
+                    restaurantMarker.on( 'popupclose', function() {
+                        // Marker stays on map, just popup closes
+                    } )
+                    
                     allRestaurantMarkers.push( restaurantMarker )
                 } )
 
@@ -975,6 +981,11 @@
 
                 popupContent += '</div>'
                 marker.bindPopup( popupContent )
+                
+                // Handle popup close - just close the popup, don't remove marker
+                marker.on( 'popupclose', function() {
+                    // Marker stays on map, just popup closes
+                } )
 
                 // Create table rows - main charger row
                 const chargerRow = document.createElement( 'tr' )
@@ -997,8 +1008,11 @@
                 }
 
                 chargerRow.addEventListener( 'click', () => {
-                    map.setView( chargerLatLng, 15 )
-                    marker.openPopup()
+                    // Check if marker is within map bounds before opening popup
+                    if ( map.getBounds().contains( chargerLatLng ) ) {
+                        map.setView( chargerLatLng, 15 )
+                        marker.openPopup()
+                    }
                 } )
 
                 tbody.appendChild( chargerRow )
@@ -1022,8 +1036,7 @@
                 }
             } )
 
-            // Update visible markers based on current viewport
-            updateVisibleMarkers()
+            // Markers will be added to map when they come into viewport via map events
         }
 
 
@@ -1033,24 +1046,27 @@
             const bounds = map.getBounds()
             const zoom = map.getZoom()
 
-            // Clear current layers
-            chargerLayer.clearLayers()
-            restaurantLayer.clearLayers()
-
-            // Add superchargers within viewport
+            // For superchargers - keep them persistent, only add when they come into view
             allChargerMarkers.forEach( marker => {
-                if ( bounds.contains( marker.getLatLng() ) ) {
+                if ( bounds.contains( marker.getLatLng() ) && !chargerLayer.hasLayer( marker ) ) {
                     chargerLayer.addLayer( marker )
+                } else if ( !bounds.contains( marker.getLatLng() ) && chargerLayer.hasLayer( marker ) ) {
+                    chargerLayer.removeLayer( marker )
                 }
             } )
 
-            // Add restaurants within viewport and only when zoomed in enough
-            if ( zoom >= 14 ) { // Only show restaurants when zoomed in
+            // For restaurants - only show when zoomed in enough
+            if ( zoom >= 14 ) {
                 allRestaurantMarkers.forEach( marker => {
-                    if ( bounds.contains( marker.getLatLng() ) ) {
+                    if ( bounds.contains( marker.getLatLng() ) && !restaurantLayer.hasLayer( marker ) ) {
                         restaurantLayer.addLayer( marker )
+                    } else if ( !bounds.contains( marker.getLatLng() ) && restaurantLayer.hasLayer( marker ) ) {
+                        restaurantLayer.removeLayer( marker )
                     }
                 } )
+            } else {
+                // Remove all restaurant markers when zoomed out
+                restaurantLayer.clearLayers()
             }
         }
 
