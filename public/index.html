@@ -80,7 +80,7 @@
 
         #chargers-table td,
         #chargers-table th {
-            border-bottom: 1px solid #f3f4f6;
+            border-bottom: 2px solid #f3f4f6;
         }
 
         /* Compact list items */
@@ -1003,7 +1003,7 @@
                     const restaurantMarker = L.marker( restaurantLatLng, {
                         icon: L.divIcon( {
                             className: 'emoji-icon',
-                            html: '🌭',
+                            html: '🍖',
                             iconSize: [ 70, 70 ],
                             iconAnchor: [ 35, 35 ]
                         } )
@@ -1068,7 +1068,8 @@
                     `
                 }
 
-                chargerRow.addEventListener( 'click', () => {
+                // Add click handler to the row
+                const handleRowClick = () => {
                     // Check if marker is within map bounds before opening popup
                     if ( map.getBounds().contains( chargerLatLng ) ) {
                         map.setView( chargerLatLng, 15 )
@@ -1078,6 +1079,17 @@
                         toggleBtn.textContent = 'Show Results'
                         map.invalidateSize()
                     }
+                }
+
+                chargerRow.addEventListener( 'click', handleRowClick )
+
+                // Add click handlers to all cells in the row for maximum reliability
+                const chargerCells = chargerRow.querySelectorAll( 'td' )
+                chargerCells.forEach( cell => {
+                    cell.addEventListener( 'click', ( e ) => {
+                        e.stopPropagation() // Prevent double firing
+                        handleRowClick()
+                    } )
                 } )
 
                 fragment.appendChild( chargerRow )
@@ -1092,13 +1104,25 @@
                         </td>
                     `
 
-                    restaurantRow.addEventListener( 'click', () => {
+                    // Add click handler to the row
+                    const handleRestaurantRowClick = () => {
                         map.setView( chargerLatLng, 15 )
                         marker.openPopup()
                         // Hide the results list
                         bottomResults.style.display = 'none'
                         toggleBtn.textContent = 'Show Results'
                         map.invalidateSize()
+                    }
+
+                    restaurantRow.addEventListener( 'click', handleRestaurantRowClick )
+
+                    // Add click handlers to all cells in the row for maximum reliability
+                    const restaurantCells = restaurantRow.querySelectorAll( 'td' )
+                    restaurantCells.forEach( cell => {
+                        cell.addEventListener( 'click', ( e ) => {
+                            e.stopPropagation() // Prevent double firing
+                            handleRestaurantRowClick()
+                        } )
                     } )
 
                     fragment.appendChild( restaurantRow )
