@@ -7,6 +7,13 @@
     <title>Passenger Princess Protector</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for princessy styling -->
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        .font-dancing {
+            font-family: 'Dancing Script', cursive;
+        }
+    </style>
     <!-- LeafletJS for the map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -22,10 +29,10 @@
         }
 
         #map {
-            height: calc(100vh - 41px);
+            height: calc(100vh - 60px);
             width: 100vw;
             position: absolute;
-            top: 41px;
+            top: 60px;
             margin: 0;
             padding: 0;
         }
@@ -49,7 +56,7 @@
         /* Top results area */
         .bottom-results {
             position: absolute;
-            top: 41px;
+            top: 60px;
             left: 0;
             right: 0;
             z-index: 1000;
@@ -58,7 +65,7 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             overflow: visible;
             display: none;
-            height: calc(100vh - 41px);
+            height: calc(100vh - 60px);
         }
 
         /* Compact table styling */
@@ -229,14 +236,17 @@
             background: #f8fafc;
         }
 
-        /* Enhanced input styling */
-        .enhanced-input {
-            transition: all 0.2s ease-in-out;
+        /* Enhanced link styling for clickable results */
+        .city-link,
+        .restaurant-link {
+            text-decoration: underline;
+            text-decoration-color: rgba(236, 72, 153, 0.5);
+            text-underline-offset: 2px;
         }
 
-        .enhanced-input:focus {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
+        .city-link:hover,
+        .restaurant-link:hover {
+            text-decoration-color: rgb(236, 72, 153);
         }
 
         /* Custom emoji icons for map markers */
@@ -346,10 +356,15 @@
 
     <!-- Top Toolbar -->
     <div id="top-toolbar"
-        class="fixed top-0 left-0 right-0 z-50 bg-pink-50 border-b border-pink-300 p-2 flex justify-center space-x-2">
-        <button id="toggle-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded text-sm">▼</button>
-        <button id="new-search-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded text-sm">New
-            Search</button>
+        class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-pink-200 to-pink-300 border-b border-pink-400 p-3 flex justify-between items-center shadow-lg">
+        <div class="text-2xl font-bold text-pink-800 font-dancing">PPP</div>
+        <div class="flex space-x-2">
+            <button id="toggle-btn"
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">▼</button>
+            <button id="new-search-btn"
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">New
+                Search</button>
+        </div>
     </div>
 
     <!-- Top Results Area -->
@@ -390,15 +405,15 @@
     <!-- Overlay Input Form -->
     <div class="overlay-form" id="search-form">
         <header class="text-center mb-4">
-            <h1 class="text-2xl md:text-3xl font-bold text-pink-800">Passenger Princess Protector</h1>
+            <h1 class="text-3xl md:text-4xl font-bold text-pink-800 font-dancing">Passenger Princess Protector</h1>
         </header>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div class="relative">
                 <div class="flex items-center justify-between mb-1">
                     <label for="origin" class="block text-sm font-medium text-pink-700">Origin</label>
                     <button id="location-btn"
-                        class="bg-pink-600 hover:bg-pink-700 text-white px-3 py-1 rounded-md text-xs font-medium focus:outline-none disabled:opacity-50 whitespace-nowrap">
-                        <span id="location-text">Use Current Location</span>
+                        class="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white px-3 py-1 rounded-md text-xs font-medium focus:outline-none disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
+                        <span id="location-text">👑 Use Current Location</span>
                         <div id="loading-spinner"
                             class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block ml-2">
                         </div>
@@ -418,7 +433,7 @@
             </div>
             <div class="md:col-span-2">
                 <button id="find-route-btn"
-                    class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out text-sm hover:shadow-lg transform hover:-translate-y-0.5">
+                    class="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-200 text-sm hover:shadow-lg transform hover:-translate-y-0.5">
                     Find Route & Amenities
                 </button>
             </div>
@@ -426,16 +441,19 @@
         <div id="status-message" class="text-center mt-3 text-pink-600 font-medium text-sm"></div>
     </div>
 
-    <!-- Bottom Results Area -->
-    <div class="bottom-results" id="bottom-results">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-pink-800">Superchargers & Restaurants</h2>
-            <button id="new-search-btn" class="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded text-sm">
-                New Search
-            </button>
-        </div>
-        <div id="results-list">
-            <p class="text-pink-500">Search for a route to see results.</p>
+    <!-- New Search Confirmation Modal -->
+    <div id="new-search-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
+        <div class="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+            <h3 class="text-lg font-semibold text-pink-800 mb-4 font-dancing">Are you sure?</h3>
+            <p class="text-gray-600 mb-6">This will clear your current search and start a new one.</p>
+            <div class="flex space-x-3 justify-end">
+                <button id="cancel-new-search"
+                    class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">Cancel</button>
+                <button id="confirm-new-search"
+                    class="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg font-medium">Yes, New
+                    Search</button>
+            </div>
         </div>
     </div>
 
@@ -511,6 +529,16 @@
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
         locationBtn.addEventListener( 'click', handleLocationClick )
         newSearchBtn.addEventListener( 'click', () => {
+            document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' )
+        } )
+
+        // Modal event listeners
+        document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => {
+            document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
+        } )
+
+        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
+            document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
             clearMap()
             originInput.value = ''
             destinationInput.value = ''
@@ -521,7 +549,7 @@
             updateStatus( '' )
 
             // Reset location button
-            locationText.textContent = 'Use Current Location'
+            locationText.textContent = '👑 Use Current Location'
             loadingSpinner.classList.add( 'hidden' )
             locationBtn.disabled = false
 
@@ -606,7 +634,7 @@
             if ( bottomResults.style.display === 'none' ) {
                 // Show results
                 bottomResults.style.display = 'block'
-                bottomResults.style.height = 'calc(100vh - 41px)'
+                bottomResults.style.height = 'calc(100vh - 60px)'
                 toggleBtn.textContent = 'Show map'
                 map.invalidateSize()
             } else {
@@ -875,14 +903,14 @@
                         }
 
                         // Hide loading spinner
-                        locationText.textContent = 'Use Current Location'
+                        locationText.textContent = '👑 Use Current Location'
                         loadingSpinner.classList.add( 'hidden' )
                         locationBtn.disabled = false
                     },
                     ( error ) => {
                         console.log( "Geolocation error:", error )
                         // Hide loading spinner
-                        locationText.textContent = 'Use Current Location'
+                        locationText.textContent = '👑 Use Current Location'
                         loadingSpinner.classList.add( 'hidden' )
                         locationBtn.disabled = false
                     },
@@ -894,7 +922,7 @@
                 )
             } else {
                 // Hide loading spinner
-                locationText.textContent = 'Use Current Location'
+                locationText.textContent = '👑 Use Current Location'
                 loadingSpinner.classList.add( 'hidden' )
                 locationBtn.disabled = false
             }
