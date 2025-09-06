@@ -293,12 +293,10 @@
             <table id="chargers-table" class="w-full hidden table-fixed">
                 <thead class="sticky top-0 bg-white z-10">
                     <tr>
-                                                <th
-                            class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                        <th class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                             Distance
                         </th>
-                        <th
-                            class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Nearby Restaurants</th>
                     </tr>
                 </thead>
@@ -391,7 +389,7 @@
         }
 
         // --- MAP INITIALIZATION ---
-        let map = L.map( mapElement, { zoomControl: false } ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
+        let map = L.map( mapElement, { zoomControl: false, zoomSnap: 0, zoomDelta: 1.5, wheelPxPerZoomLevel: 60 } ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
         L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         } ).addTo( map )
@@ -934,6 +932,9 @@
             // Fetch all restaurants in one request
             const bulkResults = await getNearbyRestaurantsBulk( locations, 500 )
 
+            // Use document fragment for better performance
+            const fragment = document.createDocumentFragment()
+
             // Process results and create table rows
             chargers.forEach( ( charger, index ) => {
                 const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
@@ -1039,7 +1040,7 @@
                     }
                 } )
 
-                tbody.appendChild( chargerRow )
+                fragment.appendChild( chargerRow )
 
                 // Create subrows for additional restaurants
                 for ( let i = 1; i < restaurants.length; i++ ) {
@@ -1060,11 +1061,56 @@
                         map.invalidateSize()
                     } )
 
-                    tbody.appendChild( restaurantRow )
+                    fragment.appendChild( restaurantRow )
                 }
             } )
 
-            // Markers will be added to map when they come into viewport via map events
+            // Append all rows at once for better performance
+            tbody.appendChild(fragment)
+
+            // Add markers to map for current viewport
+            updateVisibleMarkers()
+        }
+
+        /**
+         * Display superchargers only (without restaurants) for initial load
+         * @param {Array<object>} chargers - The chargers to display.
+         */
+        async function displaySuperchargersOnly(chargers) {
+            if (chargers.length === 0) return
+
+            // Clear previous data
+            allChargerMarkers = []
+            currentChargers = chargers
+
+            // Create markers for all chargers
+            chargers.forEach((charger) => {
+                const chargerLatLng = [charger.gps.latitude, charger.gps.longitude]
+                const marker = L.marker(chargerLatLng, {
+                    icon: L.divIcon({
+                        className: 'emoji-icon',
+                        html: '⚡',
+                        iconSize: [100, 100],
+                        iconAnchor: [50, 50]
+                    })
+                })
+
+                // Create popup content
+                const popupContent = `
+                    <div class="font-sans max-w-xs">
+                        <strong class="text-lg">${charger.name}</strong><br>
+                        <strong>Status:</strong> ${charger.status}<br>
+                        <strong>Stalls:</strong> ${charger.stallCount}<br>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${charger.gps.latitude},${charger.gps.longitude}" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
+                    </div>
+                `
+
+                marker.bindPopup(popupContent)
+                allChargerMarkers.push(marker)
+            })
+
+            // Update visible markers based on current viewport
+            updateVisibleMarkers()
         }
 
 
