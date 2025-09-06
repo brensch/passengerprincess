@@ -329,6 +329,14 @@
         #loading-container:not(.hidden)~#chargers-table thead {
             display: none;
         }
+
+        /* Princess marker styling */
+        .princess-marker {
+            background: transparent !important;
+            border: none !important;
+            font-size: 24px !important;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 
@@ -386,9 +394,18 @@
         </header>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <div class="relative">
-                <label for="origin" class="block text-sm font-medium text-pink-700">Origin</label>
+                <div class="flex items-center justify-between mb-1">
+                    <label for="origin" class="block text-sm font-medium text-pink-700">Origin</label>
+                    <button id="location-btn"
+                        class="bg-pink-600 hover:bg-pink-700 text-white px-3 py-1 rounded-md text-xs font-medium focus:outline-none disabled:opacity-50 whitespace-nowrap">
+                        <span id="location-text">Use Current Location</span>
+                        <div id="loading-spinner"
+                            class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block ml-2">
+                        </div>
+                    </button>
+                </div>
                 <input type="text" id="origin"
-                    class="mt-1 block w-full px-4 py-3 rounded-md border-pink-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 text-sm enhanced-input"
+                    class="block w-full px-4 py-3 rounded-md border-pink-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 text-sm enhanced-input"
                     placeholder="e.g., San Francisco, CA">
                 <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
@@ -441,6 +458,9 @@
         const bottomResults = document.getElementById( 'bottom-results' )
         const resultsList = document.getElementById( 'results-list' )
         const newSearchBtn = document.getElementById( 'new-search-btn' )
+        const locationBtn = document.getElementById( 'location-btn' )
+        const locationText = document.getElementById( 'location-text' )
+        const loadingSpinner = document.getElementById( 'loading-spinner' )
 
         // Check for query parameters and auto-populate search
         const urlParams = new URLSearchParams( window.location.search )
@@ -460,9 +480,9 @@
         }
 
         // Request user's location on page load if origin is not already set
-        if ( !originParam ) {
-            requestUserLocation()
-        }
+        // if ( !originParam ) {
+        //     requestUserLocation()
+        // }
 
         // --- MAP INITIALIZATION ---
         let map = L.map( mapElement, { zoomControl: false, zoomSnap: 0, zoomDelta: 1.5, wheelPxPerZoomLevel: 60 } ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
@@ -473,6 +493,10 @@
         let routeLayer = L.layerGroup().addTo( map )
         let chargerLayer = L.layerGroup().addTo( map )
         let restaurantLayer = L.layerGroup().addTo( map )
+        let userLocationLayer = L.layerGroup().addTo( map )
+
+        // User location marker
+        let userLocationMarker = null
 
         // Store all markers for viewport filtering
         let allChargerMarkers = []
@@ -485,6 +509,7 @@
 
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
+        locationBtn.addEventListener( 'click', handleLocationClick )
         newSearchBtn.addEventListener( 'click', () => {
             clearMap()
             originInput.value = ''
@@ -494,6 +519,11 @@
             bottomResults.style.display = 'none'
             toggleBtn.textContent = 'Show Results'
             updateStatus( '' )
+
+            // Reset location button
+            locationText.textContent = 'Use Current Location'
+            loadingSpinner.classList.add( 'hidden' )
+            locationBtn.disabled = false
 
             // Clear data arrays
             currentChargers = []
@@ -529,6 +559,46 @@
                 updateStatus( '' )
             }
         } )
+
+        // Update user location marker every 5 seconds
+        function updateUserLocation () {
+            if ( navigator.geolocation ) {
+                navigator.geolocation.getCurrentPosition(
+                    ( position ) => {
+                        const lat = position.coords.latitude
+                        const lon = position.coords.longitude
+
+                        // Remove existing marker
+                        if ( userLocationMarker ) {
+                            userLocationLayer.removeLayer( userLocationMarker )
+                        }
+
+                        // Create new marker with princess emoji
+                        const princessIcon = L.divIcon( {
+                            html: '👸',
+                            className: 'princess-marker',
+                            iconSize: [ 30, 30 ],
+                            iconAnchor: [ 15, 15 ]
+                        } )
+
+                        userLocationMarker = L.marker( [ lat, lon ], { icon: princessIcon } )
+                        userLocationLayer.addLayer( userLocationMarker )
+                    },
+                    ( error ) => {
+                        console.log( "Geolocation error for marker update:", error )
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 10000
+                    }
+                )
+            }
+        }
+
+        // Start updating user location
+        updateUserLocation()
+        setInterval( updateUserLocation, 5000 )
 
         // Button event listeners for results panel
         const toggleBtn = document.getElementById( 'toggle-btn' )
@@ -652,7 +722,7 @@
             searchForm.style.display = 'none'
             bottomResults.style.display = 'block'
             bottomResults.style.height = 'calc(100vh - 41px)'
-            toggleBtn.textContent = 'Hide Results'
+            toggleBtn.textContent = 'Show map'
 
             try {
                 // Step 1: Geocode addresses to get coordinates
@@ -765,6 +835,68 @@
                 )
             } else {
                 updateStatus( "Geolocation is not supported by this browser.", false )
+            }
+        }
+
+        // Handle location button click
+        async function handleLocationClick () {
+            // Show loading spinner
+            locationText.textContent = 'Getting location...'
+            loadingSpinner.classList.remove( 'hidden' )
+            locationBtn.disabled = true
+
+            if ( navigator.geolocation ) {
+                navigator.geolocation.getCurrentPosition(
+                    async ( position ) => {
+                        const lat = position.coords.latitude
+                        const lon = position.coords.longitude
+
+                        // Reverse geocode to get a readable address
+                        try {
+                            const reverseGeocodeUrl = `https://api.openrouteservice.org/geocode/reverse?api_key=${ ORS_API_KEY }&point.lon=${ lon }&point.lat=${ lat }&size=1`
+                            const response = await fetch( reverseGeocodeUrl )
+                            if ( response.ok ) {
+                                const data = await response.json()
+                                if ( data.features && data.features.length > 0 ) {
+                                    const address = data.features[ 0 ].properties.label
+                                    originInput.value = address
+                                } else {
+                                    // Fallback to coordinates if reverse geocoding fails
+                                    originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
+                                }
+                            } else {
+                                // Fallback to coordinates if reverse geocoding fails
+                                originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
+                            }
+                        } catch ( error ) {
+                            console.error( "Reverse geocoding failed:", error )
+                            // Fallback to coordinates
+                            originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
+                        }
+
+                        // Hide loading spinner
+                        locationText.textContent = 'Use Current Location'
+                        loadingSpinner.classList.add( 'hidden' )
+                        locationBtn.disabled = false
+                    },
+                    ( error ) => {
+                        console.log( "Geolocation error:", error )
+                        // Hide loading spinner
+                        locationText.textContent = 'Use Current Location'
+                        loadingSpinner.classList.add( 'hidden' )
+                        locationBtn.disabled = false
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000 // 5 minutes
+                    }
+                )
+            } else {
+                // Hide loading spinner
+                locationText.textContent = 'Use Current Location'
+                loadingSpinner.classList.add( 'hidden' )
+                locationBtn.disabled = false
             }
         }
 
@@ -1222,41 +1354,56 @@
                 // Get actual city using reverse geocoding for fallback
                 let displayAddress = fullAddress // use constructed address
                 try {
-                    // Use browser's geolocation API to reverse geocode
-                    const geocodeUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${ charger.gps.latitude }&longitude=${ charger.gps.longitude }&localityLanguage=en`
-                    fetch( geocodeUrl )
+                    // Use Overpass API for reverse geocoding
+                    const overpassQuery = `
+                        [out:json];
+                        (
+                            node(around:100,${ charger.gps.latitude },${ charger.gps.longitude })[place~"^(city|town|village)$"];
+                            way(around:100,${ charger.gps.latitude },${ charger.gps.longitude })[place~"^(city|town|village)$"];
+                            relation(around:100,${ charger.gps.latitude },${ charger.gps.longitude })[place~"^(city|town|village)$"];
+                        );
+                        out;
+                    `
+                    fetch( 'https://overpass-api.de/api/interpreter', {
+                        method: 'POST',
+                        body: overpassQuery
+                    } )
                         .then( response => response.json() )
                         .then( data => {
-                            if ( data.city && !charger.address.city ) {
-                                // Only use geocoded city if we don't have address city
-                                const geocodedAddress = [ charger.address.street, data.city, charger.address.state, charger.address.zip ].filter( Boolean ).join( ', ' )
-                                displayAddress = geocodedAddress
-                                // Update the distance cell with the correct address
-                                const distanceCell = chargerRow.querySelector( 'td[rowspan]' )
-                                if ( distanceCell ) {
-                                    distanceCell.innerHTML = `
-                                        <div class="flex flex-col">
-                                            <span>${ distanceFromOrigin }</span>
-                                            <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ displayAddress }</span>
-                                        </div>
-                                    `
-                                    // Re-add click handler for the updated address link
-                                    const updatedCityLink = distanceCell.querySelector( '.city-link' )
-                                    if ( updatedCityLink ) {
-                                        updatedCityLink.addEventListener( 'click', ( e ) => {
-                                            e.stopPropagation()
-                                            // Ensure marker is added to layer before opening popup
-                                            if ( !chargerLayer.hasLayer( marker ) ) {
-                                                chargerLayer.addLayer( marker )
-                                            }
-                                            map.setView( chargerLatLng, 15 )
-                                            marker.openPopup()
-                                            // Hide the results list
-                                            bottomResults.style.display = 'none'
-                                            toggleBtn.textContent = 'Show Results'
-                                            map.invalidateSize()
-                                        } )
-                                    }
+                            if ( data.elements && data.elements.length > 0 ) {
+                                const place = data.elements[ 0 ]
+                                if ( place.tags && place.tags.name && !charger.address.city ) {
+                                    // Only use geocoded city if we don't have address city
+                                    const city = place.tags.name
+                                    const geocodedAddress = [ charger.address.street, city, charger.address.state, charger.address.zip ].filter( Boolean ).join( ', ' )
+                                    displayAddress = geocodedAddress
+                                }
+                            }
+                            // Update the distance cell with the correct address
+                            const distanceCell = chargerRow.querySelector( 'td[rowspan]' )
+                            if ( distanceCell ) {
+                                distanceCell.innerHTML = `
+                                    <div class="flex flex-col">
+                                        <span>${ distanceFromOrigin }</span>
+                                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ displayAddress }</span>
+                                    </div>
+                                `
+                                // Re-add click handler for the updated address link
+                                const updatedCityLink = distanceCell.querySelector( '.city-link' )
+                                if ( updatedCityLink ) {
+                                    updatedCityLink.addEventListener( 'click', ( e ) => {
+                                        e.stopPropagation()
+                                        // Ensure marker is added to layer before opening popup
+                                        if ( !chargerLayer.hasLayer( marker ) ) {
+                                            chargerLayer.addLayer( marker )
+                                        }
+                                        map.setView( chargerLatLng, 15 )
+                                        marker.openPopup()
+                                        // Hide the results list
+                                        bottomResults.style.display = 'none'
+                                        toggleBtn.textContent = 'Show Results'
+                                        map.invalidateSize()
+                                    } )
                                 }
                             }
                         } )
@@ -1481,6 +1628,8 @@
             routeLayer.clearLayers()
             chargerLayer.clearLayers()
             restaurantLayer.clearLayers()
+            userLocationLayer.clearLayers()
+            userLocationMarker = null // Reset the marker reference
             // Show search form and hide results
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
