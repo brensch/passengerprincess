@@ -40,7 +40,7 @@
         /* Overlay form at bottom */
         .overlay-form {
             position: fixed;
-            top: 0;
+            top: 60px;
             left: 0;
             right: 0;
             width: 100vw;
@@ -48,7 +48,7 @@
             background: rgba(255, 255, 255, 0.95);
             padding: 15px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            max-height: 50vh;
+            max-height: calc(100vh - 60px);
             overflow-y: auto;
             overflow-x: hidden;
         }
@@ -59,11 +59,11 @@
             top: 60px;
             left: 0;
             right: 0;
-            z-index: 1000;
+            z-index: 1100;
             background: rgba(255, 255, 255, 0.95);
             padding: 0;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            overflow: visible;
+            overflow: hidden;
             display: none;
             height: calc(100vh - 60px);
         }
@@ -443,7 +443,7 @@
 
     <!-- New Search Confirmation Modal -->
     <div id="new-search-modal"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1200] hidden">
         <div class="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
             <h3 class="text-lg font-semibold text-pink-800 mb-4 font-dancing">Are you sure?</h3>
             <p class="text-gray-600 mb-6">This will clear your current search and start a new one.</p>
@@ -544,6 +544,7 @@
             destinationInput.value = ''
             restaurantSearchInput.value = ''
             searchForm.style.display = 'block'
+            searchForm.style.zIndex = '1000'
             bottomResults.style.display = 'none'
             toggleBtn.textContent = 'Show Results'
             updateStatus( '' )
@@ -583,6 +584,7 @@
                 originInput.value = ''
                 destinationInput.value = ''
                 searchForm.style.display = 'block'
+                searchForm.style.zIndex = '1000'
                 bottomResults.style.display = 'none'
                 updateStatus( '' )
             }
@@ -636,11 +638,15 @@
                 bottomResults.style.display = 'block'
                 bottomResults.style.height = 'calc(100vh - 60px)'
                 toggleBtn.textContent = 'Show map'
+                // Ensure proper layering
+                bottomResults.style.zIndex = '1100'
+                searchForm.style.zIndex = '1000'
                 map.invalidateSize()
             } else {
                 // Hide results
                 bottomResults.style.display = 'none'
                 toggleBtn.textContent = 'Show Results'
+                // Reset map to full view
                 map.invalidateSize()
             }
         } )
@@ -655,10 +661,16 @@
         let originDebounceTimer
         originInput.addEventListener( 'input', () => {
             clearTimeout( originDebounceTimer )
-            originDebounceTimer = setTimeout( () => fetchSuggestions( originInput.value, originSuggestions, originInput ), 300 )
+            originDebounceTimer = setTimeout( () => {
+                if ( originInput.value.length >= 3 ) {
+                    fetchSuggestions( originInput.value, originSuggestions, originInput )
+                } else {
+                    originSuggestions.classList.add( 'hidden' )
+                }
+            }, 500 )
         } )
         originInput.addEventListener( 'focus', () => {
-            if ( originInput.value ) fetchSuggestions( originInput.value, originSuggestions, originInput )
+            if ( originInput.value && originInput.value.length >= 3 ) fetchSuggestions( originInput.value, originSuggestions, originInput )
         } )
         originInput.addEventListener( 'blur', () => setTimeout( () => {
             if ( !originSuggestions.contains( document.activeElement ) ) {
@@ -670,10 +682,16 @@
         let destinationDebounceTimer
         destinationInput.addEventListener( 'input', () => {
             clearTimeout( destinationDebounceTimer )
-            destinationDebounceTimer = setTimeout( () => fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput ), 300 )
+            destinationDebounceTimer = setTimeout( () => {
+                if ( destinationInput.value.length >= 3 ) {
+                    fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput )
+                } else {
+                    destinationSuggestions.classList.add( 'hidden' )
+                }
+            }, 500 )
         } )
         destinationInput.addEventListener( 'focus', () => {
-            if ( destinationInput.value ) fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput )
+            if ( destinationInput.value && destinationInput.value.length >= 3 ) fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput )
         } )
         destinationInput.addEventListener( 'blur', () => setTimeout( () => {
             if ( !destinationSuggestions.contains( document.activeElement ) ) {
@@ -749,7 +767,7 @@
             // Hide search form and show results
             searchForm.style.display = 'none'
             bottomResults.style.display = 'block'
-            bottomResults.style.height = 'calc(100vh - 41px)'
+            bottomResults.style.height = 'calc(100vh - 60px)'
             toggleBtn.textContent = 'Show map'
 
             try {
@@ -804,6 +822,18 @@
          * @returns {Promise<[number, number]|null>} A promise resolving to [lon, lat] or null.
          */
         async function geocodeAddress ( address ) {
+            // Check if input is already coordinates (lat, lon format)
+            const coordMatch = address.match( /^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/ )
+            if ( coordMatch ) {
+                const lat = parseFloat( coordMatch[ 1 ] )
+                const lon = parseFloat( coordMatch[ 2 ] )
+                // Validate coordinates
+                if ( lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 ) {
+                    return [ lon, lat ] // Return as [lon, lat] to match API format
+                }
+            }
+
+            // Otherwise, geocode the address
             const url = `https://api.openrouteservice.org/geocode/search?api_key=${ ORS_API_KEY }&text=${ encodeURIComponent( address ) }`
             const response = await fetch( url )
             if ( !response.ok ) throw new Error( `Geocoding failed: ${ response.statusText }` )
@@ -824,32 +854,9 @@
                         const lat = position.coords.latitude
                         const lon = position.coords.longitude
 
-                        // Reverse geocode to get a readable address
-                        try {
-                            const reverseGeocodeUrl = `https://api.openrouteservice.org/geocode/reverse?api_key=${ ORS_API_KEY }&point.lon=${ lon }&point.lat=${ lat }&size=1`
-                            const response = await fetch( reverseGeocodeUrl )
-                            if ( response.ok ) {
-                                const data = await response.json()
-                                if ( data.features && data.features.length > 0 ) {
-                                    const address = data.features[ 0 ].properties.label
-                                    originInput.value = address
-                                    updateStatus( "Location detected and set as origin.", false )
-                                } else {
-                                    // Fallback to coordinates if reverse geocoding fails
-                                    originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
-                                    updateStatus( "Location detected (coordinates used).", false )
-                                }
-                            } else {
-                                // Fallback to coordinates if reverse geocoding fails
-                                originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
-                                updateStatus( "Location detected (coordinates used).", false )
-                            }
-                        } catch ( error ) {
-                            console.error( "Reverse geocoding failed:", error )
-                            // Fallback to coordinates
-                            originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
-                            updateStatus( "Location detected (coordinates used).", false )
-                        }
+                        // Just set coordinates without reverse geocoding
+                        originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
+                        updateStatus( "Location detected and set as origin.", false )
                     },
                     ( error ) => {
                         console.log( "Geolocation error:", error )
@@ -879,28 +886,8 @@
                         const lat = position.coords.latitude
                         const lon = position.coords.longitude
 
-                        // Reverse geocode to get a readable address
-                        try {
-                            const reverseGeocodeUrl = `https://api.openrouteservice.org/geocode/reverse?api_key=${ ORS_API_KEY }&point.lon=${ lon }&point.lat=${ lat }&size=1`
-                            const response = await fetch( reverseGeocodeUrl )
-                            if ( response.ok ) {
-                                const data = await response.json()
-                                if ( data.features && data.features.length > 0 ) {
-                                    const address = data.features[ 0 ].properties.label
-                                    originInput.value = address
-                                } else {
-                                    // Fallback to coordinates if reverse geocoding fails
-                                    originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
-                                }
-                            } else {
-                                // Fallback to coordinates if reverse geocoding fails
-                                originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
-                            }
-                        } catch ( error ) {
-                            console.error( "Reverse geocoding failed:", error )
-                            // Fallback to coordinates
-                            originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
-                        }
+                        // Just set coordinates without reverse geocoding
+                        originInput.value = `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
 
                         // Hide loading spinner
                         locationText.textContent = '👑 Use Current Location'
@@ -1379,68 +1366,8 @@
                 if ( charger.address.zip ) addressParts.push( charger.address.zip )
                 const fullAddress = addressParts.join( ', ' ) || charger.name // fallback to name if no address
 
-                // Get actual city using reverse geocoding for fallback
-                let displayAddress = fullAddress // use constructed address
-                try {
-                    // Use Overpass API for reverse geocoding
-                    const overpassQuery = `
-                        [out:json];
-                        (
-                            node(around:100,${ charger.gps.latitude },${ charger.gps.longitude })[place~"^(city|town|village)$"];
-                            way(around:100,${ charger.gps.latitude },${ charger.gps.longitude })[place~"^(city|town|village)$"];
-                            relation(around:100,${ charger.gps.latitude },${ charger.gps.longitude })[place~"^(city|town|village)$"];
-                        );
-                        out;
-                    `
-                    fetch( 'https://overpass-api.de/api/interpreter', {
-                        method: 'POST',
-                        body: overpassQuery
-                    } )
-                        .then( response => response.json() )
-                        .then( data => {
-                            if ( data.elements && data.elements.length > 0 ) {
-                                const place = data.elements[ 0 ]
-                                if ( place.tags && place.tags.name && !charger.address.city ) {
-                                    // Only use geocoded city if we don't have address city
-                                    const city = place.tags.name
-                                    const geocodedAddress = [ charger.address.street, city, charger.address.state, charger.address.zip ].filter( Boolean ).join( ', ' )
-                                    displayAddress = geocodedAddress
-                                }
-                            }
-                            // Update the distance cell with the correct address
-                            const distanceCell = chargerRow.querySelector( 'td[rowspan]' )
-                            if ( distanceCell ) {
-                                distanceCell.innerHTML = `
-                                    <div class="flex flex-col">
-                                        <span>${ distanceFromOrigin }</span>
-                                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ displayAddress }</span>
-                                    </div>
-                                `
-                                // Re-add click handler for the updated address link
-                                const updatedCityLink = distanceCell.querySelector( '.city-link' )
-                                if ( updatedCityLink ) {
-                                    updatedCityLink.addEventListener( 'click', ( e ) => {
-                                        e.stopPropagation()
-                                        // Ensure marker is added to layer before opening popup
-                                        if ( !chargerLayer.hasLayer( marker ) ) {
-                                            chargerLayer.addLayer( marker )
-                                        }
-                                        map.setView( chargerLatLng, 15 )
-                                        marker.openPopup()
-                                        // Hide the results list
-                                        bottomResults.style.display = 'none'
-                                        toggleBtn.textContent = 'Show Results'
-                                        map.invalidateSize()
-                                    } )
-                                }
-                            }
-                        } )
-                        .catch( err => {
-                            console.log( 'Geocoding failed, using constructed address:', err )
-                        } )
-                } catch ( e ) {
-                    console.log( 'Geocoding not available, using constructed address' )
-                }
+                // Use constructed address directly (skip overpass API call to avoid 429 errors)
+                const displayAddress = fullAddress
 
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
@@ -1660,6 +1587,7 @@
             userLocationMarker = null // Reset the marker reference
             // Show search form and hide results
             searchForm.style.display = 'block'
+            searchForm.style.zIndex = '1000'
             bottomResults.style.display = 'none'
             toggleBtn.textContent = 'Show Results'
         }
