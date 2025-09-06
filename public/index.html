@@ -273,8 +273,7 @@
         </div>
         <div id="results-list" class="custom-scrollbar px-4"
             style="height: calc(100% - 60px); overflow-y: auto; overflow-x: hidden;">
-            <table id="chargers-table" class="w-full hidden table-fixed"
-                style="height: 100%;">
+            <table id="chargers-table" class="w-full hidden table-fixed" style="height: 100%;">
                 <thead>
                     <tr>
                         <th
@@ -456,12 +455,12 @@
             const deltaY = startY - e.clientY
             const maxHeight = document.documentElement.clientHeight * 0.9
             let newHeight
-            if (deltaY > 0) {
+            if ( deltaY > 0 ) {
                 // Dragging up - allow up to max height
-                newHeight = Math.min(maxHeight, startHeight + deltaY)
+                newHeight = Math.min( maxHeight, startHeight + deltaY )
             } else {
                 // Dragging down - allow down to minimum
-                newHeight = Math.max(40, startHeight + deltaY)
+                newHeight = Math.max( 40, startHeight + deltaY )
             }
 
             bottomResults.style.height = newHeight + 'px'
