@@ -64,18 +64,22 @@
         /* Compact table styling */
         #chargers-table {
             border-collapse: collapse;
-            line-height: 1.2;
+            line-height: 1;
             height: auto;
             max-height: calc(100vh - 120px);
             overflow-y: auto;
             width: 100%;
         }
-        
-        #chargers-table tr {
-            height: 24px;
+
+        #chargers-table tr,
+        #chargers-table tr td,
+        #chargers-table tr th {
+            height: 18px !important;
+            line-height: 1 !important;
         }
-        
-        #chargers-table td, #chargers-table th {
+
+        #chargers-table td,
+        #chargers-table th {
             border-bottom: 1px solid #f3f4f6;
         }
 
@@ -271,8 +275,7 @@
     <!-- Top Toolbar -->
     <div id="top-toolbar"
         class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-300 p-2 flex justify-center space-x-2">
-        <button id="toggle-btn"
-            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">▼</button>
+        <button id="toggle-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">▼</button>
         <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">New
             Search</button>
     </div>
@@ -283,19 +286,19 @@
             style="height: 100%; overflow-y: auto; overflow-x: hidden;">
             <!-- Restaurant Search -->
             <div class="mb-4 pt-4">
-                <input type="text" id="restaurant-search" 
+                <input type="text" id="restaurant-search"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     placeholder="Search restaurants...">
             </div>
             <table id="chargers-table" class="w-full hidden table-fixed">
                 <thead class="sticky top-0 bg-white z-10">
                     <tr>
-                        <th
-                            class="px-1 py-0.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                                                <th
+                            class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                             Distance
                         </th>
                         <th
-                            class="px-1 py-0.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            class="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Nearby Restaurants</th>
                     </tr>
                 </thead>
@@ -902,7 +905,7 @@
             // Sort chargers by distance from origin
             const originElement = document.getElementById( 'origin' )
             const originCoords = originElement ? await geocodeAddress( originElement.value.trim() ) : null
-            
+
             if ( originCoords ) {
                 chargers.sort( ( a, b ) => {
                     const distA = distance( originCoords[ 1 ], originCoords[ 0 ], a.gps.latitude, a.gps.longitude )
@@ -970,12 +973,12 @@
                         } )
                     } )
                     restaurantMarker.bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.cuisine || 'Restaurant' }<br>${ restaurant.distance }m away` )
-                    
+
                     // Handle popup close - just close the popup, don't remove marker
-                    restaurantMarker.on( 'popupclose', function() {
+                    restaurantMarker.on( 'popupclose', function () {
                         // Marker stays on map, just popup closes
                     } )
-                    
+
                     allRestaurantMarkers.push( restaurantMarker )
                 } )
 
@@ -998,9 +1001,9 @@
 
                 popupContent += '</div>'
                 marker.bindPopup( popupContent )
-                
+
                 // Handle popup close - just close the popup, don't remove marker
-                marker.on( 'popupclose', function() {
+                marker.on( 'popupclose', function () {
                     // Marker stays on map, just popup closes
                 } )
 
@@ -1010,15 +1013,15 @@
 
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
-                        <td class="px-1 py-0.5 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
-                        <td class="px-1 py-0.5 text-sm text-gray-700">
+                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">${ distanceFromOrigin }</td>
+                        <td class="px-1 py-0 text-sm text-gray-700">
                             ${ restaurants[ 0 ].name } (${ restaurants[ 0 ].distance }m)
                         </td>
                     `
                 } else {
                     chargerRow.innerHTML = `
-                        <td class="px-1 py-0.5 text-sm text-gray-500 border-r border-gray-200">${ distanceFromOrigin }</td>
-                        <td class="px-1 py-0.5 text-sm text-gray-700">
+                        <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200">${ distanceFromOrigin }</td>
+                        <td class="px-1 py-0 text-sm text-gray-700">
                             No restaurants found
                         </td>
                     `
@@ -1043,7 +1046,7 @@
                     const restaurantRow = document.createElement( 'tr' )
                     restaurantRow.className = 'cursor-pointer'
                     restaurantRow.innerHTML = `
-                        <td class="px-1 py-0.5 text-sm text-gray-700">
+                        <td class="px-1 py-0 text-sm text-gray-700">
                             ${ restaurants[ i ].name } (${ restaurants[ i ].distance }m)
                         </td>
                     `
@@ -1186,98 +1189,98 @@
 
             const rows = tbody.querySelectorAll( 'tr' )
             const searchLower = searchTerm.toLowerCase()
-            
+
             // First pass: remove all highlights
             rows.forEach( row => {
                 const cells = row.querySelectorAll( 'td' )
                 cells.forEach( cell => {
-                    cell.innerHTML = cell.innerHTML.replace(/<mark[^>]*>(.*?)<\/mark>/g, '$1')
-                })
-            })
-            
+                    cell.innerHTML = cell.innerHTML.replace( /<mark[^>]*>(.*?)<\/mark>/g, '$1' )
+                } )
+            } )
+
             if ( !searchTerm ) {
                 // If no search term, show everything without highlights
                 rows.forEach( row => {
                     row.style.display = ''
-                })
+                } )
                 return
             }
-            
+
             // Second pass: process each supercharger group sequentially
             let currentIndex = 0
             while ( currentIndex < rows.length ) {
                 const row = rows[ currentIndex ]
                 const cells = row.querySelectorAll( 'td' )
-                
+
                 if ( cells.length === 0 ) {
                     currentIndex++
                     continue
                 }
-                
+
                 // Check if this is a main charger row (has rowspan in first cell)
-                const isMainRow = cells[0].hasAttribute( 'rowspan' )
-                
+                const isMainRow = cells[ 0 ].hasAttribute( 'rowspan' )
+
                 if ( isMainRow ) {
                     // This is a main charger row - check all its restaurants
                     const chargerRestaurants = []
-                    const rowspan = parseInt( cells[0].getAttribute( 'rowspan' ) ) || 1
-                    
+                    const rowspan = parseInt( cells[ 0 ].getAttribute( 'rowspan' ) ) || 1
+
                     // Add restaurant from main row
                     if ( cells.length > 1 ) {
-                        chargerRestaurants.push( cells[1].textContent )
+                        chargerRestaurants.push( cells[ 1 ].textContent )
                     }
-                    
+
                     // Add restaurants from sub-rows
                     for ( let i = 1; i < rowspan; i++ ) {
                         const subRow = rows[ currentIndex + i ]
                         if ( subRow ) {
                             const subCells = subRow.querySelectorAll( 'td' )
                             if ( subCells.length > 0 ) {
-                                chargerRestaurants.push( subCells[0].textContent )
+                                chargerRestaurants.push( subCells[ 0 ].textContent )
                             }
                         }
                     }
-                    
+
                     // Check if any restaurant matches
-                    const hasMatch = chargerRestaurants.some( restaurant => 
+                    const hasMatch = chargerRestaurants.some( restaurant =>
                         restaurant.toLowerCase().includes( searchLower )
                     )
-                    
+
                     if ( hasMatch ) {
                         // Show this supercharger group and highlight matches
-                        
+
                         // Highlight main row restaurant
                         if ( cells.length > 1 ) {
-                            const restaurantText = cells[1].textContent
+                            const restaurantText = cells[ 1 ].textContent
                             if ( restaurantText.toLowerCase().includes( searchLower ) ) {
                                 const highlightedText = restaurantText.replace(
                                     new RegExp( `(${ searchTerm })`, 'gi' ),
                                     '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
                                 )
-                                cells[1].innerHTML = highlightedText
+                                cells[ 1 ].innerHTML = highlightedText
                             }
                         }
                         row.style.display = ''
-                        
+
                         // Show and highlight sub-rows
                         for ( let i = 1; i < rowspan; i++ ) {
                             const subRow = rows[ currentIndex + i ]
                             if ( subRow ) {
                                 const subCells = subRow.querySelectorAll( 'td' )
                                 if ( subCells.length > 0 ) {
-                                    const subRestaurantText = subCells[0].textContent
+                                    const subRestaurantText = subCells[ 0 ].textContent
                                     if ( subRestaurantText.toLowerCase().includes( searchLower ) ) {
                                         const highlightedText = subRestaurantText.replace(
                                             new RegExp( `(${ searchTerm })`, 'gi' ),
                                             '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
                                         )
-                                        subCells[0].innerHTML = highlightedText
+                                        subCells[ 0 ].innerHTML = highlightedText
                                     }
                                 }
                                 subRow.style.display = ''
                             }
                         }
-                        
+
                         // Move to next supercharger group
                         currentIndex += rowspan
                     } else {
@@ -1289,7 +1292,7 @@
                                 subRow.style.display = 'none'
                             }
                         }
-                        
+
                         // Move to next supercharger group
                         currentIndex += rowspan
                     }
