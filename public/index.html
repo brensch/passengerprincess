@@ -1094,6 +1094,9 @@
 
                 fragment.appendChild( chargerRow )
 
+                // Store reference to the distance cell for rowspan handling
+                const distanceCell = chargerRow.querySelector('td[rowspan]')
+
                 // Create subrows for additional restaurants
                 for ( let i = 1; i < restaurants.length; i++ ) {
                     const restaurantRow = document.createElement( 'tr' )
@@ -1126,6 +1129,35 @@
                     } )
 
                     fragment.appendChild( restaurantRow )
+                }
+
+                // Add special click handler to the distance cell to handle rowspan clicks
+                if (distanceCell && restaurants.length > 1) {
+                    distanceCell.addEventListener('click', (e) => {
+                        // Find which row was actually clicked by checking Y position
+                        const allRows = [chargerRow]
+                        // Get all restaurant rows that were just added
+                        const restaurantRows = Array.from(fragment.querySelectorAll('tr')).slice(-restaurants.length + 1)
+                        allRows.push(...restaurantRows)
+
+                        for (let i = 0; i < allRows.length; i++) {
+                            const row = allRows[i]
+                            const rect = row.getBoundingClientRect()
+                            if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                                e.stopPropagation()
+                                if (i === 0) {
+                                    handleRowClick()
+                                } else {
+                                    // Trigger the appropriate restaurant row click
+                                    const targetRow = restaurantRows[i - 1]
+                                    if (targetRow) {
+                                        targetRow.click()
+                                    }
+                                }
+                                break
+                            }
+                        }
+                    })
                 }
             } )
 
