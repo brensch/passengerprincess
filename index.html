@@ -188,6 +188,16 @@
 
         let routeLayer = L.layerGroup().addTo( map )
         let chargerLayer = L.layerGroup().addTo( map )
+        let restaurantLayer = L.layerGroup().addTo( map )
+
+        // Store all markers for viewport filtering
+        let allChargerMarkers = []
+        let allRestaurantMarkers = []
+        let currentChargers = []
+        let currentRestaurants = []
+
+        // Add map event listeners for viewport updates
+        map.on( 'moveend zoomend', updateVisibleMarkers )
 
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
@@ -382,39 +392,77 @@
         }
 
         /**
-         * Fetches restaurants near a given location using Overpass API.
-         * @param {number} lat Latitude
-         * @param {number} lon Longitude
+         * Fetches restaurants near multiple locations using a single Overpass API request.
+         * @param {Array<{latitude: number, longitude: number}>} locations Array of GPS coordinates
          * @param {number} radius Radius in meters
-         * @returns {Promise<Array<object>>} Array of restaurant objects
+         * @returns {Promise<Array<{locationIndex: number, restaurants: Array<object>}>>} Array of restaurant data grouped by location
          */
-        async function getNearbyRestaurants ( lat, lon, radius = 1000 ) {
+        async function getNearbyRestaurantsBulk ( locations, radius = 500 ) {
+            if ( locations.length === 0 ) return []
+
+            // Build Overpass query with multiple around clauses
+            let queryParts = []
+            locations.forEach( ( loc, index ) => {
+                queryParts.push( `node["amenity"="restaurant"](around:${ radius },${ loc.latitude },${ loc.longitude });` )
+            } )
+
             const query = `
-                [out:json][timeout:15];
+                [out:json][timeout:30];
                 (
-                    node["amenity"="restaurant"](around:${ radius },${ lat },${ lon });
+                    ${ queryParts.join( '\n' ) }
                 );
                 out meta;
             `
+
             const url = `https://overpass-api.de/api/interpreter?data=${ encodeURIComponent( query ) }`
             const response = await fetch( url )
             if ( !response.ok ) throw new Error( "Failed to fetch restaurant data." )
             const data = await response.json()
 
-            return data.elements.slice( 0, 5 ).map( element => ( {
-                id: element.id,
-                name: element.tags?.name || `Restaurant ${ element.id }`,
-                cuisine: element.tags?.cuisine || 'Unknown',
-                address: {
-                    street: element.tags?.[ 'addr:street' ] || '',
-                    city: element.tags?.[ 'addr:city' ] || '',
-                    state: element.tags?.[ 'addr:state' ] || ''
-                },
-                gps: {
-                    latitude: element.lat,
-                    longitude: element.lon
-                }
+            // Group restaurants by which location they're closest to
+            const results = locations.map( ( loc, index ) => ( {
+                locationIndex: index,
+                restaurants: []
             } ) )
+
+            data.elements.forEach( element => {
+                let closestIndex = 0
+                let closestDistance = Infinity
+
+                locations.forEach( ( loc, index ) => {
+                    const distance = getDistance( loc.latitude, loc.longitude, element.lat, element.lon )
+                    if ( distance < closestDistance ) {
+                        closestDistance = distance
+                        closestIndex = index
+                    }
+                } )
+
+                if ( closestDistance <= radius ) {
+                    results[ closestIndex ].restaurants.push( {
+                        id: element.id,
+                        name: element.tags?.name || `Restaurant ${ element.id }`,
+                        cuisine: element.tags?.cuisine || 'Unknown',
+                        address: {
+                            street: element.tags?.[ 'addr:street' ] || '',
+                            city: element.tags?.[ 'addr:city' ] || '',
+                            state: element.tags?.[ 'addr:state' ] || ''
+                        },
+                        gps: {
+                            latitude: element.lat,
+                            longitude: element.lon
+                        },
+                        distance: closestDistance
+                    } )
+                }
+            } )
+
+            // Sort restaurants by distance for each location
+            results.forEach( result => {
+                result.restaurants.sort( ( a, b ) => a.distance - b.distance )
+                result.restaurants = result.restaurants.slice( 0, 5 ) // Limit to 5 per location
+            } )
+
+            return results
         }
         async function getSuperchargers ( routeCoords = null ) {
             // Using Overpass API to query OpenStreetMap for Tesla Superchargers
@@ -486,77 +534,9 @@
         }
 
         /**
-         * Displays Superchargers and their nearby restaurants in the results list.
+         * Displays Superchargers and their nearby restaurants.
          * @param {Array<object>} chargers - The chargers to display.
          */
-        async function displaySuperchargersAndRestaurants ( chargers ) {
-            if ( chargers.length === 0 ) {
-                resultsList.innerHTML = '<p class="text-gray-500">No Superchargers found within the search radius of your route.</p>'
-                return
-            }
-
-            resultsList.innerHTML = '' // Clear list
-            for ( const charger of chargers ) {
-                // Add marker to map
-                const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
-                const marker = L.marker( chargerLatLng, {
-                    icon: L.divIcon( {
-                        className: 'custom-div-icon',
-                        html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="#cc0000" class="w-6 h-8"><path d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-35.464 0zM192 256a64 64 0 1 0 0-128 64 64 0 1 0 0 128z"/></svg>`,
-                        iconSize: [ 24, 32 ],
-                        iconAnchor: [ 12, 32 ]
-                    } )
-                } ).addTo( chargerLayer )
-
-                // Fetch restaurants for this charger
-                let restaurants = []
-                try {
-                    restaurants = await getNearbyRestaurants( charger.gps.latitude, charger.gps.longitude, 2000 ) // 2km
-                    restaurants = restaurants.slice( 0, 3 ) // Limit to 3 restaurants per charger
-                } catch ( error ) {
-                    console.error( 'Error fetching restaurants for charger:', charger.name, error )
-                }
-
-                // Create popup content with restaurants
-                let popupContent = `
-                    <div class="font-sans max-w-xs">
-                        <strong class="text-lg">${ charger.name }</strong><br>
-                        <strong>Status:</strong> ${ charger.status }<br>
-                        <strong>Stalls:</strong> ${ charger.stallCount }<br>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
-                `
-
-                if ( restaurants.length > 0 ) {
-                    popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
-                    restaurants.forEach( restaurant => {
-                        popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine })</div>`
-                    } )
-                }
-
-                popupContent += '</div>'
-                marker.bindPopup( popupContent )
-
-                // Add entry to list
-                const listItem = document.createElement( 'div' )
-                listItem.className = 'p-4 border-b hover:bg-gray-50 cursor-pointer rounded-lg'
-                listItem.innerHTML = `
-                    <h3 class="font-bold text-gray-800">${ charger.name }</h3>
-                    <p class="text-sm text-gray-600">${ charger.address.street }, ${ charger.address.city }</p>
-                    <p class="text-sm text-gray-500">Stalls: ${ charger.stallCount } | Status: ${ charger.status }</p>
-                `
-                if ( restaurants.length > 0 ) {
-                    listItem.innerHTML += '<br><strong class="text-sm">Nearby Restaurants:</strong><br>'
-                    restaurants.forEach( restaurant => {
-                        listItem.innerHTML += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine })</div>`
-                    } )
-                }
-                listItem.addEventListener( 'click', () => {
-                    map.setView( chargerLatLng, 15 )
-                    marker.openPopup()
-                } )
-                resultsList.appendChild( listItem )
-            }
-        }
 
         /**
          * Filters a list of all chargers to find those within a certain radius of the route.
@@ -610,26 +590,52 @@
                 return
             }
 
+            // Clear previous data
+            allChargerMarkers = []
+            allRestaurantMarkers = []
+            currentChargers = chargers
             resultsList.innerHTML = '' // Clear list
-            for ( const charger of chargers ) {
-                // Add marker to map
+
+            // Extract locations for bulk restaurant query
+            const locations = chargers.map( charger => charger.gps )
+
+            // Fetch all restaurants in one request
+            const bulkResults = await getNearbyRestaurantsBulk( locations, 500 )
+
+            // Process results and create UI
+            chargers.forEach( ( charger, index ) => {
                 const chargerLatLng = [ charger.gps.latitude, charger.gps.longitude ]
                 const marker = L.marker( chargerLatLng, {
                     icon: L.divIcon( {
-                        className: 'custom-div-icon',
-                        html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" fill="#cc0000" class="w-6 h-8"><path d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67a24 24 0 0 1-35.464 0zM192 256a64 64 0 1 0 0-128 64 64 0 1 0 0 128z"/></svg>`,
-                        iconSize: [ 24, 32 ],
-                        iconAnchor: [ 12, 32 ]
+                        className: 'emoji-icon',
+                        html: '⚡',
+                        iconSize: [ 60, 60 ],
+                        iconAnchor: [ 30, 30 ]
                     } )
-                } ).addTo( chargerLayer )
+                } )
 
-                // Fetch restaurants for this charger
-                let restaurants = []
-                try {
-                    restaurants = await getNearbyRestaurants( charger.gps.latitude, charger.gps.longitude, 1000 )
-                } catch ( error ) {
-                    console.error( 'Error fetching restaurants for charger:', charger.name, error )
-                }
+                // Store marker for later viewport filtering
+                allChargerMarkers.push( marker )
+
+                // Get restaurants for this charger
+                const restaurants = bulkResults[ index ]?.restaurants || []
+
+                // Add restaurant markers
+                restaurants.forEach( restaurant => {
+                    const restaurantLatLng = [ restaurant.gps.latitude, restaurant.gps.longitude ]
+                    const restaurantMarker = L.marker( restaurantLatLng, {
+                        icon: L.divIcon( {
+                            className: 'emoji-icon',
+                            html: '🌭',
+                            iconSize: [ 50, 50 ],
+                            iconAnchor: [ 25, 25 ]
+                        } )
+                    } )
+                    restaurantMarker.bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.cuisine || 'Restaurant' }<br>${ restaurant.distance }m away` )
+
+                    // Store marker for later viewport filtering
+                    allRestaurantMarkers.push( restaurantMarker )
+                } )
 
                 // Create popup content with restaurants
                 let popupContent = `
@@ -643,7 +649,7 @@
                 if ( restaurants.length > 0 ) {
                     popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
                     restaurants.slice( 0, 5 ).forEach( restaurant => {
-                        popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine || 'Restaurant' })</div>`
+                        popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine || 'Restaurant' }) - ${ restaurant.distance }m</div>`
                     } )
                 }
 
@@ -668,7 +674,7 @@
                     restaurants.slice( 0, 5 ).forEach( restaurant => {
                         const li = document.createElement( 'li' )
                         li.className = 'text-sm text-gray-600'
-                        li.innerHTML = `<strong>${ restaurant.name }</strong> - ${ restaurant.cuisine || 'Restaurant' }`
+                        li.innerHTML = `<strong>${ restaurant.name }</strong> - ${ restaurant.cuisine || 'Restaurant' } (${ restaurant.distance }m)`
                         restaurantList.appendChild( li )
                     } )
 
@@ -681,12 +687,90 @@
                 } )
 
                 resultsList.appendChild( chargerDiv )
+            } )
+
+            // Create popup content with restaurants
+            let popupContent = `
+                    <div class="font-sans max-w-xs">
+                        <strong class="text-lg">${ charger.name }</strong><br>
+                        <strong>Status:</strong> ${ charger.status }<br>
+                        <strong>Stalls:</strong> ${ charger.stallCount }<br>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-blue-500 hover:underline text-sm">Open in Google Maps</a>
+                `
+
+            if ( restaurants.length > 0 ) {
+                popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
+                restaurants.slice( 0, 5 ).forEach( restaurant => {
+                    popupContent += `<div class="text-sm mt-1">• ${ restaurant.name } (${ restaurant.cuisine || 'Restaurant' }) - ${ restaurant.distance }m</div>`
+                } )
             }
+
+            popupContent += '</div>'
+            marker.bindPopup( popupContent )
+
+            // Add entry to list
+            const chargerDiv = document.createElement( 'div' )
+            chargerDiv.className = 'mb-6 p-4 bg-white rounded-lg shadow-sm border'
+
+            chargerDiv.innerHTML = `
+                    <h3 class="font-bold text-gray-800 text-lg mb-2">${ charger.name }</h3>
+                    <p class="text-sm text-gray-600 mb-2">${ charger.address.street || '' } ${ charger.address.city || '' }</p>
+                    <p class="text-sm text-gray-500 mb-3">Stalls: ${ charger.stallCount } | Status: ${ charger.status }</p>
+                `
+
+            if ( restaurants.length > 0 ) {
+                chargerDiv.innerHTML += '<h4 class="font-semibold text-gray-700 mb-2">Nearby Restaurants:</h4>'
+                const restaurantList = document.createElement( 'ul' )
+                restaurantList.className = 'space-y-1'
+
+                restaurants.slice( 0, 5 ).forEach( restaurant => {
+                    const li = document.createElement( 'li' )
+                    li.className = 'text-sm text-gray-600'
+                    li.innerHTML = `<strong>${ restaurant.name }</strong> - ${ restaurant.cuisine || 'Restaurant' } (${ restaurant.distance }m)`
+                    restaurantList.appendChild( li )
+                } )
+
+                chargerDiv.appendChild( restaurantList )
+            }
+
+            chargerDiv.addEventListener( 'click', () => {
+                map.setView( chargerLatLng, 15 )
+                marker.openPopup()
+            } )
+
+            resultsList.appendChild( chargerDiv )
         }
 
+        // Update visible markers based on current viewport
+        updateVisibleMarkers()
 
 
-        // --- MAP UTILITY FUNCTIONS ---
+        // --- VIEWPORT MANAGEMENT ---
+
+        function updateVisibleMarkers () {
+            const bounds = map.getBounds()
+            const zoom = map.getZoom()
+
+            // Clear current layers
+            chargerLayer.clearLayers()
+            restaurantLayer.clearLayers()
+
+            // Add superchargers within viewport
+            allChargerMarkers.forEach( marker => {
+                if ( bounds.contains( marker.getLatLng() ) ) {
+                    chargerLayer.addLayer( marker )
+                }
+            } )
+
+            // Add restaurants within viewport and only when zoomed in enough
+            if ( zoom >= 14 ) { // Only show restaurants when zoomed in
+                allRestaurantMarkers.forEach( marker => {
+                    if ( bounds.contains( marker.getLatLng() ) ) {
+                        restaurantLayer.addLayer( marker )
+                    }
+                } )
+            }
+        }
 
         function drawRoute ( coords ) {
             L.polyline( coords, { color: 'blue', weight: 5, opacity: 0.7 } ).addTo( routeLayer )
@@ -695,6 +779,7 @@
         function clearMap () {
             routeLayer.clearLayers()
             chargerLayer.clearLayers()
+            restaurantLayer.clearLayers()
             // Show search form and hide results
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
@@ -750,6 +835,21 @@
                 Math.sin( dLon / 2 ) * Math.sin( dLon / 2 )
             const c = 2 * Math.atan2( Math.sqrt( a ), Math.sqrt( 1 - a ) )
             return R * c
+        }
+
+        /**
+         * Calculates distance between two lat/lon points in meters.
+         * @returns {number} Distance in meters.
+         */
+        function getDistance ( lat1, lon1, lat2, lon2 ) {
+            const R = 6371000 // Radius of the Earth in meters
+            const dLat = ( lat2 - lat1 ) * Math.PI / 180
+            const dLon = ( lon2 - lon1 ) * Math.PI / 180
+            const a = Math.sin( dLat / 2 ) * Math.sin( dLat / 2 ) +
+                Math.cos( lat1 * Math.PI / 180 ) * Math.cos( lat2 * Math.PI / 180 ) *
+                Math.sin( dLon / 2 ) * Math.sin( dLon / 2 )
+            const c = 2 * Math.atan2( Math.sqrt( a ), Math.sqrt( 1 - a ) )
+            return Math.round( R * c )
         }
 
     </script>
