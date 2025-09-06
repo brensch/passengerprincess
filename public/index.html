@@ -204,6 +204,15 @@
             left: 50%;
         }
 
+        /* Search highlight styling */
+        mark {
+            background-color: #fef3c7 !important;
+            color: #000 !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            font-weight: 600 !important;
+        }
+
         /* Fullscreen map mode */
         .map-fullscreen {
             height: 100vh !important;
@@ -256,6 +265,12 @@
     <div class="bottom-results" id="bottom-results">
         <div id="results-list" class="custom-scrollbar px-4"
             style="height: 100%; overflow-y: auto; overflow-x: hidden;">
+            <!-- Restaurant Search -->
+            <div class="mb-4 pt-4">
+                <input type="text" id="restaurant-search" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    placeholder="Search restaurants...">
+            </div>
             <table id="chargers-table" class="w-full hidden table-fixed" style="height: 100%;">
                 <thead class="sticky top-0 bg-white z-10">
                     <tr>
@@ -381,6 +396,7 @@
             clearMap()
             originInput.value = ''
             destinationInput.value = ''
+            restaurantSearchInput.value = ''
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
             updateStatus( '' )
@@ -429,6 +445,12 @@
         document.getElementById( 'hide-btn' ).addEventListener( 'click', () => {
             bottomResults.style.display = 'none'
             map.invalidateSize()
+        } )
+
+        // Restaurant search functionality
+        const restaurantSearchInput = document.getElementById( 'restaurant-search' )
+        restaurantSearchInput.addEventListener( 'input', () => {
+            filterRestaurants( restaurantSearchInput.value )
         } )
 
         // Autocomplete for origin
@@ -1110,6 +1132,131 @@
                 Math.sin( dLon / 2 ) * Math.sin( dLon / 2 )
             const c = 2 * Math.atan2( Math.sqrt( a ), Math.sqrt( 1 - a ) )
             return Math.round( R * c )
+        }
+
+        /**
+         * Filters restaurant table rows based on search input
+         * @param {string} searchTerm The search term to filter by
+         */
+        function filterRestaurants ( searchTerm ) {
+            const tbody = document.getElementById( 'chargers-tbody' )
+            if ( !tbody ) return
+
+            const rows = tbody.querySelectorAll( 'tr' )
+            const searchLower = searchTerm.toLowerCase()
+            
+            // First pass: remove all highlights
+            rows.forEach( row => {
+                const cells = row.querySelectorAll( 'td' )
+                cells.forEach( cell => {
+                    cell.innerHTML = cell.innerHTML.replace(/<mark[^>]*>(.*?)<\/mark>/g, '$1')
+                })
+            })
+            
+            if ( !searchTerm ) {
+                // If no search term, show everything without highlights
+                rows.forEach( row => {
+                    row.style.display = ''
+                })
+                return
+            }
+            
+            // Second pass: process each supercharger group sequentially
+            let currentIndex = 0
+            while ( currentIndex < rows.length ) {
+                const row = rows[ currentIndex ]
+                const cells = row.querySelectorAll( 'td' )
+                
+                if ( cells.length === 0 ) {
+                    currentIndex++
+                    continue
+                }
+                
+                // Check if this is a main charger row (has rowspan in first cell)
+                const isMainRow = cells[0].hasAttribute( 'rowspan' )
+                
+                if ( isMainRow ) {
+                    // This is a main charger row - check all its restaurants
+                    const chargerRestaurants = []
+                    const rowspan = parseInt( cells[0].getAttribute( 'rowspan' ) ) || 1
+                    
+                    // Add restaurant from main row
+                    if ( cells.length > 1 ) {
+                        chargerRestaurants.push( cells[1].textContent )
+                    }
+                    
+                    // Add restaurants from sub-rows
+                    for ( let i = 1; i < rowspan; i++ ) {
+                        const subRow = rows[ currentIndex + i ]
+                        if ( subRow ) {
+                            const subCells = subRow.querySelectorAll( 'td' )
+                            if ( subCells.length > 0 ) {
+                                chargerRestaurants.push( subCells[0].textContent )
+                            }
+                        }
+                    }
+                    
+                    // Check if any restaurant matches
+                    const hasMatch = chargerRestaurants.some( restaurant => 
+                        restaurant.toLowerCase().includes( searchLower )
+                    )
+                    
+                    if ( hasMatch ) {
+                        // Show this supercharger group and highlight matches
+                        
+                        // Highlight main row restaurant
+                        if ( cells.length > 1 ) {
+                            const restaurantText = cells[1].textContent
+                            if ( restaurantText.toLowerCase().includes( searchLower ) ) {
+                                const highlightedText = restaurantText.replace(
+                                    new RegExp( `(${ searchTerm })`, 'gi' ),
+                                    '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
+                                )
+                                cells[1].innerHTML = highlightedText
+                            }
+                        }
+                        row.style.display = ''
+                        
+                        // Show and highlight sub-rows
+                        for ( let i = 1; i < rowspan; i++ ) {
+                            const subRow = rows[ currentIndex + i ]
+                            if ( subRow ) {
+                                const subCells = subRow.querySelectorAll( 'td' )
+                                if ( subCells.length > 0 ) {
+                                    const subRestaurantText = subCells[0].textContent
+                                    if ( subRestaurantText.toLowerCase().includes( searchLower ) ) {
+                                        const highlightedText = subRestaurantText.replace(
+                                            new RegExp( `(${ searchTerm })`, 'gi' ),
+                                            '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
+                                        )
+                                        subCells[0].innerHTML = highlightedText
+                                    }
+                                }
+                                subRow.style.display = ''
+                            }
+                        }
+                        
+                        // Move to next supercharger group
+                        currentIndex += rowspan
+                    } else {
+                        // Hide this entire supercharger group
+                        row.style.display = 'none'
+                        for ( let i = 1; i < rowspan; i++ ) {
+                            const subRow = rows[ currentIndex + i ]
+                            if ( subRow ) {
+                                subRow.style.display = 'none'
+                            }
+                        }
+                        
+                        // Move to next supercharger group
+                        currentIndex += rowspan
+                    }
+                } else {
+                    // This shouldn't happen in a properly formed table, but skip if we encounter a row without rowspan
+                    row.style.display = 'none'
+                    currentIndex++
+                }
+            }
         }
 
     </script>
