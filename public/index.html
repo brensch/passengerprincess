@@ -48,9 +48,8 @@
             right: 0;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
+            padding: 0;
             box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
-            max-height: 50vh;
             overflow: visible;
             display: none;
         }
@@ -161,8 +160,7 @@
             }
 
             .bottom-results {
-                padding: 10px;
-                max-height: 70vh;
+                padding: 0;
             }
 
             .compact-charger-item {
@@ -241,6 +239,8 @@
         #chargers-table {
             font-size: 12px;
             line-height: 1.2;
+            width: 100%;
+            margin: 0;
         }
 
         #chargers-table th {
@@ -265,16 +265,17 @@
     <!-- Bottom Results Area -->
     <div class="bottom-results" id="bottom-results">
         <div class="drag-handle" id="drag-handle"></div>
-        <div class="flex justify-between items-center mb-2">
+        <div class="flex justify-between items-center mb-2 px-4 pt-4">
             <h2 class="text-lg font-bold text-gray-800">Superchargers & Restaurants</h2>
             <button id="new-search-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm">
                 New Search
             </button>
         </div>
-        <div id="results-list" class="custom-scrollbar"
-            style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
-            <table id="chargers-table" class="w-full hidden table-fixed">
-                <thead class="bg-gray-50">
+        <div id="results-list" class="custom-scrollbar px-4"
+            style="height: calc(100% - 60px); overflow-y: auto; overflow-x: hidden;">
+            <table id="chargers-table" class="w-full hidden table-fixed"
+                style="height: 100%;">
+                <thead>
                     <tr>
                         <th
                             class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">
@@ -288,7 +289,7 @@
                             Nearby Restaurants</th>
                     </tr>
                 </thead>
-                <tbody id="chargers-tbody" class="bg-white divide-y divide-gray-200">
+                <tbody id="chargers-tbody" class="divide-y divide-gray-200">
                 </tbody>
             </table>
             <p id="no-results" class="text-gray-500">Search for a route to see results.</p>
@@ -453,16 +454,17 @@
             if ( !isDragging ) return
 
             const deltaY = startY - e.clientY
-            const newHeight = Math.max( 40, Math.min( window.innerHeight * 0.8, startHeight + deltaY ) )
+            const maxHeight = document.documentElement.clientHeight * 0.9
+            let newHeight
+            if (deltaY > 0) {
+                // Dragging up - allow up to max height
+                newHeight = Math.min(maxHeight, startHeight + deltaY)
+            } else {
+                // Dragging down - allow down to minimum
+                newHeight = Math.max(40, startHeight + deltaY)
+            }
 
             bottomResults.style.height = newHeight + 'px'
-
-            // If dragged to minimum height, minimize it
-            if ( newHeight <= 60 ) {
-                bottomResults.classList.add( 'bottom-results-minimized' )
-            } else {
-                bottomResults.classList.remove( 'bottom-results-minimized' )
-            }
 
             // Trigger map resize
             setTimeout( () => {
@@ -995,7 +997,7 @@
 
                 // Create table rows - main charger row
                 const chargerRow = document.createElement( 'tr' )
-                chargerRow.className = 'hover:bg-gray-50 cursor-pointer bg-blue-50'
+                chargerRow.className = 'cursor-pointer'
 
                 if ( restaurants.length > 0 ) {
                     chargerRow.innerHTML = `
@@ -1025,7 +1027,7 @@
                 // Create subrows for additional restaurants
                 for ( let i = 1; i < restaurants.length; i++ ) {
                     const restaurantRow = document.createElement( 'tr' )
-                    restaurantRow.className = 'hover:bg-gray-50 cursor-pointer'
+                    restaurantRow.className = 'cursor-pointer'
                     restaurantRow.innerHTML = `
                         <td class="px-2 py-2 text-sm text-gray-700 border-t border-gray-100">
                             ${ restaurants[ i ].name } (${ restaurants[ i ].distance }m)
