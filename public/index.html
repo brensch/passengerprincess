@@ -494,7 +494,7 @@
             if ( originInput.value ) fetchSuggestions( originInput.value, originSuggestions, originInput )
         } )
         originInput.addEventListener( 'blur', () => setTimeout( () => {
-            if (!originSuggestions.contains(document.activeElement)) {
+            if ( !originSuggestions.contains( document.activeElement ) ) {
                 originSuggestions.classList.add( 'hidden' )
             }
         }, 150 ) )
@@ -509,7 +509,7 @@
             if ( destinationInput.value ) fetchSuggestions( destinationInput.value, destinationSuggestions, destinationInput )
         } )
         destinationInput.addEventListener( 'blur', () => setTimeout( () => {
-            if (!destinationSuggestions.contains(document.activeElement)) {
+            if ( !destinationSuggestions.contains( document.activeElement ) ) {
                 destinationSuggestions.classList.add( 'hidden' )
             }
         }, 150 ) )
@@ -1095,7 +1095,7 @@
                                 if ( distanceCell ) {
                                     distanceCell.innerHTML = `
                                         <div class="flex flex-col">
-                                            <span>${ distanceFromOrigin }m</span>
+                                            <span>${ distanceFromOrigin }</span>
                                             <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ cityName }</span>
                                         </div>
                                     `
@@ -1121,7 +1121,7 @@
                     chargerRow.innerHTML = `
                         <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200" rowspan="${ restaurants.length }">
                             <div class="flex flex-col">
-                                <span>${ distanceFromOrigin }m</span>
+                                <span>${ distanceFromOrigin }</span>
                                 <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ suburbName }</span>
                             </div>
                         </td>
@@ -1133,7 +1133,7 @@
                     chargerRow.innerHTML = `
                         <td class="px-1 py-0 text-sm text-gray-500 border-r border-gray-200">
                             <div class="flex flex-col">
-                                <span>${ distanceFromOrigin }m</span>
+                                <span>${ distanceFromOrigin }</span>
                                 <span class="text-xs text-blue-600 hover:text-blue-800 cursor-pointer city-link">${ suburbName }</span>
                             </div>
                         </td>
