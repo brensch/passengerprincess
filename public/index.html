@@ -363,9 +363,12 @@
                 <input type="text" id="restaurant-search"
                     class="flex-grow px-4 py-3 border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm enhanced-input"
                     placeholder="Search restaurants or cuisines...">
-                <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4">
-                    <!-- Cuisine buttons will be dynamically inserted here -->
-                </div>
+                <button id="toggle-cuisine-btn"
+                    class="px-3 py-3 bg-pink-400 hover:bg-pink-500 text-white rounded-md shadow-sm text-sm"
+                    title="Toggle cuisine filters">🍽️</button>
+            </div>
+            <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4" style="display: none;">
+                <!-- Cuisine buttons will be dynamically inserted here -->
             </div>
 
             <div id="loading-container" class="loading-container hidden">
@@ -702,15 +705,20 @@
             if ( !tbody ) return
 
             const rows = tbody.querySelectorAll( 'tr[data-charger-id]' )
-            let visibleChargerIDs = new Set()
+            let chargerVisibility = new Map() // chargerId => { visible: bool, hasRestaurants: bool }
 
+            // First pass: determine visibility per charger
             rows.forEach( row => {
                 const chargerId = row.dataset.chargerId
                 const restaurantCell = row.querySelector( '.restaurant-link' )
 
-                // For rows with restaurant info
+                if ( !chargerVisibility.has( chargerId ) ) {
+                    chargerVisibility.set( chargerId, { visible: false, hasRestaurants: false } )
+                }
+
                 if ( restaurantCell ) {
-                    const cuisineCell = row.cells[ 3 ]
+                    chargerVisibility.get( chargerId ).hasRestaurants = true
+                    const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
                     const restaurantName = restaurantCell.textContent
                     const originalCuisineText = cuisineCell.dataset.originalCuisine || cuisineCell.textContent
                     if ( !cuisineCell.dataset.originalCuisine ) {
@@ -719,11 +727,33 @@
 
                     const nameMatches = !currentSearchTerm || restaurantName.toLowerCase().includes( currentSearchTerm )
                     const restaurantCuisines = originalCuisineText.toLowerCase().split( ';' ).map( c => c.trim() )
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.some( filterCuisine => restaurantCuisines.includes( filterCuisine ) )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( filterCuisine => filterCuisine !== '' && restaurantCuisines.includes( filterCuisine ) )
 
                     if ( nameMatches && cuisineMatches ) {
-                        row.style.display = ''
-                        visibleChargerIDs.add( chargerId )
+                        chargerVisibility.get( chargerId ).visible = true
+                    }
+                } else { // No restaurants row
+                    if ( !currentSearchTerm && ( currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) ) ) {
+                        chargerVisibility.get( chargerId ).visible = true
+                    }
+                }
+            } )
+
+            // Second pass: show/hide rows and highlight
+            let visibleChargerIDs = new Set()
+            rows.forEach( row => {
+                const chargerId = row.dataset.chargerId
+                const visibility = chargerVisibility.get( chargerId )
+                const restaurantCell = row.querySelector( '.restaurant-link' )
+
+                if ( visibility.visible ) {
+                    row.style.display = ''
+                    visibleChargerIDs.add( chargerId )
+
+                    if ( restaurantCell ) {
+                        const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
+                        const restaurantName = restaurantCell.textContent
+                        const originalCuisineText = cuisineCell.dataset.originalCuisine || cuisineCell.textContent
 
                         // Highlight restaurant name
                         restaurantCell.innerHTML = currentSearchTerm ?
@@ -733,23 +763,22 @@
                         // Highlight cuisine
                         let highlightedCuisine = originalCuisineText
                         if ( currentCuisineFilter.length > 0 ) {
+                            const restaurantCuisines = originalCuisineText.toLowerCase().split( ';' ).map( c => c.trim() )
                             const matchedCuisines = restaurantCuisines.filter( rc => currentCuisineFilter.includes( rc ) )
                             if ( matchedCuisines.length > 0 ) {
                                 highlightedCuisine = originalCuisineText.replace( new RegExp( `(${ matchedCuisines.join( '|' ) })`, 'gi' ), '<mark>$1</mark>' )
                             }
                         }
                         cuisineCell.innerHTML = highlightedCuisine
-                    } else {
-                        row.style.display = 'none'
+                    }
+                } else {
+                    row.style.display = 'none'
+                    if ( restaurantCell ) {
+                        const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
+                        const restaurantName = restaurantCell.textContent
+                        const originalCuisineText = cuisineCell.dataset.originalCuisine || cuisineCell.textContent
                         restaurantCell.innerHTML = restaurantName
                         cuisineCell.innerHTML = originalCuisineText
-                    }
-                } else { // For "No restaurants found" rows
-                    if ( !currentSearchTerm && currentCuisineFilter.length === 0 ) {
-                        row.style.display = ''
-                        visibleChargerIDs.add( chargerId )
-                    } else {
-                        row.style.display = 'none'
                     }
                 }
             } )
@@ -791,7 +820,7 @@
                 station.restaurantMarkers.forEach( restaurantMarker => {
                     const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
                     const restaurantCuisines = ( restaurantMarker.options.cuisine || '' ).toLowerCase().split( ';' ).map( c => c.trim() )
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.some( fc => restaurantCuisines.includes( fc ) )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisines.includes( fc.toLowerCase() ) )
 
                     if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
                         if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
@@ -864,14 +893,30 @@
             }
             const address = [ charger.address.street, charger.address.city, charger.address.state ].filter( Boolean ).join( ', ' )
 
-            const createRow = ( restaurant ) => {
+            const chargerCell = `
+                <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ restaurants.length || 1 }">
+                    <div class="flex flex-col">
+                        <span>${ distanceFromOrigin }</span>
+                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ address || charger.name }</span>
+                    </div>
+                </td>
+            `
+
+            if ( restaurants.length === 0 ) {
                 const row = document.createElement( 'tr' )
                 row.dataset.chargerId = charger.id.toString()
-
-                let restaurantContent
-                if ( restaurant ) {
+                row.innerHTML = `
+                    ${ chargerCell }
+                    <td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>
+                `
+                rows.push( row )
+            } else {
+                restaurants.forEach( ( restaurant, index ) => {
+                    const row = document.createElement( 'tr' )
+                    row.dataset.chargerId = charger.id.toString()
                     row.dataset.restaurantId = restaurant.id
-                    restaurantContent = `
+
+                    const restaurantContent = `
                         <td class="px-1 py-0 text-sm text-pink-700">
                             <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link">${ restaurant.name }</span>
                         </td>
@@ -879,27 +924,16 @@
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ restaurant.cuisine }">${ restaurant.cuisine }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" style="white-space: pre-wrap; word-break: break-all;">${ restaurant.opening_hours }</td>
                     `
-                } else {
-                    restaurantContent = `<td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>`
-                }
 
-                row.innerHTML = `
-                    <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200">
-                        <div class="flex flex-col">
-                            <span>${ distanceFromOrigin }</span>
-                            <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ address || charger.name }</span>
-                        </div>
-                    </td>
-                    ${ restaurantContent }
-                `
-                return row
-            }
-
-            if ( restaurants.length === 0 ) {
-                rows.push( createRow( null ) )
-            } else {
-                restaurants.forEach( restaurant => {
-                    rows.push( createRow( restaurant ) )
+                    if ( index === 0 ) {
+                        row.innerHTML = `
+                            ${ chargerCell }
+                            ${ restaurantContent }
+                        `
+                    } else {
+                        row.innerHTML = restaurantContent
+                    }
+                    rows.push( row )
                 } )
             }
 
@@ -1276,6 +1310,13 @@
         newSearchBtn.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
         document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
         document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => window.location.href = window.location.pathname )
+
+        // Toggle cuisine filter buttons
+        document.getElementById( 'toggle-cuisine-btn' ).addEventListener( 'click', () => {
+            const cuisineDiv = document.getElementById( 'cuisine-filter-buttons' )
+            const isVisible = cuisineDiv.style.display !== 'none'
+            cuisineDiv.style.display = isVisible ? 'none' : 'flex'
+        } )
 
         function updateStatus ( message, isError = false ) {
             statusMessage.textContent = message
