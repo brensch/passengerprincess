@@ -309,9 +309,27 @@
             }
         }
 
+        #cuisine-filter-buttons button.selected {
+            background-color: #ec4899;
+            /* pink-500 */
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
         /* Hide table headers when loading */
         #loading-container:not(.hidden)~#chargers-table thead {
             display: none;
+        }
+
+        #cuisine-filter-buttons button.selected {
+            background-color: #ec4899;
+            /* pink-500 */
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
         }
 
         /* Princess marker styling */
@@ -345,10 +363,9 @@
                 <input type="text" id="restaurant-search"
                     class="flex-grow px-4 py-3 border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm enhanced-input"
                     placeholder="Search restaurants or cuisines...">
-                <select id="cuisine-filter"
-                    class="w-1/3 px-4 py-3 border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm enhanced-input">
-                    <option value="">All Cuisines</option>
-                </select>
+                <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4">
+                    <!-- Cuisine buttons will be dynamically inserted here -->
+                </div>
             </div>
 
             <div id="loading-container" class="loading-container hidden">
@@ -462,7 +479,7 @@
         const locationText = document.getElementById( 'location-text' )
         const loadingSpinner = document.getElementById( 'loading-spinner' )
         const restaurantSearchInput = document.getElementById( 'restaurant-search' )
-        const cuisineFilter = document.getElementById( 'cuisine-filter' )
+        const cuisineFilterButtons = document.getElementById( 'cuisine-filter-buttons' )
 
 
         // --- MAP INITIALIZATION ---
@@ -489,7 +506,7 @@
         // Tracks the current filter state. `null` means no filter, an array of IDs means filter is active.
         let filteredChargerIDs = null
         let currentSearchTerm = ''
-        let currentCuisineFilter = ''
+        let currentCuisineFilter = []
 
 
         // --- EVENT LISTENERS ---
@@ -498,8 +515,46 @@
         restaurantSearchInput.addEventListener( 'input', () => {
             filterListAndMap( restaurantSearchInput.value, currentCuisineFilter )
         } )
-        cuisineFilter.addEventListener( 'change', ( e ) => {
-            filterListAndMap( currentSearchTerm, e.target.value )
+        cuisineFilterButtons.addEventListener( 'click', ( e ) => {
+            if ( e.target.tagName === 'BUTTON' ) {
+                const cuisine = e.target.dataset.cuisine
+
+                // Toggle selection
+                if ( currentCuisineFilter.includes( cuisine ) ) {
+                    currentCuisineFilter = currentCuisineFilter.filter( c => c !== cuisine )
+                    e.target.classList.remove( 'selected' )
+                } else {
+                    currentCuisineFilter.push( cuisine )
+                    e.target.classList.add( 'selected' )
+                }
+
+                // If 'All' is clicked, deselect others
+                if ( cuisine === '' && e.target.classList.contains( 'selected' ) ) {
+                    currentCuisineFilter = [ '' ]
+                    // Visually deselect other buttons
+                    Array.from( cuisineFilterButtons.children ).forEach( btn => {
+                        if ( btn !== e.target ) btn.classList.remove( 'selected' )
+                    } )
+                } else if ( cuisine !== '' ) {
+                    // If another button is clicked, deselect 'All'
+                    const allButton = cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )
+                    if ( allButton ) {
+                        allButton.classList.remove( 'selected' )
+                        currentCuisineFilter = currentCuisineFilter.filter( c => c !== '' )
+                    }
+                }
+
+                // If nothing is selected, select 'All'
+                if ( currentCuisineFilter.length === 0 ) {
+                    const allButton = cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )
+                    if ( allButton ) {
+                        allButton.classList.add( 'selected' )
+                        currentCuisineFilter = [ '' ]
+                    }
+                }
+
+                filterListAndMap( currentSearchTerm, currentCuisineFilter.filter( c => c !== '' ) )
+            }
         } )
 
         // Update map markers when the user pans or zooms
@@ -639,67 +694,71 @@
         /**
          * Filters the visible list items and updates the map markers based on a search term.
          */
-        function filterListAndMap ( searchTerm, cuisine ) {
+        function filterListAndMap ( searchTerm, cuisines ) {
             currentSearchTerm = searchTerm.toLowerCase()
-            currentCuisineFilter = cuisine.toLowerCase()
+            currentCuisineFilter = Array.isArray( cuisines ) ? cuisines.map( c => c.toLowerCase() ) : ( cuisines ? [ cuisines.toLowerCase() ] : [] )
+
             const tbody = document.getElementById( 'chargers-tbody' )
             if ( !tbody ) return
 
             const rows = tbody.querySelectorAll( 'tr[data-charger-id]' )
-            let visibleIDs = []
+            let visibleChargerIDs = new Set()
 
-            if ( !currentSearchTerm && !currentCuisineFilter ) {
-                // If search is cleared, show everything
-                filteredChargerIDs = null
-                tbody.querySelectorAll( 'tr' ).forEach( tr => {
-                    tr.style.display = ''
-                    const links = tr.querySelectorAll( '.restaurant-link' )
-                    links.forEach( link => {
-                        link.innerHTML = link.textContent // Remove highlight
-                    } )
-                } )
-            } else {
-                // Filter the list
-                rows.forEach( mainRow => {
-                    const chargerId = mainRow.dataset.chargerId
-                    const restaurantRows = tbody.querySelectorAll( `tr[data-parent-id="${ chargerId }"], tr[data-charger-id="${ chargerId }"]` )
-                    let hasMatch = false
+            rows.forEach( row => {
+                const chargerId = row.dataset.chargerId
+                const restaurantCell = row.querySelector( '.restaurant-link' )
 
-                    restaurantRows.forEach( row => {
-                        const link = row.querySelector( '.restaurant-link' )
-                        const cuisineCell = row.cells[ 2 ]
-                        if ( link ) {
-                            const restaurantName = link.textContent
-                            const cuisineName = cuisineCell.textContent
+                // For rows with restaurant info
+                if ( restaurantCell ) {
+                    const cuisineCell = row.cells[ 3 ]
+                    const restaurantName = restaurantCell.textContent
+                    const originalCuisineText = cuisineCell.dataset.originalCuisine || cuisineCell.textContent
+                    if ( !cuisineCell.dataset.originalCuisine ) {
+                        cuisineCell.dataset.originalCuisine = originalCuisineText
+                    }
 
-                            const nameMatches = !currentSearchTerm || restaurantName.toLowerCase().includes( currentSearchTerm )
-                            const cuisineMatches = !currentCuisineFilter || cuisineName.toLowerCase().includes( currentCuisineFilter )
+                    const nameMatches = !currentSearchTerm || restaurantName.toLowerCase().includes( currentSearchTerm )
+                    const restaurantCuisines = originalCuisineText.toLowerCase().split( ';' ).map( c => c.trim() )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.some( filterCuisine => restaurantCuisines.includes( filterCuisine ) )
 
-                            if ( nameMatches && cuisineMatches ) {
-                                hasMatch = true
-                                if ( currentSearchTerm ) {
-                                    const highlighted = restaurantName.replace(
-                                        new RegExp( `(${ searchTerm })`, 'gi' ),
-                                        '<mark>$1</mark>'
-                                    )
-                                    link.innerHTML = highlighted
-                                } else {
-                                    link.innerHTML = restaurantName
-                                }
-                            } else {
-                                link.innerHTML = restaurantName // Remove highlight
+                    if ( nameMatches && cuisineMatches ) {
+                        row.style.display = ''
+                        visibleChargerIDs.add( chargerId )
+
+                        // Highlight restaurant name
+                        restaurantCell.innerHTML = currentSearchTerm ?
+                            restaurantName.replace( new RegExp( `(${ searchTerm })`, 'gi' ), '<mark>$1</mark>' ) :
+                            restaurantName
+
+                        // Highlight cuisine
+                        let highlightedCuisine = originalCuisineText
+                        if ( currentCuisineFilter.length > 0 ) {
+                            const matchedCuisines = restaurantCuisines.filter( rc => currentCuisineFilter.includes( rc ) )
+                            if ( matchedCuisines.length > 0 ) {
+                                highlightedCuisine = originalCuisineText.replace( new RegExp( `(${ matchedCuisines.join( '|' ) })`, 'gi' ), '<mark>$1</mark>' )
                             }
                         }
-                    } )
-
-                    if ( hasMatch ) {
-                        visibleIDs.push( chargerId )
-                        restaurantRows.forEach( row => row.style.display = '' )
+                        cuisineCell.innerHTML = highlightedCuisine
                     } else {
-                        restaurantRows.forEach( row => row.style.display = 'none' )
+                        row.style.display = 'none'
+                        restaurantCell.innerHTML = restaurantName
+                        cuisineCell.innerHTML = originalCuisineText
                     }
-                } )
-                filteredChargerIDs = visibleIDs
+                } else { // For "No restaurants found" rows
+                    if ( !currentSearchTerm && currentCuisineFilter.length === 0 ) {
+                        row.style.display = ''
+                        visibleChargerIDs.add( chargerId )
+                    } else {
+                        row.style.display = 'none'
+                    }
+                }
+            } )
+
+            // Update the global filter state for map markers
+            if ( !currentSearchTerm && currentCuisineFilter.length === 0 ) {
+                filteredChargerIDs = null
+            } else {
+                filteredChargerIDs = Array.from( visibleChargerIDs )
             }
 
             updateVisibleMarkers() // Trigger map update with new filter state
@@ -731,7 +790,9 @@
                 const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
                 station.restaurantMarkers.forEach( restaurantMarker => {
                     const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
-                    const cuisineMatches = !currentCuisineFilter || ( restaurantMarker.options.cuisine && restaurantMarker.options.cuisine.toLowerCase().includes( currentCuisineFilter ) )
+                    const restaurantCuisines = ( restaurantMarker.options.cuisine || '' ).toLowerCase().split( ';' ).map( c => c.trim() )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.some( fc => restaurantCuisines.includes( fc ) )
+
                     if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
                         if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
                     } else {
@@ -803,41 +864,45 @@
             }
             const address = [ charger.address.street, charger.address.city, charger.address.state ].filter( Boolean ).join( ', ' )
 
-            const createRow = ( content, isMain = false ) => {
+            const createRow = ( restaurant ) => {
                 const row = document.createElement( 'tr' )
-                if ( isMain ) {
-                    row.dataset.chargerId = charger.id.toString()
-                    row.innerHTML = `
-                        <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
-                            <div class="flex flex-col">
-                                <span>${ distanceFromOrigin }</span>
-                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ address || charger.name }</span>
-                            </div>
-                        </td>
-                        ${ content }`
-                } else {
-                    row.dataset.parentId = charger.id.toString()
-                    row.innerHTML = content
-                }
-                return row
-            }
+                row.dataset.chargerId = charger.id.toString()
 
-            if ( restaurants.length === 0 ) {
-                rows.push( createRow( `<td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>`, true ) )
-            } else {
-                restaurants.forEach( ( restaurant, index ) => {
-                    const content = `
+                let restaurantContent
+                if ( restaurant ) {
+                    row.dataset.restaurantId = restaurant.id
+                    restaurantContent = `
                         <td class="px-1 py-0 text-sm text-pink-700">
                             <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link">${ restaurant.name }</span>
                         </td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.distance }m</td>
-                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.cuisine }</td>
+                        <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ restaurant.cuisine }">${ restaurant.cuisine }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" style="white-space: pre-wrap; word-break: break-all;">${ restaurant.opening_hours }</td>
-                        `
-                    rows.push( createRow( content, index === 0 ) )
+                    `
+                } else {
+                    restaurantContent = `<td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>`
+                }
+
+                row.innerHTML = `
+                    <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200">
+                        <div class="flex flex-col">
+                            <span>${ distanceFromOrigin }</span>
+                            <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ address || charger.name }</span>
+                        </div>
+                    </td>
+                    ${ restaurantContent }
+                `
+                return row
+            }
+
+            if ( restaurants.length === 0 ) {
+                rows.push( createRow( null ) )
+            } else {
+                restaurants.forEach( restaurant => {
+                    rows.push( createRow( restaurant ) )
                 } )
             }
-            // Add click handlers after creating the rows
+
             addClickHandlersToRows( rows, charger )
             return rows
         }
@@ -877,25 +942,36 @@
             stationData.forEach( station => {
                 station.restaurants.forEach( r => {
                     if ( r.cuisine && r.cuisine !== 'N/A' ) {
-                        // Split cuisines like "italian;pizza"
                         r.cuisine.split( ';' ).forEach( c => cuisines.add( c.trim() ) )
                     }
                 } )
             } )
 
             const sortedCuisines = Array.from( cuisines ).sort()
-            cuisineFilter.innerHTML = '<option value="">All Cuisines</option>' // Reset
+            cuisineFilterButtons.innerHTML = '' // Clear previous buttons
+
+            const createButton = ( text, cuisineValue ) => {
+                const button = document.createElement( 'button' )
+                button.textContent = text
+                button.dataset.cuisine = cuisineValue
+                button.className = 'px-3 py-1 border border-pink-300 rounded-full text-sm text-pink-700 hover:bg-pink-100 transition-colors duration-200'
+                return button
+            }
+
+            const allButton = createButton( 'All Cuisines', '' )
+            allButton.classList.add( 'selected' ) // 'All' is selected by default
+            currentCuisineFilter = [ '' ]
+            cuisineFilterButtons.appendChild( allButton )
+
             sortedCuisines.forEach( c => {
-                const option = document.createElement( 'option' )
-                option.value = c
-                option.textContent = c.charAt( 0 ).toUpperCase() + c.slice( 1 )
-                cuisineFilter.appendChild( option )
+                const button = createButton( c.charAt( 0 ).toUpperCase() + c.slice( 1 ), c )
+                cuisineFilterButtons.appendChild( button )
             } )
 
             if ( sortedCuisines.length > 0 ) {
-                cuisineFilter.style.display = 'block'
+                cuisineFilterButtons.parentElement.style.display = 'block'
             } else {
-                cuisineFilter.style.display = 'none'
+                cuisineFilterButtons.parentElement.style.display = 'none'
             }
         }
 
