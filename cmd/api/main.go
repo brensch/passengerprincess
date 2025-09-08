@@ -32,6 +32,7 @@ type RouteResponse struct {
 	Route         RouteDetails       `json:"route"`
 	Superchargers []SuperchargerInfo `json:"superchargers"`
 	DebugInfo     DebugInfo          `json:"debug_info"`
+	Steps         []StepInfo         `json:"steps"`
 }
 
 // RouteDetails contains information about the overall route.
@@ -66,6 +67,13 @@ type RestaurantInfo struct {
 	Lng                   float64  `json:"lng"`
 	CuisineTypes          []string `json:"cuisine_types"`
 	WalkingDistanceMeters int      `json:"walking_distance_meters"`
+}
+
+// StepInfo contains information about a route step for traffic visualization.
+type StepInfo struct {
+	Polyline          string `json:"polyline"`
+	Duration          int    `json:"duration"`
+	DurationInTraffic int    `json:"duration_in_traffic"`
 }
 
 // --- Structs for Debugging ---
@@ -124,6 +132,14 @@ type GoogleDirectionsResponse struct {
 				Polyline struct {
 					Points string `json:"points"`
 				} `json:"polyline"`
+				Duration struct {
+					Value int    `json:"value"`
+					Text  string `json:"text"`
+				} `json:"duration"`
+				DurationInTraffic struct {
+					Value int    `json:"value"`
+					Text  string `json:"text"`
+				} `json:"duration_in_traffic"`
 			} `json:"steps"`
 		} `json:"legs"`
 	} `json:"routes"`
@@ -306,6 +322,16 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Collect steps for traffic visualization
+	var steps []StepInfo
+	for _, step := range leg.Steps {
+		steps = append(steps, StepInfo{
+			Polyline:          step.Polyline.Points,
+			Duration:          step.Duration.Value,
+			DurationInTraffic: step.DurationInTraffic.Value,
+		})
+	}
+
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
 	log.Println("Starting comprehensive search for superchargers along the route...")
 	allSuperchargers := []PlaceNew{} // Collect all superchargers
@@ -450,6 +476,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		DebugInfo: DebugInfo{
 			APICalls: apiCalls,
 		},
+		Steps: steps,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -803,6 +830,14 @@ func getDetailedPolyline(steps []struct {
 	Polyline struct {
 		Points string `json:"points"`
 	} `json:"polyline"`
+	Duration struct {
+		Value int    `json:"value"`
+		Text  string `json:"text"`
+	} `json:"duration"`
+	DurationInTraffic struct {
+		Value int    `json:"value"`
+		Text  string `json:"text"`
+	} `json:"duration_in_traffic"`
 }) []LatLng {
 	var fullPolyline []LatLng
 	for _, step := range steps {

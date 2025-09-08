@@ -104,7 +104,7 @@
                 loadingMessage.style.display = 'none'
 
                 // Process and display the data
-                displayRouteOnMap( data.route.polyline )
+                displayRouteOnMap( data.steps )
                 displaySuperchargers( data.superchargers, AdvancedMarkerElement )
                 displayDebugInfo( data.debug_info )
                 displayDetailsInPanel( data )
@@ -115,26 +115,29 @@
             }
         }
 
-        function displayRouteOnMap ( encodedPolyline ) {
-            const decodedPath = google.maps.geometry.encoding.decodePath( encodedPolyline )
-
-            const routePolyline = new google.maps.Polyline( {
-                path: decodedPath,
-                geodesic: true,
-                strokeColor: '#4285F4',
-                strokeOpacity: 0.8,
-                strokeWeight: 6,
-            } )
-
-            routePolyline.setMap( map )
-
-            // Adjust map bounds to fit the route
+        function displayRouteOnMap ( steps ) {
             const bounds = new google.maps.LatLngBounds()
-            decodedPath.forEach( point => bounds.extend( point ) )
+            steps.forEach( step => {
+                const decodedPath = google.maps.geometry.encoding.decodePath( step.polyline )
+                const ratio = step.duration_in_traffic / step.duration
+                let color = '#4285F4' // blue for no traffic
+                if ( ratio > 1.5 ) {
+                    color = '#FF0000' // red for heavy traffic
+                } else if ( ratio > 1.2 ) {
+                    color = '#FFFF00' // yellow for moderate traffic
+                }
+                const polyline = new google.maps.Polyline( {
+                    path: decodedPath,
+                    geodesic: true,
+                    strokeColor: color,
+                    strokeOpacity: 0.8,
+                    strokeWeight: 6,
+                } )
+                polyline.setMap( map )
+                decodedPath.forEach( point => bounds.extend( point ) )
+            } )
             map.fitBounds( bounds )
-        }
-
-        function displaySuperchargers ( superchargers, AdvancedMarkerElement ) {
+        } function displaySuperchargers ( superchargers, AdvancedMarkerElement ) {
             const infoWindow = new google.maps.InfoWindow()
 
             superchargers.forEach( sc => {
