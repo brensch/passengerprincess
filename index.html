@@ -874,6 +874,7 @@
                     <strong>Address:</strong> ${ address }<br>
                     <strong>Stalls:</strong> ${ charger.stallCount }<br>
                     <strong>Distance:</strong> ${ distanceFromOrigin }<br>
+                    <button onclick="showChargerInResults('${ charger.id }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-2 py-1 rounded mt-2 mr-2">View in Results</button>
                     <a href="https://maps.google.com/?q=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                 `
 
@@ -1073,6 +1074,27 @@
             document.getElementById( 'loading-container' ).classList.add( 'hidden' )
             document.getElementById( 'chargers-table' ).classList.remove( 'hidden' )
             document.getElementById( 'no-results' ).classList.add( 'hidden' )
+        }
+
+        function showChargerInResults ( chargerId ) {
+            // Show the results list view
+            const bottomResults = document.getElementById( 'bottom-results' )
+            bottomResults.style.display = 'block'
+            document.getElementById( 'toggle-btn' ).textContent = 'Show map'
+
+            // Find and scroll to the charger row
+            const chargerRow = document.querySelector( `tr[data-charger-id="${ chargerId }"]` )
+            if ( chargerRow ) {
+                chargerRow.scrollIntoView( { behavior: 'smooth', block: 'center' } )
+                // Highlight the row briefly
+                chargerRow.style.backgroundColor = '#fef2f2'
+                setTimeout( () => {
+                    chargerRow.style.backgroundColor = ''
+                }, 2000 )
+            }
+
+            // Invalidate map size after showing results
+            setTimeout( () => map.invalidateSize(), 100 )
         }
 
         function showEmptyState ( message ) {
