@@ -114,16 +114,11 @@
         }
 
         #chargers-table td {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Allow text wrapping in the charger column (first column) */
-        #chargers-table td:first-child {
             white-space: normal;
             word-wrap: break-word;
             overflow-wrap: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Mobile optimizations */
