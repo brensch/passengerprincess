@@ -69,6 +69,14 @@ type RestaurantInfo struct {
 	WalkingDistanceMeters int      `json:"walking_distance_meters"`
 }
 
+// CumPoint represents a point on the route with cumulative distance and duration.
+type CumPoint struct {
+	Lat           float64
+	Lng           float64
+	CumDistKm     float64
+	CumDurSeconds int
+}
+
 // StepInfo contains information about a route step for traffic visualization.
 type StepInfo struct {
 	Polyline          string `json:"polyline"`
@@ -136,10 +144,6 @@ type GoogleDirectionsResponse struct {
 					Value int    `json:"value"`
 					Text  string `json:"text"`
 				} `json:"duration"`
-				DurationInTraffic struct {
-					Value int    `json:"value"`
-					Text  string `json:"text"`
-				} `json:"duration_in_traffic"`
 			} `json:"steps"`
 		} `json:"legs"`
 	} `json:"routes"`
@@ -324,12 +328,57 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Collect steps for traffic visualization
 	var steps []StepInfo
+	sumDur := 0
+	for _, step := range leg.Steps {
+		sumDur += step.Duration.Value
+	}
+	trafficFactor := float64(leg.DurationInTraffic.Value) / float64(sumDur)
 	for _, step := range leg.Steps {
 		steps = append(steps, StepInfo{
 			Polyline:          step.Polyline.Points,
 			Duration:          step.Duration.Value,
-			DurationInTraffic: step.DurationInTraffic.Value,
+			DurationInTraffic: int(float64(step.Duration.Value) * trafficFactor),
 		})
+	}
+
+	// Build cumulative profile for accurate ETAs
+	var cumulativePoints []CumPoint
+	cumDist := 0.0
+	cumDur := 0
+	for _, step := range leg.Steps {
+		stepPoints, err := decodePolyline(step.Polyline.Points)
+		if err != nil || len(stepPoints) == 0 {
+			continue
+		}
+		totalStepDist := 0.0
+		for i := 1; i < len(stepPoints); i++ {
+			totalStepDist += haversineDistance(stepPoints[i-1].Lat, stepPoints[i-1].Lng, stepPoints[i].Lat, stepPoints[i].Lng)
+		}
+		stepDur := int(float64(step.Duration.Value) * trafficFactor)
+		stepCumDist := 0.0
+		for i, p := range stepPoints {
+			if i > 0 {
+				dist := haversineDistance(stepPoints[i-1].Lat, stepPoints[i-1].Lng, p.Lat, p.Lng)
+				stepCumDist += dist
+				fraction := stepCumDist / totalStepDist
+				pointCumDur := cumDur + int(float64(stepDur)*fraction)
+				cumulativePoints = append(cumulativePoints, CumPoint{
+					Lat:           p.Lat,
+					Lng:           p.Lng,
+					CumDistKm:     cumDist + stepCumDist,
+					CumDurSeconds: pointCumDur,
+				})
+			} else {
+				cumulativePoints = append(cumulativePoints, CumPoint{
+					Lat:           p.Lat,
+					Lng:           p.Lng,
+					CumDistKm:     cumDist,
+					CumDurSeconds: cumDur,
+				})
+			}
+		}
+		cumDist += totalStepDist
+		cumDur += stepDur
 	}
 
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
@@ -409,7 +458,6 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Filtering superchargers within 10km of route...")
 	var finalSuperchargers []PlaceNew
 	totalRouteDistanceKm := float64(leg.Distance.Value) / 1000.0
-	totalDuration := time.Duration(leg.Duration.Value) * time.Second
 
 	for _, sc := range uniqueSuperchargers {
 		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
@@ -435,9 +483,25 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
 		distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLoc, decodedPolyline)
 		totalDistKm := distAlongRoute + distFromRoute
-		arrivalRatio := totalDistKm / totalRouteDistanceKm
-		durationToSupercharger := time.Duration(float64(totalDuration) * arrivalRatio)
+
+		// Find the closest cumulative point for accurate ETA
+		var selectedCumDur int
+		for _, cp := range cumulativePoints {
+			if cp.CumDistKm >= distAlongRoute {
+				selectedCumDur = cp.CumDurSeconds
+				break
+			}
+		}
+		if selectedCumDur == 0 && len(cumulativePoints) > 0 {
+			selectedCumDur = cumulativePoints[len(cumulativePoints)-1].CumDurSeconds
+		}
+		durationToSupercharger := time.Duration(selectedCumDur) * time.Second
 		arrivalTime := time.Now().Add(durationToSupercharger)
+
+		// Add time to travel from route to supercharger at 50 km/h
+		extraTimeHours := distFromRoute / 50.0
+		extraTimeSeconds := extraTimeHours * 3600
+		arrivalTime = arrivalTime.Add(time.Duration(extraTimeSeconds) * time.Second)
 
 		restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
 		if err != nil {
@@ -834,10 +898,6 @@ func getDetailedPolyline(steps []struct {
 		Value int    `json:"value"`
 		Text  string `json:"text"`
 	} `json:"duration"`
-	DurationInTraffic struct {
-		Value int    `json:"value"`
-		Text  string `json:"text"`
-	} `json:"duration_in_traffic"`
 }) []LatLng {
 	var fullPolyline []LatLng
 	for _, step := range steps {
