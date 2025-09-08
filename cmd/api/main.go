@@ -25,7 +25,21 @@ var googleAPIKey = os.Getenv("GOOGLE_MAPS_API_KEY")
 type APICallCounter struct {
 	Directions int
 	Places     int // Counts calls to the new Places API
+	Geocoding  int
 	mu         sync.Mutex
+}
+
+// --- Structs for Geocoding API ---
+type GeocodingResponse struct {
+	Results []GeocodingResult `json:"results"`
+	Status  string            `json:"status"`
+}
+type GeocodingResult struct {
+	FormattedAddress string            `json:"formatted_address"`
+	Geometry         GeocodingGeometry `json:"geometry"`
+}
+type GeocodingGeometry struct {
+	Location LatLng `json:"location"`
 }
 
 // --- Structs for our final API response ---
@@ -119,7 +133,8 @@ type RoutesRequest struct {
 }
 
 type Location struct {
-	Address string `json:"address,omitempty"`
+	Address string  `json:"address,omitempty"`
+	LatLng  *LatLng `json:"latLng,omitempty"`
 }
 
 // RoutesResponse is the response from the Routes API.
@@ -258,6 +273,119 @@ func main() {
 	}
 }
 
+// writeJSONError sends a JSON-formatted error message.
+func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// geocodeAddress converts an address string to a LatLng using the Geocoding API.
+func geocodeAddress(address string, counter *APICallCounter, apiCalls *[]APICallDetails) (LatLng, error) {
+	apiURL := fmt.Sprintf(
+		"https://maps.googleapis.com/maps/api/geocode/json?address=%s&key=%s",
+		url.QueryEscape(address),
+		googleAPIKey,
+	)
+
+	log.Printf("Calling Geocoding API: %s", apiURL)
+
+	counter.mu.Lock()
+	counter.Geocoding++
+	*apiCalls = append(*apiCalls, APICallDetails{
+		API: "Geocoding API",
+		URL: apiURL,
+	})
+	counter.mu.Unlock()
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return LatLng{}, fmt.Errorf("failed to contact Geocoding API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return LatLng{}, fmt.Errorf("failed to read response from Geocoding API: %w", err)
+	}
+
+	var geocodingResp GeocodingResponse
+	if err := json.Unmarshal(body, &geocodingResp); err != nil {
+		return LatLng{}, fmt.Errorf("failed to parse geocoding response: %w", err)
+	}
+
+	if geocodingResp.Status != "OK" || len(geocodingResp.Results) == 0 {
+		return LatLng{}, fmt.Errorf("geocoding failed for address '%s': %s", address, geocodingResp.Status)
+	}
+
+	return geocodingResp.Results[0].Geometry.Location, nil
+}
+
+// reverseGeocodeLatLng converts a LatLng to an address using the Geocoding API.
+func reverseGeocodeLatLng(lat, lng float64, counter *APICallCounter, apiCalls *[]APICallDetails) (string, error) {
+	apiURL := fmt.Sprintf(
+		"https://maps.googleapis.com/maps/api/geocode/json?latlng=%.6f,%.6f&key=%s",
+		lat, lng, googleAPIKey,
+	)
+
+	log.Printf("Calling Reverse Geocoding API: %s", apiURL)
+
+	counter.mu.Lock()
+	counter.Geocoding++
+	*apiCalls = append(*apiCalls, APICallDetails{
+		API: "Reverse Geocoding API",
+		URL: apiURL,
+	})
+	counter.mu.Unlock()
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to contact Reverse Geocoding API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response from Reverse Geocoding API: %w", err)
+	}
+
+	var geocodingResp GeocodingResponse
+	if err := json.Unmarshal(body, &geocodingResp); err != nil {
+		return "", fmt.Errorf("failed to parse reverse geocoding response: %w", err)
+	}
+
+	if geocodingResp.Status != "OK" || len(geocodingResp.Results) == 0 {
+		return "", fmt.Errorf("reverse geocoding failed for coordinates (%.6f, %.6f): %s", lat, lng, geocodingResp.Status)
+	}
+
+	return geocodingResp.Results[0].FormattedAddress, nil
+}
+
+// parseLatLngFromString attempts to parse a lat,lng string like "40.712776, -74.005974"
+func parseLatLngFromString(s string) (LatLng, bool) {
+	parts := strings.Split(strings.TrimSpace(s), ",")
+	if len(parts) != 2 {
+		return LatLng{}, false
+	}
+
+	latStr := strings.TrimSpace(parts[0])
+	lngStr := strings.TrimSpace(parts[1])
+
+	lat, err1 := strconv.ParseFloat(latStr, 64)
+	lng, err2 := strconv.ParseFloat(lngStr, 64)
+
+	if err1 != nil || err2 != nil {
+		return LatLng{}, false
+	}
+
+	// Basic validation
+	if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
+		return LatLng{}, false
+	}
+
+	return LatLng{Lat: lat, Lng: lng}, true
+}
+
 // serveFrontend serves the index.html file.
 func serveFrontend(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := template.ParseFiles("frontend/index.html")
@@ -313,26 +441,70 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Defer the logging of the final counts
 	defer func() {
-		log.Printf("API Call Summary: Directions=%d, Places (New)=%d",
-			counter.Directions, counter.Places)
+		log.Printf("API Call Summary: Directions=%d, Places (New)=%d, Geocoding=%d",
+			counter.Directions, counter.Places, counter.Geocoding)
 	}()
 
 	origin := r.URL.Query().Get("origin")
 	destination := r.URL.Query().Get("destination")
 	if origin == "" || destination == "" {
-		http.Error(w, "Query parameters 'origin' and 'destination' are required", http.StatusBadRequest)
+		writeJSONError(w, "Query parameters 'origin' and 'destination' are required", http.StatusBadRequest)
+		return
+	}
+
+	// --- Parse or geocode origin ---
+	var originLatLng LatLng
+	var originLocation Location
+	if parsedOrigin, ok := parseLatLngFromString(origin); ok {
+		originLatLng = parsedOrigin
+		originLocation = Location{LatLng: &originLatLng}
+		log.Printf("Origin parsed as coordinates: %.6f, %.6f", originLatLng.Lat, originLatLng.Lng)
+	} else {
+		var err error
+		originLatLng, err = geocodeAddress(origin, counter, &apiCalls)
+		if err != nil {
+			writeJSONError(w, fmt.Sprintf("Failed to geocode origin: %v", err), http.StatusInternalServerError)
+			return
+		}
+		originLocation = Location{Address: origin}
+		log.Printf("Origin geocoded from address: %s -> %.6f, %.6f", origin, originLatLng.Lat, originLatLng.Lng)
+	}
+
+	// --- Parse or geocode destination ---
+	var destLatLng LatLng
+	var destLocation Location
+	if parsedDest, ok := parseLatLngFromString(destination); ok {
+		destLatLng = parsedDest
+		destLocation = Location{LatLng: &destLatLng}
+		log.Printf("Destination parsed as coordinates: %.6f, %.6f", destLatLng.Lat, destLatLng.Lng)
+	} else {
+		var err error
+		destLatLng, err = geocodeAddress(destination, counter, &apiCalls)
+		if err != nil {
+			writeJSONError(w, fmt.Sprintf("Failed to geocode destination: %v", err), http.StatusInternalServerError)
+			return
+		}
+		destLocation = Location{Address: destination}
+		log.Printf("Destination geocoded from address: %s -> %.6f, %.6f", destination, destLatLng.Lat, destLatLng.Lng)
+	}
+
+	// Check haversine distance (straight line)
+	straightLineDistanceKm := haversineDistance(originLatLng.Lat, originLatLng.Lng, destLatLng.Lat, destLatLng.Lng)
+	log.Printf("Straight line distance between origin and destination: %.2f km", straightLineDistanceKm)
+	if straightLineDistanceKm > 1000 { // 1000 km threshold
+		writeJSONError(w, "that's too far mate.", http.StatusBadRequest)
 		return
 	}
 
 	// --- 1. Get Route Details (including traffic-aware polyline) ---
-	routesData, err := getRoutesData(origin, destination, counter, &apiCalls)
+	routesData, err := getRoutesData(originLocation, destLocation, counter, &apiCalls)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get routes: %v", err), http.StatusInternalServerError)
+		writeJSONError(w, fmt.Sprintf("Failed to get routes: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	if routesData == nil || len(routesData.Routes) == 0 || len(routesData.Routes[0].Legs) == 0 {
-		http.Error(w, "Could not find a route", http.StatusInternalServerError)
+		writeJSONError(w, "Could not find a route", http.StatusInternalServerError)
 		return
 	}
 
@@ -342,11 +514,11 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	// Decode the main polyline for the overview
 	decodedPolyline, err := decodePolyline(route.Polyline.EncodedPolyline)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to decode polyline: %v", err), http.StatusInternalServerError)
+		writeJSONError(w, fmt.Sprintf("Failed to decode polyline: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if len(decodedPolyline) < 2 {
-		http.Error(w, "Not enough points in polyline to process", http.StatusInternalServerError)
+		writeJSONError(w, "Not enough points in polyline to process", http.StatusInternalServerError)
 		return
 	}
 
@@ -1104,14 +1276,10 @@ func encodePolyline(path []LatLng) string {
 
 // --- API CALLER FUNCTIONS ---
 
-func getRoutesData(origin, destination string, counter *APICallCounter, apiCalls *[]APICallDetails) (*RoutesResponse, error) {
+func getRoutesData(originLoc, destLoc Location, counter *APICallCounter, apiCalls *[]APICallDetails) (*RoutesResponse, error) {
 	routesRequest := RoutesRequest{
-		Origin: Location{
-			Address: origin,
-		},
-		Destination: Location{
-			Address: destination,
-		},
+		Origin:            originLoc,
+		Destination:       destLoc,
 		TravelMode:        "DRIVE",
 		RoutingPreference: "TRAFFIC_AWARE_OPTIMAL",
 		ExtraComputations: []string{"TRAFFIC_ON_POLYLINE"},

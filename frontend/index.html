@@ -511,10 +511,11 @@
 
             } catch ( error ) {
                 console.error( "Error during route search:", error )
+                // The error from the server is now in error.message
                 const userMessage = error.message.includes( "Could not find a route" ) ?
                     "Could not find a route. Please try a different or more specific location." :
-                    `An error occurred: ${ error.message }`
-                showErrorState( userMessage )
+                    error.message // Directly use the message from the server
+                showErrorState( `Oops! ${ userMessage }` )
             }
         }
 
@@ -969,7 +970,10 @@
                     timeout: 20000
                 } ) )
                 const { latitude: lat, longitude: lon } = position.coords
-                originInput.value = `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+
+                // Reverse geocode the coordinates to get an address
+                const address = await reverseGeocode( lat, lon )
+                originInput.value = address
                 updateStatus( "Location detected and set as origin.", false )
                 startLocationTracking()
             } catch ( error ) {
@@ -1004,16 +1008,29 @@
             }, 5000 )
         }
 
-        function updateUserLocationMarker ( lat, lon ) {
+        async function updateUserLocationMarker ( lat, lon ) {
             if ( userLocationMarker ) userLocationLayer.removeLayer( userLocationMarker )
+
+            // Start with coordinates, then update with address
+            let popupContent = `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }`
+
             userLocationMarker = L.marker( [ lat, lon ], {
                 icon: L.divIcon( {
                     className: 'princess-marker',
                     html: '👸',
                     iconSize: [ 36, 36 ],
                 } )
-            } ).bindPopup( `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }` )
+            } ).bindPopup( popupContent )
             userLocationLayer.addLayer( userLocationMarker )
+
+            // Try to get the address and update the popup
+            try {
+                const address = await reverseGeocode( lat, lon )
+                const updatedContent = `<strong>Princess Location</strong><br>${ address }<br><small>Lat: ${ lat.toFixed( 6 ) }, Lon: ${ lon.toFixed( 6 ) }</small>`
+                userLocationMarker.setPopupContent( updatedContent )
+            } catch ( error ) {
+                console.log( 'Could not reverse geocode for marker popup:', error )
+            }
         }
 
         function stopLocationTracking () {
@@ -1073,6 +1090,29 @@
             suggestionsDiv.style.top = `${ inputRect.bottom + window.scrollY }px`
             suggestionsDiv.style.width = `${ inputRect.width }px`
             suggestionsDiv.classList.remove( 'hidden' )
+        }
+
+        // Reverse geocode coordinates to get an address
+        async function reverseGeocode ( lat, lon ) {
+            const apiKey = '{{.APIKey}}' // This will be replaced by the Go template
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${ lat },${ lon }&key=${ apiKey }`
+
+            try {
+                const response = await fetch( url )
+                const data = await response.json()
+
+                if ( data.status === 'OK' && data.results.length > 0 ) {
+                    return data.results[ 0 ].formatted_address
+                } else {
+                    console.warn( 'Reverse geocoding failed:', data.status )
+                    // Fallback to coordinates if reverse geocoding fails
+                    return `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+                }
+            } catch ( error ) {
+                console.error( 'Reverse geocoding error:', error )
+                // Fallback to coordinates if API call fails
+                return `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+            }
         }
 
         setupAutocomplete( originInput, originSuggestions )
