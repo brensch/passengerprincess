@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -18,9 +20,9 @@ var googleAPIKey = os.Getenv("GOOGLE_MAPS_API_KEY")
 
 // APICallCounter tracks the number of API calls made during a request.
 type APICallCounter struct {
-	Directions int
-	Places     int
-	// PlacesDetails removed for optimization
+	Directions    int
+	Places        int
+	PlacesDetails int // Counts calls to the new Places API or legacy Place Details
 }
 
 // --- Structs for our final API response ---
@@ -95,14 +97,14 @@ type GoogleDirectionsResponse struct {
 	} `json:"routes"`
 }
 
-// GooglePlacesResponse is for parsing the Places API (Nearby Search) response.
+// (Legacy) GooglePlacesResponse is for parsing the Places API (Nearby Search) response for superchargers.
 type GooglePlacesResponse struct {
 	Results       []PlaceResult `json:"results"`
 	NextPageToken string        `json:"next_page_token"`
 	Status        string        `json:"status"`
 }
 
-// PlaceResult represents a single place from the Places API.
+// (Legacy) PlaceResult represents a single place from the Places API.
 type PlaceResult struct {
 	PlaceID  string   `json:"place_id"`
 	Name     string   `json:"name"`
@@ -115,6 +117,52 @@ type PlaceResult struct {
 	OpeningHours struct {
 		OpenNow bool `json:"open_now"`
 	} `json:"opening_hours"`
+}
+
+// --- Structs for Places API (New) ---
+
+// SearchNearbyRequest is the request body for the new Places API.
+type SearchNearbyRequest struct {
+	IncludedTypes       []string            `json:"includedTypes"`
+	MaxResultCount      int                 `json:"maxResultCount"`
+	LocationRestriction LocationRestriction `json:"locationRestriction"`
+}
+type LocationRestriction struct {
+	Circle Circle `json:"circle"`
+}
+type Circle struct {
+	Center Center  `json:"center"`
+	Radius float64 `json:"radius"`
+}
+type Center struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+// SearchNearbyResponse is the response from the new Places API.
+type SearchNearbyResponse struct {
+	Places []PlaceNew `json:"places"`
+}
+
+// PlaceNew represents a place object from the new Places API.
+type PlaceNew struct {
+	DisplayName         DisplayName         `json:"displayName"`
+	FormattedAddress    string              `json:"formattedAddress"`
+	Rating              float64             `json:"rating"`
+	CurrentOpeningHours CurrentOpeningHours `json:"currentOpeningHours"`
+	Location            LocationNew         `json:"location"`
+	PrimaryType         string              `json:"primaryType"`
+	Types               []string            `json:"types"`
+}
+type DisplayName struct {
+	Text string `json:"text"`
+}
+type CurrentOpeningHours struct {
+	OpenNow bool `json:"openNow"`
+}
+type LocationNew struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 }
 
 // LatLng represents a geographical point.
@@ -184,8 +232,8 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	counter := &APICallCounter{}
 	// Defer the logging of the final counts
 	defer func() {
-		log.Printf("API Call Summary: Directions=%d, Places (Nearby)=%d",
-			counter.Directions, counter.Places)
+		log.Printf("API Call Summary: Directions=%d, Places (Nearby Legacy)=%d, Places (Nearby New)=%d",
+			counter.Directions, counter.Places, counter.PlacesDetails) // PlacesDetails now counts Places (New) calls
 	}()
 
 	origin := r.URL.Query().Get("origin")
@@ -242,7 +290,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		distanceSinceLastSearch += segmentDistance
 
 		if distanceSinceLastSearch >= searchIntervalKm || i == len(decodedPolyline)-1 {
-			results, err := performNearbySearch(p2, searchRadiusMeters, "Tesla Supercharger", "electric_vehicle_charging_station", counter)
+			results, err := performLegacyNearbySearch(p2, searchRadiusMeters, "Tesla Supercharger", "electric_vehicle_charging_station", counter)
 			if err != nil {
 				log.Printf("Warning: search failed at point %d: %v", i, err)
 			}
@@ -274,7 +322,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Getting accurate arrival times and finding restaurants...")
 	var finalSuperchargerList []SuperchargerInfo
 	for _, sc := range relevantSuperchargers {
-		restaurants, err := findNearbyRestaurants(sc, counter)
+		restaurants, err := findNearbyRestaurantsNew(sc, counter)
 		if err != nil {
 			log.Printf("Warning: could not find restaurants for %s: %v", sc.Name, err)
 		}
@@ -362,8 +410,8 @@ func getDurationToDestination(origin string, destination LatLng, counter *APICal
 	return time.Duration(durationSeconds) * time.Second, nil
 }
 
-// performNearbySearch executes a paginated nearby search at a specific point.
-func performNearbySearch(location LatLng, radiusMeters int, keyword, placeType string, counter *APICallCounter) ([]PlaceResult, error) {
+// performLegacyNearbySearch executes a paginated nearby search using the older API.
+func performLegacyNearbySearch(location LatLng, radiusMeters int, keyword, placeType string, counter *APICallCounter) ([]PlaceResult, error) {
 	var allResults []PlaceResult
 	nextPageToken := ""
 
@@ -374,11 +422,11 @@ func performNearbySearch(location LatLng, radiusMeters int, keyword, placeType s
 				"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=%f,%f&radius=%d&keyword=%s&type=%s&key=%s",
 				location.Lat, location.Lng, radiusMeters, url.QueryEscape(keyword), url.QueryEscape(placeType), googleAPIKey,
 			)
-			log.Printf("Calling Places Nearby Search API: %s", apiURL)
+			log.Printf("Calling Legacy Places Nearby Search API: %s", apiURL)
 		} else {
 			time.Sleep(2 * time.Second) // Required delay for next page token
 			apiURL = fmt.Sprintf("https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=%s&key=%s", nextPageToken, googleAPIKey)
-			log.Printf("Calling Places Nearby Search API (next page): %s", apiURL)
+			log.Printf("Calling Legacy Places Nearby Search API (next page): %s", apiURL)
 		}
 		counter.Places++ // Increment places counter for each page
 		resp, err := http.Get(apiURL)
@@ -405,55 +453,110 @@ func performNearbySearch(location LatLng, radiusMeters int, keyword, placeType s
 	return allResults, nil
 }
 
-// findNearbyRestaurants finds restaurants within 500m of a location using the simplified method.
-func findNearbyRestaurants(supercharger PlaceResult, counter *APICallCounter) ([]RestaurantInfo, error) {
+// findNearbyRestaurantsNew finds restaurants using the Places API (New).
+func findNearbyRestaurantsNew(supercharger PlaceResult, counter *APICallCounter) ([]RestaurantInfo, error) {
 	var allRestaurants []RestaurantInfo
 	superchargerLoc := supercharger.Geometry.Location
 
-	// First, find all restaurants with a single Nearby Search
-	nearbyPlaces, err := performNearbySearch(superchargerLoc, 500, "", "restaurant", counter)
+	requestBody := SearchNearbyRequest{
+		IncludedTypes:  []string{"restaurant"},
+		MaxResultCount: 20,
+		LocationRestriction: LocationRestriction{
+			Circle: Circle{
+				Center: Center{
+					Latitude:  superchargerLoc.Lat,
+					Longitude: superchargerLoc.Lng,
+				},
+				Radius: 500.0,
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse restaurant data: %w", err)
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	if len(nearbyPlaces) == 0 {
-		return allRestaurants, nil
+	apiURL := "https://places.googleapis.com/v1/places:searchNearby"
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new request: %w", err)
 	}
 
-	for _, p := range nearbyPlaces {
-		// Use the cheaper, less accurate method for all restaurants
-		cuisineTypes := extractCuisineFromTypes(p.Types)
+	// Set required headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Goog-Api-Key", googleAPIKey)
+	req.Header.Set("X-Goog-FieldMask", "places.displayName,places.formattedAddress,places.rating,places.currentOpeningHours,places.location,places.primaryType,places.types")
 
-		// OPTIMIZATION: Use static haversine distance instead of an API call
-		walkingDistKm := haversineDistance(superchargerLoc.Lat, superchargerLoc.Lng, p.Geometry.Location.Lat, p.Geometry.Location.Lng)
+	log.Printf("Calling Places API (New) for restaurants near %s: %s", supercharger.Name, apiURL)
+	counter.PlacesDetails++ // Using this counter for the new API calls
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var searchData SearchNearbyResponse
+	if json.Unmarshal(body, &searchData) != nil {
+		return nil, fmt.Errorf("could not parse new places response. Body: %s", string(body))
+	}
+
+	for _, p := range searchData.Places {
+		walkingDistKm := haversineDistance(superchargerLoc.Lat, superchargerLoc.Lng, p.Location.Latitude, p.Location.Longitude)
 		walkingDistStr := fmt.Sprintf("%.0f m", walkingDistKm*1000)
 
 		allRestaurants = append(allRestaurants, RestaurantInfo{
-			Name:            p.Name,
-			Address:         p.Vicinity,
+			Name:            p.DisplayName.Text,
+			Address:         p.FormattedAddress,
 			Rating:          p.Rating,
-			IsOpenNow:       p.OpeningHours.OpenNow,
-			Lat:             p.Geometry.Location.Lat,
-			Lng:             p.Geometry.Location.Lng,
-			CuisineTypes:    cuisineTypes,
+			IsOpenNow:       p.CurrentOpeningHours.OpenNow,
+			Lat:             p.Location.Latitude,
+			Lng:             p.Location.Longitude,
+			CuisineTypes:    extractCuisineFromNewPlace(p),
 			WalkingDistance: walkingDistStr,
 		})
 	}
+
 	return allRestaurants, nil
 }
 
-// extractCuisineFromTypes filters the generic 'types' array.
-func extractCuisineFromTypes(placeTypes []string) []string {
-	var filteredTypes []string
+// extractCuisineFromNewPlace extracts cuisine types from a PlaceNew object, prioritizing primary_type.
+func extractCuisineFromNewPlace(place PlaceNew) []string {
 	genericTypes := map[string]bool{
 		"restaurant": true, "food": true, "point_of_interest": true, "establishment": true,
 	}
-	for _, placeType := range placeTypes {
+
+	// 1. Prioritize primary_type if it exists and is not generic
+	if place.PrimaryType != "" && !genericTypes[place.PrimaryType] {
+		formattedType := strings.ReplaceAll(place.PrimaryType, "_", " ")
+		return []string{strings.Title(formattedType)}
+	}
+
+	// 2. Fallback to filtering the generic 'types' array if primary_type is not useful.
+	var filteredTypes []string
+	for _, placeType := range place.Types {
 		if !genericTypes[placeType] {
-			filteredTypes = append(filteredTypes, placeType)
+			filteredTypes = append(filteredTypes, strings.Title(strings.ReplaceAll(placeType, "_", " ")))
 		}
 	}
-	return filteredTypes
+
+	if len(filteredTypes) > 0 {
+		return filteredTypes
+	}
+
+	// 3. If all else fails, return the primary type even if it's generic.
+	if place.PrimaryType != "" {
+		return []string{strings.Title(strings.ReplaceAll(place.PrimaryType, "_", " "))}
+	}
+
+	return []string{} // Return empty if no suitable type found
 }
 
 // --- GEOMETRIC HELPER FUNCTIONS ---
