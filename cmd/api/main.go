@@ -32,10 +32,12 @@ type APICallCounter struct {
 
 // RouteResponse is the main structure for the /route endpoint response.
 type RouteResponse struct {
-	Route         RouteDetails       `json:"route"`
-	Superchargers []SuperchargerInfo `json:"superchargers"`
-	DebugInfo     DebugInfo          `json:"debug_info"`
-	Steps         []StepInfo         `json:"steps"`
+	Route                 RouteDetails           `json:"route"`
+	Superchargers         []SuperchargerInfo     `json:"superchargers"`
+	DebugInfo             DebugInfo              `json:"debug_info"`
+	Steps                 []StepInfo             `json:"steps"`
+	SpeedReadingIntervals []SpeedReadingInterval `json:"speed_reading_intervals,omitempty"`
+	PolylinePoints        []LatLng               `json:"polyline_points,omitempty"`
 }
 
 // RouteDetails contains information about the overall route.
@@ -463,56 +465,20 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 		// If we have Routes API data with traffic information, use it
 		if routesData != nil && len(routesData.Routes) > 0 {
-			route := routesData.Routes[0]
-			if len(route.TravelAdvisory.SpeedReadingIntervals) > 0 {
-				// Use traffic-aware polyline data from Routes API
-				// For now, apply a simple traffic factor based on overall route traffic
-				routeDuration := parseDurationString(route.Duration)
-				totalTrafficDelay := routeDuration - sumDur
-				if totalTrafficDelay > 0 {
-					trafficMultiplier := 1.0 + (float64(totalTrafficDelay) / float64(sumDur) * 0.5)
-					if trafficMultiplier > 2.0 {
-						trafficMultiplier = 2.0
-					}
-					stepDurationInTraffic := int(float64(stepDuration) * trafficMultiplier)
-
-					steps = append(steps, StepInfo{
-						Polyline:          step.Polyline.EncodedPolyline,
-						Duration:          stepDuration,
-						DurationInTraffic: stepDurationInTraffic,
-					})
-				} else {
-					steps = append(steps, StepInfo{
-						Polyline:          step.Polyline.EncodedPolyline,
-						Duration:          stepDuration,
-						DurationInTraffic: stepDuration,
-					})
-				}
+			if len(routesData.Routes[0].TravelAdvisory.SpeedReadingIntervals) > 0 {
+				// Use simple duration - real traffic granularity comes from speedReadingIntervals
+				steps = append(steps, StepInfo{
+					Polyline:          step.Polyline.EncodedPolyline,
+					Duration:          stepDuration,
+					DurationInTraffic: stepDuration,
+				})
 			} else {
-				// No traffic data from Routes API, use original approach
-				legDuration := parseDurationString(leg.Duration)
-				totalTrafficDelay := legDuration - sumDur
-				if totalTrafficDelay < 300 { // Less than 5 minutes total delay
-					steps = append(steps, StepInfo{
-						Polyline:          step.Polyline.EncodedPolyline,
-						Duration:          stepDuration,
-						DurationInTraffic: stepDuration,
-					})
-				} else {
-					// Apply traffic to this step based on its characteristics
-					trafficMultiplier := 1.0
-					if stepDuration > 300 { // Long step
-						trafficMultiplier = 1.3
-					} else if stepDuration > 120 { // Medium step
-						trafficMultiplier = 1.2
-					}
-
-					steps = append(steps, StepInfo{
-						Polyline:          step.Polyline.EncodedPolyline,
-						Duration:          stepDuration,
-						DurationInTraffic: int(float64(stepDuration) * trafficMultiplier),
-					})
-				}
+				// Routes API available but no traffic intervals
+				steps = append(steps, StepInfo{
+					Polyline:          step.Polyline.EncodedPolyline,
+					Duration:          stepDuration,
+					DurationInTraffic: stepDuration,
+				})
 			}
 		} else {
 			// No Routes API data, use original approach
@@ -891,7 +857,9 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		DebugInfo: DebugInfo{
 			APICalls: apiCalls,
 		},
-		Steps: steps,
+		Steps:                 steps,
+		SpeedReadingIntervals: routesData.Routes[0].TravelAdvisory.SpeedReadingIntervals,
+		PolylinePoints:        decodedPolyline,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

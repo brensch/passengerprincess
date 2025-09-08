@@ -544,7 +544,7 @@
          */
         function processAndDisplayResults ( data ) {
             // Draw route on map with traffic colors
-            drawRouteWithTraffic( data.steps, data.route.polyline )
+            drawRouteWithTraffic( data.polyline_points, data.speed_reading_intervals )
 
             if ( data.steps && data.steps.length > 0 ) {
                 // Fit bounds to the first step's polyline
@@ -792,30 +792,50 @@
             } )
         }
 
-        function drawRouteWithTraffic ( steps, mainPolyline ) {
-            if ( !steps || steps.length === 0 ) {
-                // Fallback to main polyline if no steps
-                const routeCoords = decodePolyline( mainPolyline )
-                drawRoute( routeCoords )
+        function drawRouteWithTraffic ( polylinePoints, speedReadingIntervals ) {
+            if ( !polylinePoints || polylinePoints.length === 0 ) {
                 return
             }
 
-            steps.forEach( step => {
-                const stepCoords = decodePolyline( step.polyline )
-                const trafficRatio = step.duration_in_traffic / step.duration
+            if ( !speedReadingIntervals || speedReadingIntervals.length === 0 ) {
+                // No traffic data, draw entire route in default color
+                const coords = polylinePoints.map( point => [ point.lat, point.lng ] )
+                L.polyline( coords, {
+                    color: '#00FF00',
+                    weight: 6,
+                    opacity: 0.8
+                } ).addTo( routeLayer )
+                return
+            }
 
+            // Draw each traffic segment with appropriate color
+            speedReadingIntervals.forEach( interval => {
+                const startIdx = interval.startPolylinePointIndex
+                const endIdx = interval.endPolylinePointIndex
+                const speed = interval.speed
+
+                // Get the segment coordinates
+                const segmentCoords = polylinePoints.slice( startIdx, endIdx + 1 ).map( point => [ point.lat, point.lng ] )
+
+                if ( segmentCoords.length < 2 ) return
+
+                // Determine color based on speed
                 let color
-                if ( trafficRatio <= 1.2 ) {
-                    color = '#00FF00' // Green - no significant traffic
-                } else if ( trafficRatio <= 1.8 ) {
-                    color = '#FFFF00' // Yellow - moderate traffic
-                } else if ( trafficRatio <= 2.5 ) {
-                    color = '#FFA500' // Orange - heavy traffic
-                } else {
-                    color = '#FF0000' // Red - severe traffic
+                switch ( speed ) {
+                    case 'NORMAL':
+                        color = '#00FF00' // Green
+                        break
+                    case 'SLOW':
+                        color = '#FFFF00' // Yellow
+                        break
+                    case 'TRAFFIC_JAM':
+                        color = '#FF0000' // Red
+                        break
+                    default:
+                        color = '#00FF00' // Default to green
                 }
 
-                L.polyline( stepCoords, {
+                L.polyline( segmentCoords, {
                     color: color,
                     weight: 6,
                     opacity: 0.8
