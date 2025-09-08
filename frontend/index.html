@@ -159,6 +159,21 @@
                     infoWindow.open( { anchor: marker, map } )
                 } )
 
+                // Draw line from supercharger to closest point on route
+                if ( sc.closest_point_on_route ) {
+                    const line = new google.maps.Polyline( {
+                        path: [
+                            { lat: sc.lat, lng: sc.lng },
+                            { lat: sc.closest_point_on_route.lat, lng: sc.closest_point_on_route.lng }
+                        ],
+                        geodesic: true,
+                        strokeColor: '#FF0000',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 2,
+                        map: map
+                    } )
+                }
+
                 // Create markers for associated restaurants
                 sc.restaurants.forEach( resto => {
                     const restaurantMarker = new AdvancedMarkerElement( {

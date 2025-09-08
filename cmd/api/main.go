@@ -51,6 +51,7 @@ type SuperchargerInfo struct {
 	ArrivalTime             string           `json:"arrival_time"`               // Estimated arrival time
 	Lat                     float64          `json:"lat"`
 	Lng                     float64          `json:"lng"`
+	ClosestPointOnRoute     LatLng           `json:"closest_point_on_route"` // Closest point on the route
 	Restaurants             []RestaurantInfo `json:"restaurants"`
 	DistanceFromOriginKm    float64          `json:"-"` // Internal field for sorting
 }
@@ -356,27 +357,15 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Found %d unique superchargers from interval searches.", len(uniqueSuperchargers))
 
-	// --- 3. Filter and calculate distances ---
-	log.Println("Filtering superchargers and calculating distances...")
+	// --- 3. Process all superchargers (no filtering) ---
+	log.Println("Processing all superchargers...")
 	var finalSuperchargers []PlaceNew
 	totalRouteDistanceKm := float64(leg.Distance.Value) / 1000.0
 	totalDuration := time.Duration(leg.Duration.Value) * time.Second
 
-	for _, sc := range uniqueSuperchargers {
-		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
-		distFromRoute, distAlongRoute := distanceToPolyline(scLoc, decodedPolyline)
-		if distFromRoute > 10.0 { // Within 10km of route
-			continue
-		}
-		totalDistKm := distAlongRoute + distFromRoute
-		if totalDistKm > totalRouteDistanceKm {
-			continue // Beyond destination
-		}
-		finalSuperchargers = append(finalSuperchargers, sc)
-		log.Printf("Included Supercharger: %s, distAlong: %.1f km, distFrom: %.1f km, total: %.1f km", sc.DisplayName.Text, distAlongRoute, distFromRoute, totalDistKm)
-	}
+	finalSuperchargers = append(finalSuperchargers, uniqueSuperchargers...)
 
-	log.Printf("Found %d superchargers within 10km of the route.", len(finalSuperchargers))
+	log.Printf("Found %d unique superchargers.", len(finalSuperchargers))
 
 	// --- 4. Process superchargers and calculate ETAs ---
 	log.Println("Processing superchargers and calculating ETAs...")
@@ -384,7 +373,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	for _, sc := range finalSuperchargers {
 		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
-		distFromRoute, distAlongRoute := distanceToPolyline(scLoc, decodedPolyline)
+		distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLoc, decodedPolyline)
 		totalDistKm := distAlongRoute + distFromRoute
 		arrivalRatio := totalDistKm / totalRouteDistanceKm
 		durationToSupercharger := time.Duration(float64(totalDuration) * arrivalRatio)
@@ -403,6 +392,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			ArrivalTime:             arrivalTime.Format(time.Kitchen),
 			Lat:                     sc.Location.Latitude,
 			Lng:                     sc.Location.Longitude,
+			ClosestPointOnRoute:     closestPoint,
 			Restaurants:             restaurants,
 			DistanceFromOriginKm:    totalDistKm,
 		})
@@ -670,11 +660,13 @@ func extractCuisineFromNewPlace(place PlaceNew) []string {
 // --- GEOMETRIC HELPER FUNCTIONS ---
 
 // distanceToPolyline calculates the shortest distance from a point to a polyline.
-// It returns the shortest distance in km and the cumulative distance along the polyline to that closest point.
-func distanceToPolyline(point LatLng, polyline []LatLng) (float64, float64) {
+// It returns the shortest distance in km, the cumulative distance along the polyline to that closest point,
+// and the closest point on the polyline.
+func distanceToPolyline(point LatLng, polyline []LatLng) (float64, float64, LatLng) {
 	minDist := math.MaxFloat64
 	distAlongRoute := 0.0
 	cumulativeDist := 0.0
+	var closestPoint LatLng
 
 	for i := 0; i < len(polyline)-1; i++ {
 		p1 := polyline[i]
@@ -686,17 +678,22 @@ func distanceToPolyline(point LatLng, polyline []LatLng) (float64, float64) {
 			// Find where on the segment the closest point lies
 			l2 := (p1.Lat-p2.Lat)*(p1.Lat-p2.Lat) + (p1.Lng-p2.Lng)*(p1.Lng-p2.Lng)
 			if l2 == 0.0 {
+				closestPoint = p1
 				distAlongRoute = cumulativeDist
 			} else {
 				t := ((point.Lat-p1.Lat)*(p2.Lat-p1.Lat) + (point.Lng-p1.Lng)*(p2.Lng-p1.Lng)) / l2
 				t = math.Max(0, math.Min(1, t)) // Clamp to segment
 				segmentLength := haversineDistance(p1.Lat, p1.Lng, p2.Lat, p2.Lng)
 				distAlongRoute = cumulativeDist + t*segmentLength
+				closestPoint = LatLng{
+					Lat: p1.Lat + t*(p2.Lat-p1.Lat),
+					Lng: p1.Lng + t*(p2.Lng-p1.Lng),
+				}
 			}
 		}
 		cumulativeDist += haversineDistance(p1.Lat, p1.Lng, p2.Lat, p2.Lng)
 	}
-	return minDist, distAlongRoute
+	return minDist, distAlongRoute, closestPoint
 }
 
 // distanceToSegment calculates the shortest distance from a point to a line segment.
