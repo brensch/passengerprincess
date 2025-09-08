@@ -908,6 +908,11 @@ func findNearbyRestaurantsNew(supercharger PlaceNew, counter *APICallCounter, ap
 		})
 	}
 
+	// Sort restaurants by walking distance (closest first)
+	sort.Slice(allRestaurants, func(i, j int) bool {
+		return allRestaurants[i].WalkingDistanceMeters < allRestaurants[j].WalkingDistanceMeters
+	})
+
 	return allRestaurants, nil
 }
 
