@@ -543,11 +543,25 @@
          * Takes the full API response, processes it, and builds the UI.
          */
         function processAndDisplayResults ( data ) {
-            // Draw route on map
-            const routeCoords = decodePolyline( data.route.polyline )
-            drawRoute( routeCoords )
-            if ( routeCoords.length > 0 ) {
-                map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
+            // Draw route on map with traffic colors
+            drawRouteWithTraffic( data.steps, data.route.polyline )
+
+            if ( data.steps && data.steps.length > 0 ) {
+                // Fit bounds to the first step's polyline
+                const firstStepCoords = decodePolyline( data.steps[ 0 ].polyline )
+                if ( firstStepCoords.length > 0 ) {
+                    let allCoords = []
+                    data.steps.forEach( step => {
+                        allCoords = allCoords.concat( decodePolyline( step.polyline ) )
+                    } )
+                    map.fitBounds( L.polyline( allCoords ).getBounds().pad( 0.1 ) )
+                }
+            } else {
+                // Fallback to main polyline bounds
+                const routeCoords = decodePolyline( data.route.polyline )
+                if ( routeCoords.length > 0 ) {
+                    map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
+                }
             }
 
             if ( data.superchargers.length === 0 ) {
@@ -775,6 +789,37 @@
                     restaurantName: restaurant.name,
                     cuisine: ( restaurant.cuisine_types || [] ).join( '; ' )
                 } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.walking_distance_meters }m away` )
+            } )
+        }
+
+        function drawRouteWithTraffic ( steps, mainPolyline ) {
+            if ( !steps || steps.length === 0 ) {
+                // Fallback to main polyline if no steps
+                const routeCoords = decodePolyline( mainPolyline )
+                drawRoute( routeCoords )
+                return
+            }
+
+            steps.forEach( step => {
+                const stepCoords = decodePolyline( step.polyline )
+                const trafficRatio = step.duration_in_traffic / step.duration
+
+                let color
+                if ( trafficRatio <= 1.2 ) {
+                    color = '#00FF00' // Green - no significant traffic
+                } else if ( trafficRatio <= 1.8 ) {
+                    color = '#FFFF00' // Yellow - moderate traffic
+                } else if ( trafficRatio <= 2.5 ) {
+                    color = '#FFA500' // Orange - heavy traffic
+                } else {
+                    color = '#FF0000' // Red - severe traffic
+                }
+
+                L.polyline( stepCoords, {
+                    color: color,
+                    weight: 6,
+                    opacity: 0.8
+                } ).addTo( routeLayer )
             } )
         }
 
