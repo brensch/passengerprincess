@@ -313,6 +313,28 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	const searchIntervalKm = 40.0    // How often to search along the route
 	const searchRadiusMeters = 30000 // How far to search off the route (30km)
 
+	// Search at the starting point (0 meters along the route)
+	startPoint := decodedPolyline[0]
+	requestBody := SearchTextRequest{
+		TextQuery:      "Tesla Supercharger",
+		IncludedType:   "electric_vehicle_charging_station",
+		MaxResultCount: 20, // Request maximum results
+		LocationBias: LocationBias{
+			Circle: Circle{
+				Center: Center{Latitude: startPoint.Lat, Longitude: startPoint.Lng},
+				Radius: float64(searchRadiusMeters),
+			},
+		},
+	}
+	fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
+	results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
+	if err != nil {
+		log.Printf("Warning: search failed at starting point: %v", err)
+	} else {
+		log.Printf("Search at starting point (%.6f, %.6f) returned %d total results", startPoint.Lat, startPoint.Lng, len(results))
+		allSuperchargers = append(allSuperchargers, results...)
+	}
+
 	var distanceSinceLastSearch float64 = 0
 
 	for i := 1; i < len(decodedPolyline); i++ {
