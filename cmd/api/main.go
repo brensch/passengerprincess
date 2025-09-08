@@ -32,12 +32,10 @@ type APICallCounter struct {
 
 // RouteResponse is the main structure for the /route endpoint response.
 type RouteResponse struct {
-	Route                 RouteDetails           `json:"route"`
-	Superchargers         []SuperchargerInfo     `json:"superchargers"`
-	DebugInfo             DebugInfo              `json:"debug_info"`
-	Steps                 []StepInfo             `json:"steps"`
-	SpeedReadingIntervals []SpeedReadingInterval `json:"speed_reading_intervals,omitempty"`
-	PolylinePoints        []LatLng               `json:"polyline_points,omitempty"`
+	Route           RouteDetails       `json:"route"`
+	Superchargers   []SuperchargerInfo `json:"superchargers"`
+	DebugInfo       DebugInfo          `json:"debug_info"`
+	TrafficSegments []TrafficSegment   `json:"traffic_segments,omitempty"`
 }
 
 // RouteDetails contains information about the overall route.
@@ -82,11 +80,10 @@ type CumPoint struct {
 	CumDurSeconds int
 }
 
-// StepInfo contains information about a route step for traffic visualization.
-type StepInfo struct {
-	Polyline          string `json:"polyline"`
-	Duration          int    `json:"duration"`
-	DurationInTraffic int    `json:"duration_in_traffic"`
+// TrafficSegment contains a polyline for a part of the route with a specific traffic speed.
+type TrafficSegment struct {
+	Polyline string `json:"polyline"`
+	Speed    string `json:"speed"`
 }
 
 // --- Structs for Debugging ---
@@ -170,49 +167,10 @@ type SpeedReadingInterval struct {
 	Speed                   string `json:"speed"`
 }
 
-// GeoBounds defines a named struct for a geographic bounding box.
-type GeoBounds struct {
-	Southwest LatLng `json:"southwest"`
-	Northeast LatLng `json:"northeast"`
-}
-
 // LatLng represents a geographical point.
 type LatLng struct {
 	Lat float64 `json:"lat"`
 	Lng float64 `json:"lng"`
-}
-
-// GoogleDirectionsResponse is for parsing the Directions API response.
-type GoogleDirectionsResponse struct {
-	Routes []struct {
-		OverviewPolyline struct {
-			Points string `json:"points"`
-		} `json:"overview_polyline"`
-		Bounds GeoBounds `json:"bounds"`
-		Legs   []struct {
-			Distance struct {
-				Value int    `json:"value"` // in meters
-				Text  string `json:"text"`
-			} `json:"distance"`
-			DurationInTraffic struct {
-				Value int    `json:"value"` // in seconds, with traffic
-				Text  string `json:"text"`
-			} `json:"duration_in_traffic"`
-			Duration struct {
-				Value int    `json:"value"` // in seconds, without traffic
-				Text  string `json:"text"`
-			} `json:"duration"`
-			Steps []struct {
-				Polyline struct {
-					Points string `json:"points"`
-				} `json:"polyline"`
-				Duration struct {
-					Value int    `json:"value"`
-					Text  string `json:"text"`
-				} `json:"duration"`
-			} `json:"steps"`
-		} `json:"legs"`
-	} `json:"routes"`
 }
 
 // --- Structs for Places API (New) ---
@@ -274,12 +232,6 @@ type CurrentOpeningHours struct {
 type LocationNew struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
-}
-
-// SegmentInfo holds information about a search segment.
-type SegmentInfo struct {
-	Center               LatLng
-	CumulativeDistanceKm float64
 }
 
 func main() {
@@ -361,7 +313,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Defer the logging of the final counts
 	defer func() {
-		log.Printf("API Call Summary: Directions=%d, Places (Nearby New)=%d",
+		log.Printf("API Call Summary: Directions=%d, Places (New)=%d",
 			counter.Directions, counter.Places)
 	}()
 
@@ -379,7 +331,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if routesData == nil || len(routesData.Routes) == 0 {
+	if routesData == nil || len(routesData.Routes) == 0 || len(routesData.Routes[0].Legs) == 0 {
 		http.Error(w, "Could not find a route", http.StatusInternalServerError)
 		return
 	}
@@ -398,120 +350,58 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Collect steps for traffic visualization with granular speed data
-	var steps []StepInfo
+	// --- Create Traffic-Aware Segments from Speed Reading Intervals ---
+	var trafficSegments []TrafficSegment
+	if len(route.TravelAdvisory.SpeedReadingIntervals) > 0 {
+		log.Printf("Processing %d speed reading intervals into traffic segments.", len(route.TravelAdvisory.SpeedReadingIntervals))
+		intervals := route.TravelAdvisory.SpeedReadingIntervals
+		for _, interval := range intervals {
+			startIdx := interval.StartPolylinePointIndex
+			endIdx := interval.EndPolylinePointIndex
 
-	// Calculate total duration without traffic
-	sumDur := 0
-	for _, step := range leg.Steps {
-		// Parse duration string like "180s" to seconds
-		durationSeconds := parseDurationString(step.StaticDuration)
-		sumDur += durationSeconds
-	}
-
-	// Get the full route path by decoding all step polylines
-	var fullRoutePath []LatLng
-	for _, step := range leg.Steps {
-		stepPath, err := decodePolyline(step.Polyline.EncodedPolyline)
-		if err != nil {
-			log.Printf("Error decoding polyline: %v", err)
-			continue
-		}
-		fullRoutePath = append(fullRoutePath, stepPath...)
-	}
-
-	// Sample points along the route for speed data (every 500m approximately)
-	var sampledPoints []LatLng
-	if len(fullRoutePath) > 0 {
-		sampledPoints = append(sampledPoints, fullRoutePath[0]) // Start point
-
-		minDistance := 500.0 // Sample every 500 meters
-		lastSampledIndex := 0
-
-		for i := 1; i < len(fullRoutePath); i++ {
-			dist := haversineDistance(
-				fullRoutePath[lastSampledIndex].Lat, fullRoutePath[lastSampledIndex].Lng,
-				fullRoutePath[i].Lat, fullRoutePath[i].Lng,
-			) * 1000 // Convert to meters
-
-			if dist >= minDistance {
-				sampledPoints = append(sampledPoints, fullRoutePath[i])
-				lastSampledIndex = i
-			}
-		}
-
-		// Always include the end point
-		if len(fullRoutePath) > 1 {
-			sampledPoints = append(sampledPoints, fullRoutePath[len(fullRoutePath)-1])
-		}
-	}
-
-	// Get route data from Routes API with traffic information
-	if len(sampledPoints) > 0 && routesData != nil {
-		// Use the routesData we already fetched above
-	} else if len(sampledPoints) > 0 {
-		var err error
-		routesData, err = getRoutesData(origin, destination, counter, &apiCalls)
-		if err != nil {
-			log.Printf("Error getting route data from Routes API: %v", err)
-			// Fall back to original approach if Routes API fails
-			routesData = nil
-		}
-	}
-
-	// Process each step with traffic data
-	for _, step := range leg.Steps {
-		stepDuration := parseDurationString(step.StaticDuration)
-
-		// If we have Routes API data with traffic information, use it
-		if routesData != nil && len(routesData.Routes) > 0 {
-			if len(routesData.Routes[0].TravelAdvisory.SpeedReadingIntervals) > 0 {
-				// Use simple duration - real traffic granularity comes from speedReadingIntervals
-				steps = append(steps, StepInfo{
-					Polyline:          step.Polyline.EncodedPolyline,
-					Duration:          stepDuration,
-					DurationInTraffic: stepDuration,
-				})
-			} else {
-				// Routes API available but no traffic intervals
-				steps = append(steps, StepInfo{
-					Polyline:          step.Polyline.EncodedPolyline,
-					Duration:          stepDuration,
-					DurationInTraffic: stepDuration,
-				})
-			}
-		} else {
-			// No Routes API data, use original approach
-			totalTrafficDelay := parseDurationString(leg.Duration) - sumDur
-			if totalTrafficDelay < 300 { // Less than 5 minutes total delay
-				steps = append(steps, StepInfo{
-					Polyline:          step.Polyline.EncodedPolyline,
-					Duration:          stepDuration,
-					DurationInTraffic: stepDuration,
-				})
-			} else {
-				// Apply traffic to this step based on its characteristics
-				trafficMultiplier := 1.0
-				if stepDuration > 300 { // Long step
-					trafficMultiplier = 1.3
-				} else if stepDuration > 120 { // Medium step
-					trafficMultiplier = 1.2
+			// Ensure indices are within the bounds of the decoded polyline
+			if startIdx >= 0 && endIdx < len(decodedPolyline) && startIdx <= endIdx {
+				// The end index is inclusive, so the slice is [startIdx:endIdx+1]
+				subPath := decodedPolyline[startIdx : endIdx+1]
+				if len(subPath) > 0 {
+					subPolyline := encodePolyline(subPath)
+					trafficSegments = append(trafficSegments, TrafficSegment{
+						Polyline: subPolyline,
+						Speed:    interval.Speed,
+					})
 				}
-
-				steps = append(steps, StepInfo{
-					Polyline:          step.Polyline.EncodedPolyline,
-					Duration:          stepDuration,
-					DurationInTraffic: int(float64(stepDuration) * trafficMultiplier),
-				})
+			} else {
+				log.Printf("Warning: Speed reading interval indices [%d, %d] are out of bounds for polyline length %d.", startIdx, endIdx, len(decodedPolyline))
 			}
 		}
+	} else {
+		log.Println("No speed reading intervals found. Creating a single traffic segment for the whole route.")
+		// Fallback: create one segment for the whole route with "NORMAL" speed
+		trafficSegments = append(trafficSegments, TrafficSegment{
+			Polyline: route.Polyline.EncodedPolyline,
+			Speed:    "NORMAL",
+		})
 	}
 
 	// Build cumulative profile for accurate ETAs
 	var cumulativePoints []CumPoint
 	cumDist := 0.0
 	cumDur := 0
-	stepIndex := 0
+
+	// Calculate total duration with and without traffic to find a traffic multiplier.
+	// This ensures that the time to each point along the route accounts for traffic.
+	sumStaticDur := 0
+	for _, step := range leg.Steps {
+		sumStaticDur += parseDurationString(step.StaticDuration)
+	}
+	totalTrafficDur := parseDurationString(leg.Duration)
+
+	trafficMultiplier := 1.0
+	if sumStaticDur > 0 {
+		trafficMultiplier = float64(totalTrafficDur) / float64(sumStaticDur)
+	}
+
+	// Build the point-by-point timeline for the route.
 	for _, step := range leg.Steps {
 		stepPoints, err := decodePolyline(step.Polyline.EncodedPolyline)
 		if err != nil || len(stepPoints) == 0 {
@@ -522,24 +412,27 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			totalStepDist += haversineDistance(stepPoints[i-1].Lat, stepPoints[i-1].Lng, stepPoints[i].Lat, stepPoints[i].Lng)
 		}
 
-		// Use the traffic-adjusted duration from our steps array
-		stepDur := steps[stepIndex].DurationInTraffic
-		stepIndex++
+		// Apply the traffic multiplier to this step's static duration
+		staticStepDur := parseDurationString(step.StaticDuration)
+		trafficStepDur := int(float64(staticStepDur) * trafficMultiplier)
 
 		stepCumDist := 0.0
 		for i, p := range stepPoints {
 			if i > 0 {
 				dist := haversineDistance(stepPoints[i-1].Lat, stepPoints[i-1].Lng, p.Lat, p.Lng)
 				stepCumDist += dist
-				fraction := stepCumDist / totalStepDist
-				pointCumDur := cumDur + int(float64(stepDur)*fraction)
+				fraction := 0.0
+				if totalStepDist > 0 {
+					fraction = stepCumDist / totalStepDist
+				}
+				pointCumDur := cumDur + int(float64(trafficStepDur)*fraction)
 				cumulativePoints = append(cumulativePoints, CumPoint{
 					Lat:           p.Lat,
 					Lng:           p.Lng,
 					CumDistKm:     cumDist + stepCumDist,
 					CumDurSeconds: pointCumDur,
 				})
-			} else {
+			} else { // First point of the step
 				cumulativePoints = append(cumulativePoints, CumPoint{
 					Lat:           p.Lat,
 					Lng:           p.Lng,
@@ -549,7 +442,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		cumDist += totalStepDist
-		cumDur += stepDur
+		cumDur += trafficStepDur
 	}
 
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
@@ -751,13 +644,15 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	for _, sc := range selectedSuperchargers {
 		// Find the closest cumulative point for accurate ETA
 		var selectedCumDur int
+		var foundDuration bool
 		for _, cp := range cumulativePoints {
 			if cp.CumDistKm >= sc.distAlongRoute {
 				selectedCumDur = cp.CumDurSeconds
+				foundDuration = true
 				break
 			}
 		}
-		if selectedCumDur == 0 && len(cumulativePoints) > 0 {
+		if !foundDuration && len(cumulativePoints) > 0 {
 			selectedCumDur = cumulativePoints[len(cumulativePoints)-1].CumDurSeconds
 		}
 
@@ -857,81 +752,14 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		DebugInfo: DebugInfo{
 			APICalls: apiCalls,
 		},
-		Steps:                 steps,
-		SpeedReadingIntervals: routesData.Routes[0].TravelAdvisory.SpeedReadingIntervals,
-		PolylinePoints:        decodedPolyline,
+		TrafficSegments: trafficSegments,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func getDirections(origin, destination string, counter *APICallCounter, apiCalls *[]APICallDetails, data *GoogleDirectionsResponse) error {
-	apiURL := fmt.Sprintf(
-		"https://maps.googleapis.com/maps/api/directions/json?origin=%s&destination=%s&departure_time=now&traffic_model=best_guess&key=%s",
-		url.QueryEscape(origin),
-		url.QueryEscape(destination),
-		googleAPIKey,
-	)
-	log.Printf("Calling Directions API for main route: %s", apiURL)
-
-	// Thread-safe counter increment and API call logging
-	counter.mu.Lock()
-	counter.Directions++
-	*apiCalls = append(*apiCalls, APICallDetails{API: "Directions (Main Route)", URL: apiURL})
-	counter.mu.Unlock()
-
-	resp, err := http.Get(apiURL)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(body, data)
-}
-
-// getDurationToDestination gets a traffic-aware travel time from an origin to a specific point.
-func getDurationToDestination(origin string, destination LatLng, counter *APICallCounter, apiCalls *[]APICallDetails) (time.Duration, error) {
-	destStr := fmt.Sprintf("%f,%f", destination.Lat, destination.Lng)
-	apiURL := fmt.Sprintf(
-		"https://maps.googleapis.com/maps/api/directions/json?origin=%s&destination=%s&departure_time=now&traffic_model=best_guess&key=%s",
-		url.QueryEscape(origin),
-		url.QueryEscape(destStr),
-		googleAPIKey,
-	)
-	log.Printf("Calling Directions API for arrival time: %s", apiURL)
-	counter.Directions++
-	*apiCalls = append(*apiCalls, APICallDetails{API: "Directions (Arrival Time)", URL: apiURL})
-
-	resp, err := http.Get(apiURL)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
-	}
-
-	var directionsData GoogleDirectionsResponse
-	if json.Unmarshal(body, &directionsData) != nil || len(directionsData.Routes) == 0 {
-		return 0, fmt.Errorf("could not parse directions to supercharger")
-	}
-
-	durationSeconds := directionsData.Routes[0].Legs[0].Duration.Value
-	if directionsData.Routes[0].Legs[0].DurationInTraffic.Value > 0 {
-		durationSeconds = directionsData.Routes[0].Legs[0].DurationInTraffic.Value
-	}
-
-	return time.Duration(durationSeconds) * time.Second, nil
-}
-
 // performNewNearbySearch executes a search using the Places API (New).
-// performNewNearbySearch performs a nearby search using the Places API.
 func performNewNearbySearch(requestBody SearchNearbyRequest, fieldMask string, counter *APICallCounter, apiCalls *[]APICallDetails) ([]PlaceNew, error) {
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
@@ -978,7 +806,7 @@ func performNewNearbySearch(requestBody SearchNearbyRequest, fieldMask string, c
 	}
 
 	var searchData SearchNearbyResponse
-	if json.Unmarshal(body, &searchData) != nil {
+	if err := json.Unmarshal(body, &searchData); err != nil {
 		return nil, fmt.Errorf("could not parse new places response. Body: %s", string(body))
 	}
 
@@ -1032,7 +860,7 @@ func performTextSearch(requestBody SearchTextRequest, fieldMask string, counter 
 	}
 
 	var searchData SearchNearbyResponse
-	if json.Unmarshal(body, &searchData) != nil {
+	if err := json.Unmarshal(body, &searchData); err != nil {
 		return nil, fmt.Errorf("could not parse text search response. Body: %s", string(body))
 	}
 
@@ -1185,6 +1013,8 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return R * c
 }
 
+// --- POLYLINE ENCODING/DECODING ---
+
 // decodePolyline decodes a Google Maps polyline string into a slice of LatLng points.
 func decodePolyline(encoded string) ([]LatLng, error) {
 	var points []LatLng
@@ -1194,6 +1024,9 @@ func decodePolyline(encoded string) ([]LatLng, error) {
 		var result int
 		var shift uint
 		for {
+			if index >= len(encoded) {
+				return points, fmt.Errorf("polyline decoding error: unexpected end of string")
+			}
 			b := int(encoded[index]) - 63
 			index++
 			result |= (b & 0x1f) << shift
@@ -1208,6 +1041,9 @@ func decodePolyline(encoded string) ([]LatLng, error) {
 		result = 0
 		shift = 0
 		for {
+			if index >= len(encoded) {
+				return points, fmt.Errorf("polyline decoding error: unexpected end of string")
+			}
 			b := int(encoded[index]) - 63
 			index++
 			result |= (b & 0x1f) << shift
@@ -1227,22 +1063,46 @@ func decodePolyline(encoded string) ([]LatLng, error) {
 	return points, nil
 }
 
-func getDetailedPolyline(steps []struct {
-	Polyline struct {
-		Points string `json:"points"`
-	} `json:"polyline"`
-	Duration struct {
-		Value int    `json:"value"`
-		Text  string `json:"text"`
-	} `json:"duration"`
-}) []LatLng {
-	var fullPolyline []LatLng
-	for _, step := range steps {
-		stepPolyline, _ := decodePolyline(step.Polyline.Points)
-		fullPolyline = append(fullPolyline, stepPolyline...)
+// encodeSingleValue encodes a single integer value into a polyline chunk.
+func encodeSingleValue(value int) string {
+	var sb strings.Builder
+	inverted := value
+	if inverted < 0 {
+		inverted = ^(inverted << 1)
+	} else {
+		inverted = inverted << 1
 	}
-	return fullPolyline
+
+	for inverted >= 0x20 {
+		sb.WriteByte(byte((0x20 | (inverted & 0x1f)) + 63))
+		inverted >>= 5
+	}
+	sb.WriteByte(byte(inverted + 63))
+	return sb.String()
 }
+
+// encodePolyline encodes a slice of LatLng points into a Google Maps polyline string.
+func encodePolyline(path []LatLng) string {
+	var lastLat, lastLng int
+	var result strings.Builder
+
+	for _, point := range path {
+		lat := int(math.Round(point.Lat * 1e5))
+		lng := int(math.Round(point.Lng * 1e5))
+
+		dLat := lat - lastLat
+		dLng := lng - lastLng
+
+		result.WriteString(encodeSingleValue(dLat))
+		result.WriteString(encodeSingleValue(dLng))
+
+		lastLat = lat
+		lastLng = lng
+	}
+	return result.String()
+}
+
+// --- API CALLER FUNCTIONS ---
 
 func getRoutesData(origin, destination string, counter *APICallCounter, apiCalls *[]APICallDetails) (*RoutesResponse, error) {
 	routesRequest := RoutesRequest{
@@ -1257,7 +1117,7 @@ func getRoutesData(origin, destination string, counter *APICallCounter, apiCalls
 		ExtraComputations: []string{"TRAFFIC_ON_POLYLINE"},
 		PolylineQuality:   "HIGH_QUALITY",
 		PolylineEncoding:  "ENCODED_POLYLINE",
-		DepartureTime:     time.Now().Add(5 * time.Minute).Format(time.RFC3339),
+		DepartureTime:     time.Now().Add(1 * time.Minute).Format(time.RFC3339),
 	}
 
 	requestBody, err := json.Marshal(routesRequest)
@@ -1318,5 +1178,6 @@ func parseDurationString(durationStr string) int {
 	if val, err := strconv.Atoi(durationStr); err == nil {
 		return val
 	}
+	log.Printf("Warning: Could not parse duration string: %s", durationStr)
 	return 0
 }

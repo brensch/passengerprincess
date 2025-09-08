@@ -7,16 +7,15 @@
     <title>Passenger Princess Protector</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        .font-dancing {
-            font-family: 'Dancing Script', cursive;
-        }
-    </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
+        .font-dancing {
+            font-family: 'Dancing Script', cursive;
+        }
+
         /* Full screen map */
         body,
         html {
@@ -34,7 +33,7 @@
             padding: 0;
         }
 
-        /* Overlay form at bottom */
+        /* Overlay form at top */
         .overlay-form {
             position: fixed;
             top: 0;
@@ -50,7 +49,7 @@
             overflow-x: hidden;
         }
 
-        /* Top results area */
+        /* Results area */
         .bottom-results {
             position: absolute;
             top: 60px;
@@ -233,20 +232,6 @@
             100% {
                 transform: rotate(360deg);
             }
-        }
-
-        #cuisine-filter-buttons button.selected {
-            background-color: #ec4899;
-            /* pink-500 */
-            color: white;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transform: translateY(-1px);
-        }
-
-        /* Hide table headers when loading */
-        #loading-container:not(.hidden)~#chargers-table thead {
-            display: none;
         }
 
         #cuisine-filter-buttons button.selected {
@@ -444,7 +429,6 @@
         let currentSearchTerm = ''
         let currentCuisineFilter = []
 
-
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
         locationBtn.addEventListener( 'click', handleLocationClick )
@@ -453,37 +437,33 @@
         } )
 
         cuisineFilterButtons.addEventListener( 'click', ( e ) => {
-            if ( e.target.tagName === 'BUTTON' ) {
-                const cuisine = e.target.dataset.cuisine
-                const cuisineKey = cuisine.toLowerCase()
-                if ( currentCuisineFilter.includes( cuisineKey ) ) {
-                    currentCuisineFilter = currentCuisineFilter.filter( c => c !== cuisineKey )
-                    e.target.classList.remove( 'selected' )
-                } else {
-                    currentCuisineFilter.push( cuisineKey )
-                    e.target.classList.add( 'selected' )
-                }
-                if ( cuisine === '' && e.target.classList.contains( 'selected' ) ) {
+            if ( e.target.tagName !== 'BUTTON' ) return
+            const cuisine = e.target.dataset.cuisine
+            const isSelected = e.target.classList.toggle( 'selected' )
+
+            // Update filter array based on selection
+            if ( isSelected ) {
+                if ( cuisine === '' ) { // "All Cuisines" selected
                     currentCuisineFilter = [ '' ]
                     Array.from( cuisineFilterButtons.children ).forEach( btn => {
                         if ( btn !== e.target ) btn.classList.remove( 'selected' )
                     } )
-                } else if ( cuisine !== '' ) {
-                    const allButton = cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )
-                    if ( allButton ) {
-                        allButton.classList.remove( 'selected' )
-                        currentCuisineFilter = currentCuisineFilter.filter( c => c !== '' )
-                    }
+                } else {
+                    currentCuisineFilter = currentCuisineFilter.filter( c => c !== '' ) // Remove "All" if present
+                    currentCuisineFilter.push( cuisine )
+                    cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )?.classList.remove( 'selected' )
                 }
-                if ( currentCuisineFilter.length === 0 ) {
-                    const allButton = cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )
-                    if ( allButton ) {
-                        allButton.classList.add( 'selected' )
-                        currentCuisineFilter = [ '' ]
-                    }
-                }
-                filterListAndMap( currentSearchTerm, currentCuisineFilter.filter( c => c !== '' ) )
+            } else {
+                currentCuisineFilter = currentCuisineFilter.filter( c => c !== cuisine )
             }
+
+            // If nothing is selected, default back to "All Cuisines"
+            if ( currentCuisineFilter.length === 0 ) {
+                currentCuisineFilter = [ '' ]
+                cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )?.classList.add( 'selected' )
+            }
+
+            filterListAndMap( currentSearchTerm, currentCuisineFilter )
         } )
 
         map.on( 'moveend zoomend', updateVisibleMarkers );
@@ -527,7 +507,6 @@
                 }
 
                 processAndDisplayResults( data )
-
                 updateStatus( `Found ${ data.superchargers.length } Superchargers with restaurants.`, false )
 
             } catch ( error ) {
@@ -543,25 +522,13 @@
          * Takes the full API response, processes it, and builds the UI.
          */
         function processAndDisplayResults ( data ) {
-            // Draw route on map with traffic colors
-            drawRouteWithTraffic( data.polyline_points, data.speed_reading_intervals )
+            // Draw route on map using the new traffic_segments data
+            drawTrafficSegments( data.traffic_segments )
 
-            if ( data.steps && data.steps.length > 0 ) {
-                // Fit bounds to the first step's polyline
-                const firstStepCoords = decodePolyline( data.steps[ 0 ].polyline )
-                if ( firstStepCoords.length > 0 ) {
-                    let allCoords = []
-                    data.steps.forEach( step => {
-                        allCoords = allCoords.concat( decodePolyline( step.polyline ) )
-                    } )
-                    map.fitBounds( L.polyline( allCoords ).getBounds().pad( 0.1 ) )
-                }
-            } else {
-                // Fallback to main polyline bounds
-                const routeCoords = decodePolyline( data.route.polyline )
-                if ( routeCoords.length > 0 ) {
-                    map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
-                }
+            // Set map bounds using the main route polyline
+            const routeCoords = decodePolyline( data.route.polyline )
+            if ( routeCoords.length > 0 ) {
+                map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
             }
 
             if ( data.superchargers.length === 0 ) {
@@ -576,13 +543,10 @@
             const fragment = document.createDocumentFragment()
 
             data.superchargers.forEach( ( charger, index ) => {
-                // The API provides sorted data, so we can use the index as a unique ID
                 const chargerId = `charger-${ index }`
-
                 const chargerMarker = createChargerMarker( charger, chargerId )
                 const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
 
-                // Add the complete station object to our master data array
                 stationData.push( {
                     id: chargerId,
                     chargerInfo: charger,
@@ -591,7 +555,6 @@
                     restaurantMarkers: restaurantMarkers,
                 } )
 
-                // Create and append the table row(s)
                 const tableRows = createTableRowsForStation( charger, chargerId )
                 tableRows.forEach( row => fragment.appendChild( row ) )
             } )
@@ -613,77 +576,44 @@
             if ( !tbody ) return
 
             const rows = tbody.querySelectorAll( 'tr[data-charger-id]' )
-            let chargerVisibility = new Map()
+            const chargerVisibility = new Map()
 
+            // First pass: determine which chargers should be visible at all
             rows.forEach( row => {
                 const chargerId = row.dataset.chargerId
                 const restaurantCell = row.querySelector( '.restaurant-link' )
+                const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
 
+                // Default to not visible unless a match is found
                 if ( !chargerVisibility.has( chargerId ) ) {
-                    chargerVisibility.set( chargerId, { visible: false } )
+                    chargerVisibility.set( chargerId, false )
                 }
 
-                if ( restaurantCell ) {
-                    const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
-                    const restaurantName = restaurantCell.textContent
-                    const originalCuisineText = cuisineCell.dataset.originalCuisine || cuisineCell.textContent
+                const restaurantName = restaurantCell ? restaurantCell.dataset.originalName : ''
+                const originalCuisines = cuisineCell ? cuisineCell.dataset.originalCuisine.toLowerCase().split( '; ' ).map( c => c.trim() ) : []
 
-                    const nameMatches = !currentSearchTerm || restaurantName.toLowerCase().includes( currentSearchTerm )
-                    const restaurantCuisines = originalCuisineText.toLowerCase().split( '; ' ).map( c => c.trim() )
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( filterCuisine => filterCuisine !== '' && restaurantCuisines.includes( filterCuisine ) )
+                const searchMatch = !currentSearchTerm || ( restaurantName && restaurantName.toLowerCase().includes( currentSearchTerm ) )
+                const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 || currentCuisineFilter.some( fc => originalCuisines.includes( fc ) )
 
-                    if ( nameMatches && cuisineMatches ) {
-                        chargerVisibility.get( chargerId ).visible = true
-                    }
-                } else { // "No restaurants found" row
-                    if ( !currentSearchTerm && ( currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) ) ) {
-                        chargerVisibility.get( chargerId ).visible = true
-                    }
+                if ( searchMatch && cuisineMatch ) {
+                    chargerVisibility.set( chargerId, true )
                 }
             } )
 
+            // Second pass: Show/hide rows and highlight text
             let visibleChargerIDs = new Set()
             rows.forEach( row => {
                 const chargerId = row.dataset.chargerId
-                const visibility = chargerVisibility.get( chargerId )
-                const isVisible = visibility && visibility.visible
+                const isChargerVisible = chargerVisibility.get( chargerId )
+                row.style.display = isChargerVisible ? '' : 'none'
 
-                row.style.display = isVisible ? '' : 'none'
-
-                if ( isVisible ) {
+                if ( isChargerVisible ) {
                     visibleChargerIDs.add( chargerId )
-                    // Add highlighting logic here
-                    const restaurantCell = row.querySelector( '.restaurant-link' )
-                    if ( restaurantCell ) {
-                        const restaurantName = restaurantCell.dataset.originalName || restaurantCell.textContent
-                        restaurantCell.innerHTML = currentSearchTerm ?
-                            restaurantName.replace( new RegExp( `(${ searchTerm })`, 'gi' ), '<mark>$1</mark>' ) :
-                            restaurantName
-                        if ( !restaurantCell.dataset.originalName ) restaurantCell.dataset.originalName = restaurantName
-                    }
-
-                    // Highlight matching cuisines in cuisine column
-                    const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
-                    if ( cuisineCell && currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) ) {
-                        const originalCuisineText = cuisineCell.dataset.originalCuisine
-                        let highlightedCuisineText = originalCuisineText
-
-                        currentCuisineFilter.forEach( filterCuisine => {
-                            if ( filterCuisine !== '' ) {
-                                const regex = new RegExp( `(${ filterCuisine })`, 'gi' )
-                                highlightedCuisineText = highlightedCuisineText.replace( regex, '<mark>$1</mark>' )
-                            }
-                        } )
-
-                        cuisineCell.innerHTML = highlightedCuisineText
-                    } else if ( cuisineCell ) {
-                        // Reset to original text if no cuisine filter is active
-                        cuisineCell.innerHTML = cuisineCell.dataset.originalCuisine
-                    }
+                    highlightTextInRow( row, searchTerm, currentCuisineFilter )
                 }
             } )
 
-            filteredChargerIDs = ( currentSearchTerm || currentCuisineFilter.length > 0 ) ? Array.from( visibleChargerIDs ) : null
+            filteredChargerIDs = ( currentSearchTerm || currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) ) ? Array.from( visibleChargerIDs ) : null
             updateVisibleMarkers()
         }
 
@@ -720,8 +650,37 @@
             return points
         }
 
+        /**
+         * Draws the route on the map using traffic segment data.
+         */
+        function drawTrafficSegments ( trafficSegments ) {
+            routeLayer.clearLayers()
+            if ( !trafficSegments || trafficSegments.length === 0 ) {
+                return
+            }
+
+            trafficSegments.forEach( segment => {
+                const coords = decodePolyline( segment.polyline )
+                if ( coords.length < 2 ) return
+
+                let color
+                switch ( segment.speed ) {
+                    case 'NORMAL': color = '#34D399'; break // Emerald 400
+                    case 'SLOW': color = '#FBBF24'; break // Amber 400
+                    case 'TRAFFIC_JAM': color = '#F87171'; break // Red 400
+                    default: color = '#60A5FA'; break // Blue 400
+                }
+
+                L.polyline( coords, {
+                    color: color,
+                    weight: 6,
+                    opacity: 0.85
+                } ).addTo( routeLayer )
+            } )
+        }
 
         function updateVisibleMarkers () {
+            // This function remains largely the same
             const bounds = map.getBounds()
             const zoom = map.getZoom()
 
@@ -751,6 +710,7 @@
         }
 
         function createChargerMarker ( charger, chargerId ) {
+            // This function remains the same
             const distanceFromOrigin = ( charger.distance_meters / 1609.34 ).toFixed( 1 ) + ' mi'
             let popupContent = `
                 <div class="font-sans max-w-xs">
@@ -772,13 +732,14 @@
             return L.marker( [ charger.lat, charger.lng ], {
                 icon: L.divIcon( {
                     className: 'emoji-icon',
-                    html: '⚡️',
+                    html: '🔋',
                     iconSize: [ 24, 24 ],
                 } )
             } ).bindPopup( popupContent )
         }
 
         function createRestaurantMarkers ( restaurants ) {
+            // This function remains the same
             return ( restaurants || [] ).map( restaurant => {
                 return L.marker( [ restaurant.lat, restaurant.lng ], {
                     icon: L.divIcon( {
@@ -792,68 +753,10 @@
             } )
         }
 
-        function drawRouteWithTraffic ( polylinePoints, speedReadingIntervals ) {
-            if ( !polylinePoints || polylinePoints.length === 0 ) {
-                return
-            }
-
-            if ( !speedReadingIntervals || speedReadingIntervals.length === 0 ) {
-                // No traffic data, draw entire route in default color
-                const coords = polylinePoints.map( point => [ point.lat, point.lng ] )
-                L.polyline( coords, {
-                    color: '#00FF00',
-                    weight: 6,
-                    opacity: 0.8
-                } ).addTo( routeLayer )
-                return
-            }
-
-            // Draw each traffic segment with appropriate color
-            speedReadingIntervals.forEach( interval => {
-                const startIdx = interval.startPolylinePointIndex
-                const endIdx = interval.endPolylinePointIndex
-                const speed = interval.speed
-
-                // Get the segment coordinates
-                const segmentCoords = polylinePoints.slice( startIdx, endIdx + 1 ).map( point => [ point.lat, point.lng ] )
-
-                if ( segmentCoords.length < 2 ) return
-
-                // Determine color based on speed
-                let color
-                switch ( speed ) {
-                    case 'NORMAL':
-                        color = '#00FF00' // Green
-                        break
-                    case 'SLOW':
-                        color = '#FFFF00' // Yellow
-                        break
-                    case 'TRAFFIC_JAM':
-                        color = '#FF0000' // Red
-                        break
-                    default:
-                        color = '#00FF00' // Default to green
-                }
-
-                L.polyline( segmentCoords, {
-                    color: color,
-                    weight: 6,
-                    opacity: 0.8
-                } ).addTo( routeLayer )
-            } )
-        }
-
-        function drawRoute ( coords ) {
-            L.polyline( coords, {
-                color: 'hotpink',
-                weight: 5,
-                opacity: 0.7
-            } ).addTo( routeLayer )
-        }
-
         // --- UI AND DOM MANIPULATION ---
 
         function createTableRowsForStation ( charger, chargerId ) {
+            // This function remains the same
             const rows = []
             const restaurants = charger.restaurants || []
             const distanceFromOrigin = ( charger.distance_meters / 1609.34 ).toFixed( 1 ) + ' mi'
@@ -889,7 +792,7 @@
 
                     const restaurantContent = `
                         <td class="px-1 py-0 text-sm text-pink-700">
-                            <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link">${ restaurant.name }</span>
+                            <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link" data-original-name="${ restaurant.name }">${ restaurant.name }</span>
                         </td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.walking_distance_meters }m</td>
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
@@ -905,6 +808,9 @@
             addClickHandlersToRows( rows, chargerId )
             return rows
         }
+
+        // --- All other helper and utility functions (addClickHandlersToRows, populateCuisineFilter, showLoadingState, etc.) remain the same ---
+        // (For brevity, the remaining utility functions which do not need changes are omitted, but they are present in the original file and should be kept)
 
         function addClickHandlersToRows ( rows, chargerId ) {
             rows.forEach( row => {
@@ -934,6 +840,28 @@
                     }
                 } )
             } )
+        }
+
+        function highlightTextInRow ( row, searchTerm, cuisineFilter ) {
+            const restaurantCell = row.querySelector( '.restaurant-link' )
+            if ( restaurantCell ) {
+                const originalName = restaurantCell.dataset.originalName
+                restaurantCell.innerHTML = searchTerm ?
+                    originalName.replace( new RegExp( `(${ searchTerm })`, 'gi' ), '<mark>$1</mark>' ) :
+                    originalName
+            }
+
+            const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
+            if ( cuisineCell ) {
+                const originalCuisine = cuisineCell.dataset.originalCuisine
+                let highlightedCuisine = originalCuisine
+                if ( cuisineFilter.length > 0 && !cuisineFilter.includes( '' ) ) {
+                    cuisineFilter.forEach( c => {
+                        highlightedCuisine = highlightedCuisine.replace( new RegExp( `(${ c })`, 'gi' ), '<mark>$1</mark>' )
+                    } )
+                }
+                cuisineCell.innerHTML = highlightedCuisine
+            }
         }
 
         function populateCuisineFilter () {
@@ -974,7 +902,6 @@
             currentSearchTerm = ''
             restaurantSearchInput.value = ''
             document.getElementById( 'chargers-tbody' ).innerHTML = ''
-            // Removed stopLocationTracking() to keep princess location visible during searches
         }
 
         function showLoadingState ( message ) {
@@ -1028,8 +955,6 @@
             mapElement.style.top = '0'
             mapElement.style.height = '100vh'
         }
-
-        // --- HELPER FUNCTIONS (Autocomplete, Location, Modals, etc.) ---
 
         async function handleLocationClick () {
             if ( !navigator.geolocation ) {
@@ -1193,10 +1118,10 @@
             window.history.pushState( {}, '', url )
         }
 
-        // Start location tracking on page load to show princess location continuously
         if ( navigator.geolocation ) {
             startLocationTracking()
         }
+
     </script>
 </body>
 
