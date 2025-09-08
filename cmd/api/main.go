@@ -385,7 +385,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
 	log.Println("Starting comprehensive search for superchargers along the route...")
-	
+
 	const searchIntervalKm = 40.0    // How often to search along the route
 	const searchRadiusMeters = 30000 // How far to search off the route (30km)
 
@@ -430,21 +430,21 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Perform concurrent searches
 	log.Printf("Performing concurrent searches at %d points along the route...", len(searchPoints))
-	
+
 	type searchResult struct {
 		results []PlaceNew
 		err     error
 		desc    string
 	}
-	
+
 	resultsChan := make(chan searchResult, len(searchPoints))
 	var wg sync.WaitGroup
-	
+
 	for _, point := range searchPoints {
 		wg.Add(1)
 		go func(center LatLng, pointDesc string) {
 			defer wg.Done()
-			
+
 			requestBody := SearchTextRequest{
 				TextQuery:      "Tesla Supercharger",
 				IncludedType:   "electric_vehicle_charging_station",
@@ -456,9 +456,9 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 					},
 				},
 			}
-			fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
+			fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType,places.rating"
 			results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
-			
+
 			resultsChan <- searchResult{
 				results: results,
 				err:     err,
@@ -466,13 +466,13 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}(point.center, point.pointDesc)
 	}
-	
+
 	// Close channel when all goroutines are done
 	go func() {
 		wg.Wait()
 		close(resultsChan)
 	}()
-	
+
 	// Collect results
 	allSuperchargers := []PlaceNew{}
 	for result := range resultsChan {
@@ -504,14 +504,21 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Found %d unique superchargers from interval searches.", len(uniqueSuperchargers))
 
-	// --- 3. Filter superchargers within 10km of route ---
+	// --- 3. Filter superchargers within 10km of route and collect with distances ---
 	log.Println("Filtering superchargers within 10km of route...")
-	var finalSuperchargers []PlaceNew
+	type superchargerWithDist struct {
+		sc             PlaceNew
+		distFromRoute  float64
+		distAlongRoute float64
+		closestPoint   LatLng
+		totalDistKm    float64
+	}
+	var finalSuperchargers []superchargerWithDist
 	totalRouteDistanceKm := float64(leg.Distance.Value) / 1000.0
 
 	for _, sc := range uniqueSuperchargers {
 		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
-		distFromRoute, distAlongRoute, _ := distanceToPolyline(scLoc, decodedPolyline)
+		distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLoc, decodedPolyline)
 		if distFromRoute > 10.0 { // Filter out superchargers further than 10km from route
 			continue
 		}
@@ -519,15 +526,47 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		if totalDistKm > totalRouteDistanceKm {
 			continue // Beyond destination
 		}
-		finalSuperchargers = append(finalSuperchargers, sc)
+		finalSuperchargers = append(finalSuperchargers, superchargerWithDist{
+			sc:             sc,
+			distFromRoute:  distFromRoute,
+			distAlongRoute: distAlongRoute,
+			closestPoint:   closestPoint,
+			totalDistKm:    totalDistKm,
+		})
 		log.Printf("Included Supercharger: %s, distAlong: %.1f km, distFrom: %.1f km, total: %.1f km", sc.DisplayName.Text, distAlongRoute, distFromRoute, totalDistKm)
 	}
 
 	log.Printf("Found %d superchargers within 10km of the route.", len(finalSuperchargers))
 
+	// --- 3.5. Select 10 closest superchargers per segment ---
+	log.Println("Selecting 10 closest superchargers per 40km segment...")
+	const segmentSizeKm = 40.0
+	segments := make(map[int][]superchargerWithDist)
+	for _, sc := range finalSuperchargers {
+		segmentIndex := int(sc.distAlongRoute / segmentSizeKm)
+		segments[segmentIndex] = append(segments[segmentIndex], sc)
+	}
+
+	var selectedSuperchargers []superchargerWithDist
+	for segmentIndex, segSCs := range segments {
+		// Sort by distance from route (closest first)
+		sort.Slice(segSCs, func(i, j int) bool {
+			return segSCs[i].distFromRoute < segSCs[j].distFromRoute
+		})
+		// Take up to 10 closest
+		numToTake := 10
+		if len(segSCs) < 10 {
+			numToTake = len(segSCs)
+		}
+		selectedSuperchargers = append(selectedSuperchargers, segSCs[:numToTake]...)
+		log.Printf("Segment %d: selected %d superchargers", segmentIndex, numToTake)
+	}
+
+	log.Printf("Selected %d superchargers (10 closest per segment).", len(selectedSuperchargers))
+
 	// --- 4. Process superchargers and calculate ETAs ---
 	log.Println("Processing superchargers and calculating ETAs...")
-	
+
 	// Prepare supercharger processing data
 	type superchargerData struct {
 		sc             PlaceNew
@@ -537,18 +576,14 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		totalDistKm    float64
 		selectedCumDur int
 	}
-	
-	var processingData []superchargerData
-	
-	for _, sc := range finalSuperchargers {
-		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
-		distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLoc, decodedPolyline)
-		totalDistKm := distAlongRoute + distFromRoute
 
+	var processingData []superchargerData
+
+	for _, sc := range selectedSuperchargers {
 		// Find the closest cumulative point for accurate ETA
 		var selectedCumDur int
 		for _, cp := range cumulativePoints {
-			if cp.CumDistKm >= distAlongRoute {
+			if cp.CumDistKm >= sc.distAlongRoute {
 				selectedCumDur = cp.CumDurSeconds
 				break
 			}
@@ -556,40 +591,40 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		if selectedCumDur == 0 && len(cumulativePoints) > 0 {
 			selectedCumDur = cumulativePoints[len(cumulativePoints)-1].CumDurSeconds
 		}
-		
+
 		processingData = append(processingData, superchargerData{
-			sc:             sc,
-			distFromRoute:  distFromRoute,
-			distAlongRoute: distAlongRoute,
-			closestPoint:   closestPoint,
-			totalDistKm:    totalDistKm,
+			sc:             sc.sc,
+			distFromRoute:  sc.distFromRoute,
+			distAlongRoute: sc.distAlongRoute,
+			closestPoint:   sc.closestPoint,
+			totalDistKm:    sc.totalDistKm,
 			selectedCumDur: selectedCumDur,
 		})
 	}
-	
+
 	// Perform concurrent restaurant searches
 	log.Printf("Performing concurrent restaurant searches for %d superchargers...", len(processingData))
-	
+
 	type restaurantResult struct {
 		restaurants []RestaurantInfo
 		err         error
 		index       int
 	}
-	
+
 	restaurantChan := make(chan restaurantResult, len(processingData))
 	var restaurantWg sync.WaitGroup
-	
+
 	for i, data := range processingData {
 		restaurantWg.Add(1)
 		go func(sc PlaceNew, idx int) {
 			defer restaurantWg.Done()
-			
+
 			restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
 			if err != nil {
 				log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
 				restaurants = []RestaurantInfo{} // Set to empty slice to avoid null in JSON
 			}
-			
+
 			restaurantChan <- restaurantResult{
 				restaurants: restaurants,
 				err:         err,
@@ -597,19 +632,19 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}(data.sc, i)
 	}
-	
+
 	// Close channel when all goroutines are done
 	go func() {
 		restaurantWg.Wait()
 		close(restaurantChan)
 	}()
-	
+
 	// Collect restaurant results
 	restaurantResults := make([][]RestaurantInfo, len(processingData))
 	for result := range restaurantChan {
 		restaurantResults[result.index] = result.restaurants
 	}
-	
+
 	// Build final supercharger list
 	var finalSuperchargerList []SuperchargerInfo
 	for i, data := range processingData {
@@ -668,7 +703,7 @@ func getDirections(origin, destination string, counter *APICallCounter, apiCalls
 		googleAPIKey,
 	)
 	log.Printf("Calling Directions API for main route: %s", apiURL)
-	
+
 	// Thread-safe counter increment and API call logging
 	counter.mu.Lock()
 	counter.Directions++
@@ -743,7 +778,7 @@ func performNewNearbySearch(requestBody SearchNearbyRequest, fieldMask string, c
 	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 	log.Printf("Calling Places API (New): %s with body %s", apiURL, string(jsonData))
-	
+
 	// Thread-safe counter increment and API call logging
 	counter.mu.Lock()
 	counter.Places++
@@ -797,7 +832,7 @@ func performTextSearch(requestBody SearchTextRequest, fieldMask string, counter 
 	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 	log.Printf("Calling Places Text Search API: %s with body %s", apiURL, string(jsonData))
-	
+
 	// Thread-safe counter increment and API call logging
 	counter.mu.Lock()
 	counter.Places++
