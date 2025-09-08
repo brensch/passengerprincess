@@ -386,7 +386,7 @@
                     placeholder="Search restaurants or cuisines...">
                 <button id="toggle-cuisine-btn"
                     class="px-3 py-3 bg-pink-400 hover:bg-pink-500 text-white rounded-md shadow-sm text-sm"
-                    title="Toggle cuisine filters">🍽️</button>
+                    title="Toggle cuisine filters">🌭</button>
             </div>
             <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4" style="display: none;">
                 <!-- Cuisine buttons will be dynamically inserted here -->
@@ -1280,7 +1280,7 @@
                 // Start continuous location tracking
                 startLocationTracking()
                 // Update button to show tracking is active
-                locationText.textContent = '👸 Tracking Active'
+                locationText.textContent = '👑 Tracking Active'
                 locationBtn.classList.add( 'tracking-active' )
             } catch ( error ) {
                 console.log( "Geolocation error:", error )
@@ -1345,7 +1345,7 @@
             userLocationMarker = L.marker( [ lat, lon ], {
                 icon: L.divIcon( {
                     className: 'princess-marker',
-                    html: '👸',
+                    html: '👑',
                     iconSize: [ 36, 36 ],
                 } )
             } ).bindPopup( `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }` )
@@ -1499,7 +1499,7 @@
                 startLocationTracking()
 
                 // Update button to show tracking is active
-                locationText.textContent = '👸 Tracking Active'
+                locationText.textContent = '👑 Tracking Active'
                 locationBtn.classList.add( 'tracking-active' )
 
                 // Set origin input with coordinates (don't reverse geocode to keep it fast)
