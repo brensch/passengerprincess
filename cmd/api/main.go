@@ -13,6 +13,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,7 @@ var googleAPIKey = os.Getenv("GOOGLE_MAPS_API_KEY")
 type APICallCounter struct {
 	Directions int
 	Places     int // Counts calls to the new Places API
+	mu         sync.Mutex
 }
 
 // --- Structs for our final API response ---
@@ -383,40 +385,14 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
 	log.Println("Starting comprehensive search for superchargers along the route...")
-	allSuperchargers := []PlaceNew{} // Collect all superchargers
-
+	
 	const searchIntervalKm = 40.0    // How often to search along the route
 	const searchRadiusMeters = 30000 // How far to search off the route (30km)
 
-	// Helper function to search for superchargers at a specific point
-	searchSuperchargersAtPoint := func(center LatLng, pointDesc string) {
-		requestBody := SearchTextRequest{
-			TextQuery:      "Tesla Supercharger",
-			IncludedType:   "electric_vehicle_charging_station",
-			MaxResultCount: 20, // Request maximum results
-			LocationBias: LocationBias{
-				Circle: Circle{
-					Center: Center{Latitude: center.Lat, Longitude: center.Lng},
-					Radius: float64(searchRadiusMeters),
-				},
-			},
-		}
-		fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
-		results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
-		if err != nil {
-			log.Printf("Warning: search failed at %s: %v", pointDesc, err)
-		} else {
-			log.Printf("Search at %s returned %d total results", pointDesc, len(results))
-			// Filter results to only include superchargers
-			var filteredResults []PlaceNew
-			for _, sc := range results {
-				if strings.Contains(strings.ToLower(sc.DisplayName.Text), "supercharger") {
-					filteredResults = append(filteredResults, sc)
-				}
-			}
-			log.Printf("After filtering, %d superchargers remain", len(filteredResults))
-			allSuperchargers = append(allSuperchargers, filteredResults...)
-		}
+	// Collect all search points first
+	var searchPoints []struct {
+		center    LatLng
+		pointDesc string
 	}
 
 	var distanceSinceLastSearch float64 = 0
@@ -436,16 +412,83 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			currentPoint = p2
 		}
 
-		// Search if it's the first point, we've reached the interval, or it's the last point
+		// Collect search points if it's the first point, we've reached the interval, or it's the last point
 		if i == 0 || distanceSinceLastSearch >= searchIntervalKm || i == len(decodedPolyline)-1 {
 			pointDesc := fmt.Sprintf("point %d (%.6f, %.6f)", i, currentPoint.Lat, currentPoint.Lng)
 			if i == 0 {
 				pointDesc = fmt.Sprintf("starting point (%.6f, %.6f)", currentPoint.Lat, currentPoint.Lng)
 			}
-			searchSuperchargersAtPoint(currentPoint, pointDesc)
+			searchPoints = append(searchPoints, struct {
+				center    LatLng
+				pointDesc string
+			}{currentPoint, pointDesc})
 			if i > 0 {
 				distanceSinceLastSearch = 0 // Reset counter only for non-starting points
 			}
+		}
+	}
+
+	// Perform concurrent searches
+	log.Printf("Performing concurrent searches at %d points along the route...", len(searchPoints))
+	
+	type searchResult struct {
+		results []PlaceNew
+		err     error
+		desc    string
+	}
+	
+	resultsChan := make(chan searchResult, len(searchPoints))
+	var wg sync.WaitGroup
+	
+	for _, point := range searchPoints {
+		wg.Add(1)
+		go func(center LatLng, pointDesc string) {
+			defer wg.Done()
+			
+			requestBody := SearchTextRequest{
+				TextQuery:      "Tesla Supercharger",
+				IncludedType:   "electric_vehicle_charging_station",
+				MaxResultCount: 20, // Request maximum results
+				LocationBias: LocationBias{
+					Circle: Circle{
+						Center: Center{Latitude: center.Lat, Longitude: center.Lng},
+						Radius: float64(searchRadiusMeters),
+					},
+				},
+			}
+			fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
+			results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
+			
+			resultsChan <- searchResult{
+				results: results,
+				err:     err,
+				desc:    pointDesc,
+			}
+		}(point.center, point.pointDesc)
+	}
+	
+	// Close channel when all goroutines are done
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+	
+	// Collect results
+	allSuperchargers := []PlaceNew{}
+	for result := range resultsChan {
+		if result.err != nil {
+			log.Printf("Warning: search failed at %s: %v", result.desc, result.err)
+		} else {
+			log.Printf("Search at %s returned %d total results", result.desc, len(result.results))
+			// Filter results to only include superchargers
+			var filteredResults []PlaceNew
+			for _, sc := range result.results {
+				if strings.Contains(strings.ToLower(sc.DisplayName.Text), "supercharger") {
+					filteredResults = append(filteredResults, sc)
+				}
+			}
+			log.Printf("After filtering, %d superchargers remain", len(filteredResults))
+			allSuperchargers = append(allSuperchargers, filteredResults...)
 		}
 	}
 
@@ -484,8 +527,19 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- 4. Process superchargers and calculate ETAs ---
 	log.Println("Processing superchargers and calculating ETAs...")
-	var finalSuperchargerList []SuperchargerInfo
-
+	
+	// Prepare supercharger processing data
+	type superchargerData struct {
+		sc             PlaceNew
+		distFromRoute  float64
+		distAlongRoute float64
+		closestPoint   LatLng
+		totalDistKm    float64
+		selectedCumDur int
+	}
+	
+	var processingData []superchargerData
+	
 	for _, sc := range finalSuperchargers {
 		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
 		distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLoc, decodedPolyline)
@@ -502,31 +556,82 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		if selectedCumDur == 0 && len(cumulativePoints) > 0 {
 			selectedCumDur = cumulativePoints[len(cumulativePoints)-1].CumDurSeconds
 		}
-		durationToSupercharger := time.Duration(selectedCumDur) * time.Second
+		
+		processingData = append(processingData, superchargerData{
+			sc:             sc,
+			distFromRoute:  distFromRoute,
+			distAlongRoute: distAlongRoute,
+			closestPoint:   closestPoint,
+			totalDistKm:    totalDistKm,
+			selectedCumDur: selectedCumDur,
+		})
+	}
+	
+	// Perform concurrent restaurant searches
+	log.Printf("Performing concurrent restaurant searches for %d superchargers...", len(processingData))
+	
+	type restaurantResult struct {
+		restaurants []RestaurantInfo
+		err         error
+		index       int
+	}
+	
+	restaurantChan := make(chan restaurantResult, len(processingData))
+	var restaurantWg sync.WaitGroup
+	
+	for i, data := range processingData {
+		restaurantWg.Add(1)
+		go func(sc PlaceNew, idx int) {
+			defer restaurantWg.Done()
+			
+			restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
+			if err != nil {
+				log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
+				restaurants = []RestaurantInfo{} // Set to empty slice to avoid null in JSON
+			}
+			
+			restaurantChan <- restaurantResult{
+				restaurants: restaurants,
+				err:         err,
+				index:       idx,
+			}
+		}(data.sc, i)
+	}
+	
+	// Close channel when all goroutines are done
+	go func() {
+		restaurantWg.Wait()
+		close(restaurantChan)
+	}()
+	
+	// Collect restaurant results
+	restaurantResults := make([][]RestaurantInfo, len(processingData))
+	for result := range restaurantChan {
+		restaurantResults[result.index] = result.restaurants
+	}
+	
+	// Build final supercharger list
+	var finalSuperchargerList []SuperchargerInfo
+	for i, data := range processingData {
+		durationToSupercharger := time.Duration(data.selectedCumDur) * time.Second
 		arrivalTime := time.Now().Add(durationToSupercharger)
 
 		// Add time to travel from route to supercharger at 50 km/h
-		extraTimeHours := distFromRoute / 50.0
+		extraTimeHours := data.distFromRoute / 50.0
 		extraTimeSeconds := extraTimeHours * 3600
 		arrivalTime = arrivalTime.Add(time.Duration(extraTimeSeconds) * time.Second)
 
-		restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
-		if err != nil {
-			log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
-			restaurants = []RestaurantInfo{} // Set to empty slice to avoid null in JSON
-		}
-
 		finalSuperchargerList = append(finalSuperchargerList, SuperchargerInfo{
-			Name:                    sc.DisplayName.Text,
-			Address:                 sc.FormattedAddress,
-			DistanceMeters:          int(totalDistKm * 1000),
-			DistanceFromRouteMeters: int(distFromRoute * 1000),
+			Name:                    data.sc.DisplayName.Text,
+			Address:                 data.sc.FormattedAddress,
+			DistanceMeters:          int(data.totalDistKm * 1000),
+			DistanceFromRouteMeters: int(data.distFromRoute * 1000),
 			ArrivalTime:             arrivalTime.Format(time.Kitchen),
-			Lat:                     sc.Location.Latitude,
-			Lng:                     sc.Location.Longitude,
-			ClosestPointOnRoute:     closestPoint,
-			Restaurants:             restaurants,
-			DistanceFromOriginKm:    totalDistKm,
+			Lat:                     data.sc.Location.Latitude,
+			Lng:                     data.sc.Location.Longitude,
+			ClosestPointOnRoute:     data.closestPoint,
+			Restaurants:             restaurantResults[i],
+			DistanceFromOriginKm:    data.totalDistKm,
 		})
 	}
 
@@ -563,8 +668,12 @@ func getDirections(origin, destination string, counter *APICallCounter, apiCalls
 		googleAPIKey,
 	)
 	log.Printf("Calling Directions API for main route: %s", apiURL)
+	
+	// Thread-safe counter increment and API call logging
+	counter.mu.Lock()
 	counter.Directions++
 	*apiCalls = append(*apiCalls, APICallDetails{API: "Directions (Main Route)", URL: apiURL})
+	counter.mu.Unlock()
 
 	resp, err := http.Get(apiURL)
 	if err != nil {
@@ -616,6 +725,7 @@ func getDurationToDestination(origin string, destination LatLng, counter *APICal
 }
 
 // performNewNearbySearch executes a search using the Places API (New).
+// performNewNearbySearch performs a nearby search using the Places API.
 func performNewNearbySearch(requestBody SearchNearbyRequest, fieldMask string, counter *APICallCounter, apiCalls *[]APICallDetails) ([]PlaceNew, error) {
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
@@ -633,6 +743,9 @@ func performNewNearbySearch(requestBody SearchNearbyRequest, fieldMask string, c
 	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 	log.Printf("Calling Places API (New): %s with body %s", apiURL, string(jsonData))
+	
+	// Thread-safe counter increment and API call logging
+	counter.mu.Lock()
 	counter.Places++
 	*apiCalls = append(*apiCalls, APICallDetails{
 		API:         "Places API (New)",
@@ -644,6 +757,7 @@ func performNewNearbySearch(requestBody SearchNearbyRequest, fieldMask string, c
 			RadiusM:   requestBody.LocationRestriction.Circle.Radius,
 		},
 	})
+	counter.mu.Unlock()
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -683,6 +797,9 @@ func performTextSearch(requestBody SearchTextRequest, fieldMask string, counter 
 	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 	log.Printf("Calling Places Text Search API: %s with body %s", apiURL, string(jsonData))
+	
+	// Thread-safe counter increment and API call logging
+	counter.mu.Lock()
 	counter.Places++
 	*apiCalls = append(*apiCalls, APICallDetails{
 		API:         "Places Text Search API",
@@ -694,6 +811,7 @@ func performTextSearch(requestBody SearchTextRequest, fieldMask string, counter 
 			RadiusM:   requestBody.LocationBias.Circle.Radius,
 		},
 	})
+	counter.mu.Unlock()
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
