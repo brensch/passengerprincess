@@ -386,7 +386,7 @@
                     placeholder="Search restaurants or cuisines...">
                 <button id="toggle-cuisine-btn"
                     class="px-3 py-3 bg-pink-400 hover:bg-pink-500 text-white rounded-md shadow-sm text-sm"
-                    title="Toggle cuisine filters">🌭</button>
+                    title="Toggle cuisine filters">Filters</button>
             </div>
             <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4" style="display: none;">
                 <!-- Cuisine buttons will be dynamically inserted here -->
@@ -866,9 +866,12 @@
                 distanceFromOrigin = distance( originCoords[ 1 ], originCoords[ 0 ], charger.gps.latitude, charger.gps.longitude ).toFixed( 1 ) + ' mi'
             }
 
+            const address = [ charger.address.street, charger.address.city, charger.address.state ].filter( Boolean ).join( ', ' )
+
             let popupContent = `
                 <div class="font-sans max-w-xs">
                     <strong class="text-lg">${ charger.name }</strong><br>
+                    <strong>Address:</strong> ${ address }<br>
                     <strong>Stalls:</strong> ${ charger.stallCount }<br>
                     <strong>Distance:</strong> ${ distanceFromOrigin }<br>
                     <a href="https://maps.google.com/?q=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
@@ -877,7 +880,7 @@
             if ( restaurants.length > 0 ) {
                 popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
                 popupContent += restaurants.slice( 0, 5 ).map( r => `<div class="text-sm mt-1">• ${ r.name } (${ r.distance }m)</div>` ).join( '' )
-                if ( restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-pink-600">and ${ restaurants.length - 5 } more...</div>`
+                if ( restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-black">and ${ restaurants.length - 5 } more...</div>`
             }
             popupContent += '</div>'
 
