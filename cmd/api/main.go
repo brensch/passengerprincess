@@ -357,15 +357,27 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Found %d unique superchargers from interval searches.", len(uniqueSuperchargers))
 
-	// --- 3. Process all superchargers (no filtering) ---
-	log.Println("Processing all superchargers...")
+	// --- 3. Filter superchargers within 10km of route ---
+	log.Println("Filtering superchargers within 10km of route...")
 	var finalSuperchargers []PlaceNew
 	totalRouteDistanceKm := float64(leg.Distance.Value) / 1000.0
 	totalDuration := time.Duration(leg.Duration.Value) * time.Second
 
-	finalSuperchargers = append(finalSuperchargers, uniqueSuperchargers...)
+	for _, sc := range uniqueSuperchargers {
+		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
+		distFromRoute, distAlongRoute, _ := distanceToPolyline(scLoc, decodedPolyline)
+		if distFromRoute > 10.0 { // Filter out superchargers further than 10km from route
+			continue
+		}
+		totalDistKm := distAlongRoute + distFromRoute
+		if totalDistKm > totalRouteDistanceKm {
+			continue // Beyond destination
+		}
+		finalSuperchargers = append(finalSuperchargers, sc)
+		log.Printf("Included Supercharger: %s, distAlong: %.1f km, distFrom: %.1f km, total: %.1f km", sc.DisplayName.Text, distAlongRoute, distFromRoute, totalDistKm)
+	}
 
-	log.Printf("Found %d unique superchargers.", len(finalSuperchargers))
+	log.Printf("Found %d superchargers within 10km of the route.", len(finalSuperchargers))
 
 	// --- 4. Process superchargers and calculate ETAs ---
 	log.Println("Processing superchargers and calculating ETAs...")
