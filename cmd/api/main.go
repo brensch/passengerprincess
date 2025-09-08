@@ -119,6 +119,11 @@ type GoogleDirectionsResponse struct {
 				Value int    `json:"value"` // in seconds, without traffic
 				Text  string `json:"text"`
 			} `json:"duration"`
+			Steps []struct {
+				Polyline struct {
+					Points string `json:"points"`
+				} `json:"polyline"`
+			} `json:"steps"`
 		} `json:"legs"`
 	} `json:"routes"`
 }
@@ -294,7 +299,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	route := directionsData.Routes[0]
 	leg := route.Legs[0]
-	decodedPolyline, _ := decodePolyline(route.OverviewPolyline.Points)
+	decodedPolyline := getDetailedPolyline(leg.Steps)
 	if len(decodedPolyline) < 2 {
 		http.Error(w, "Not enough points in polyline to process", http.StatusInternalServerError)
 		return
@@ -761,4 +766,17 @@ func decodePolyline(encoded string) ([]LatLng, error) {
 		})
 	}
 	return points, nil
+}
+
+func getDetailedPolyline(steps []struct {
+	Polyline struct {
+		Points string `json:"points"`
+	} `json:"polyline"`
+}) []LatLng {
+	var fullPolyline []LatLng
+	for _, step := range steps {
+		stepPolyline, _ := decodePolyline(step.Polyline.Points)
+		fullPolyline = append(fullPolyline, stepPolyline...)
+	}
+	return fullPolyline
 }
