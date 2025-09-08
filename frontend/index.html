@@ -4,271 +4,1130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supercharger Route Map</title>
+    <title>Passenger Princess Protector</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* Ensure the map container has a defined height */
+        .font-dancing {
+            font-family: 'Dancing Script', cursive;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        /* Full screen map */
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
         #map {
-            height: 100vh;
+            height: calc(100vh - 60px);
+            width: 100vw;
+            position: absolute;
+            top: 60px;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Overlay form at bottom */
+        .overlay-form {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* Top results area */
+        .bottom-results {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            z-index: 1100;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: none;
+            height: calc(100vh - 60px);
+        }
+
+        /* Compact table styling */
+        #chargers-table {
+            border-collapse: collapse;
+            line-height: 1;
+            height: auto;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
             width: 100%;
         }
 
-        .info-window-content {
-            font-family: Arial, sans-serif;
+        #chargers-table tr,
+        #chargers-table tr td,
+        #chargers-table tr th {
+            height: 18px !important;
+            line-height: 1 !important;
         }
 
-        .info-window-content h2 {
-            font-size: 16px;
-            font-weight: bold;
-            margin: 0 0 5px 0;
+        #chargers-table td,
+        #chargers-table th {
+            border-bottom: 1px solid #fbcfe8;
+            /* pink-200 */
         }
 
-        .info-window-content p {
-            margin: 0;
-            font-size: 14px;
+        /* Custom scrollbar for the results list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Table styles */
+        #chargers-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        #chargers-table td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Allow text wrapping in the charger column (first column) */
+        #chargers-table td:first-child {
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .overlay-form {
+                padding: 10px;
+                position: fixed;
+                top: 0;
+            }
+
+            .bottom-results {
+                padding: 0;
+            }
+
+            /* Table responsive design */
+            #chargers-table {
+                font-size: 10px;
+                min-width: 600px;
+            }
+
+            #chargers-table th,
+            #chargers-table td {
+                padding: 4px 6px;
+            }
+        }
+
+        .autocomplete-suggestions {
+            position: fixed;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 1100;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 2px;
+        }
+
+        .autocomplete-suggestion {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.15s ease-in-out;
+        }
+
+        .autocomplete-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-suggestion:hover {
+            background: #f8fafc;
+        }
+
+        /* Enhanced link styling for clickable results */
+        .city-link,
+        .restaurant-link {
+            text-decoration: underline;
+            text-decoration-color: rgba(236, 72, 153, 0.5);
+            text-underline-offset: 2px;
+        }
+
+        .city-link:hover,
+        .restaurant-link:hover {
+            text-decoration-color: rgb(236, 72, 153);
+        }
+
+        /* Custom emoji icons for map markers */
+        .emoji-icon {
+            font-size: 24px;
+            line-height: 1;
+            text-align: center;
+            /* Simple shadow for better visibility */
+            text-shadow: 0 0 3px white, 0 0 5px white;
+        }
+
+        /* Search highlight styling */
+        mark {
+            background-color: #fef3c7 !important;
+            color: #000 !important;
+            padding: 2px 4px !important;
+            border-radius: 3px !important;
+            font-weight: 600 !important;
+        }
+
+        /* Loading spinner styles */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            min-height: 200px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #ec4899;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #cuisine-filter-buttons button.selected {
+            background-color: #ec4899;
+            /* pink-500 */
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Hide table headers when loading */
+        #loading-container:not(.hidden)~#chargers-table thead {
+            display: none;
+        }
+
+        #cuisine-filter-buttons button.selected {
+            background-color: #ec4899;
+            /* pink-500 */
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Princess marker styling */
+        .princess-marker {
+            background: transparent !important;
+            border: none !important;
+            font-size: 36px !important;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Location tracking button styling */
+        #location-btn.tracking-active {
+            background: linear-gradient(to-r, #ec4899, #f97316);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
         }
     </style>
 </head>
 
-<body class="bg-gray-100 flex flex-col md:flex-row h-screen font-sans">
+<body class="bg-pink-100 font-sans antialiased">
+    <div id="map"></div>
 
-    <!-- Sidebar for Route Details -->
-    <aside class="w-full md:w-1/3 lg:w-1/4 h-1/2 md:h-full overflow-y-auto bg-white shadow-lg p-6">
-        <h1 class="text-2xl font-bold mb-4 text-gray-800">Route Details</h1>
-        <div id="details-panel">
-            <p id="loading-message" class="text-gray-600">Loading route information...</p>
+    <div id="top-toolbar"
+        class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-pink-200 to-pink-300 border-b border-pink-400 p-3 flex justify-between items-center shadow-lg">
+        <div class="text-2xl font-bold text-pink-800 font-dancing">PPP</div>
+        <div class="flex space-x-2">
+            <button id="gps-btn"
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 hidden"
+                title="Center on Princess">📍</button>
+            <button id="toggle-btn"
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200">Show
+                Results</button>
+            <button id="new-search-btn"
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200">New
+                Search</button>
         </div>
-    </aside>
+    </div>
 
-    <!-- Map Container -->
-    <main class="w-full md:w-2/3 lg:w-3/4 h-1/2 md:h-full">
-        <div id="map"></div>
-    </main>
+    <div class="bottom-results" id="bottom-results">
+        <div id="results-list" class="custom-scrollbar px-2" style="height: 100%; overflow-y: auto;">
+            <div class="flex space-x-2 mb-4 pt-4">
+                <input type="text" id="restaurant-search"
+                    class="flex-grow px-4 py-3 border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm enhanced-input"
+                    placeholder="Search restaurants or cuisines...">
+                <button id="toggle-cuisine-btn"
+                    class="px-3 py-3 bg-pink-400 hover:bg-pink-500 text-white rounded-md shadow-sm text-sm"
+                    title="Toggle cuisine filters">Filters</button>
+            </div>
+            <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4" style="display: none;">
+            </div>
+
+            <div id="loading-container" class="loading-container hidden">
+                <div class="spinner"></div>
+                <p class="loading-text" id="loading-text">Planning your royal journey...</p>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table id="chargers-table" class="hidden">
+                    <thead class="sticky top-0 bg-white z-10">
+                        <tr>
+                            <th
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-20">
+                                Charger
+                            </th>
+                            <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider">
+                                Restaurant
+                            </th>
+                            <th
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-16">
+                                Walk
+                            </th>
+                            <th
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-24">
+                                Cuisine
+                            </th>
+                            <th
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-20">
+                                Status
+                            </th>
+                            <th
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-16">
+                                Rating
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="chargers-tbody">
+                    </tbody>
+                </table>
+            </div>
+            <p id="no-results" class="text-pink-500">Search for a route to see results.</p>
+        </div>
+        <hr class="border-pink-300">
+    </div>
+
+    <div class="overlay-form" id="search-form">
+        <header class="text-center mb-4">
+            <h1 class="text-3xl md:text-4xl font-bold text-pink-800 font-dancing">Passenger Princess Protector</h1>
+        </header>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+            <div class="relative">
+                <div class="flex items-center justify-between mb-1">
+                    <label for="origin" class="block text-sm font-medium text-pink-700">Origin</label>
+                    <button id="location-btn"
+                        class="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white px-3 py-1 rounded-md text-xs font-medium focus:outline-none disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg transition-all duration-200">
+                        <span id="location-text">👸 Use Current Location</span>
+                        <div id="loading-spinner"
+                            class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block ml-2">
+                        </div>
+                    </button>
+                </div>
+                <input type="text" id="origin"
+                    class="block w-full px-4 py-3 rounded-md border-pink-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 text-sm enhanced-input"
+                    placeholder="e.g., San Francisco, CA">
+                <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
+            </div>
+            <div class="relative">
+                <label for="destination" class="block text-sm font-medium text-pink-700">Destination</label>
+                <input type="text" id="destination"
+                    class="mt-1 block w-full px-4 py-3 rounded-md border-pink-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 text-sm enhanced-input"
+                    placeholder="e.g., Los Angeles, CA">
+                <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
+            </div>
+            <div class="md:col-span-2">
+                <button id="find-route-btn"
+                    class="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-200 text-sm hover:shadow-lg">
+                    Find Route & Amenities
+                </button>
+            </div>
+        </div>
+        <div id="status-message" class="text-center mt-3 text-pink-600 font-medium text-sm"></div>
+    </div>
+
+    <div id="new-search-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1200] hidden">
+        <div class="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+            <h3 class="text-lg font-semibold text-pink-800 mb-4 font-dancing">Are you sure?</h3>
+            <p class="text-gray-600 mb-6">This will clear your current search and start a new one.</p>
+            <div class="flex space-x-3 justify-end">
+                <button id="cancel-new-search"
+                    class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">Cancel</button>
+                <button id="confirm-new-search"
+                    class="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg font-medium">Yes, New
+                    Search</button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // --- CONFIGURATION ---
-        // ##################################################################
-        // # IMPORTANT: Replace with your Google Maps API Key               #
-        // ##################################################################
-        const GOOGLE_MAPS_API_KEY = "{{.APIKey}}"
-        // The URL of your local Go API server
-        const GO_API_URL = "http://localhost:8080"
+        // --- DOM ELEMENTS ---
+        const originInput = document.getElementById( 'origin' )
+        const destinationInput = document.getElementById( 'destination' )
+        const findRouteBtn = document.getElementById( 'find-route-btn' )
+        const statusMessage = document.getElementById( 'status-message' )
+        const mapElement = document.getElementById( 'map' )
+        const originSuggestions = document.getElementById( 'origin-suggestions' )
+        const destinationSuggestions = document.getElementById( 'destination-suggestions' )
+        const searchForm = document.getElementById( 'search-form' )
+        const bottomResults = document.getElementById( 'bottom-results' )
+        const topToolbar = document.getElementById( 'top-toolbar' )
+        const newSearchBtn = document.getElementById( 'new-search-btn' )
+        const locationBtn = document.getElementById( 'location-btn' )
+        const locationText = document.getElementById( 'location-text' )
+        const loadingSpinner = document.getElementById( 'loading-spinner' )
+        const restaurantSearchInput = document.getElementById( 'restaurant-search' )
+        const cuisineFilterButtons = document.getElementById( 'cuisine-filter-buttons' )
 
-        // --- DOM Elements ---
-        const detailsPanel = document.getElementById( 'details-panel' )
-        const loadingMessage = document.getElementById( 'loading-message' )
+        // Initially hide the top toolbar and adjust map position since search form is visible
+        topToolbar.style.display = 'none'
+        mapElement.style.top = '0'
+        mapElement.style.height = '100vh'
 
-        // --- MAP INITIALIZATION & LOGIC ---
-        let map
+        // --- MAP INITIALIZATION ---
+        let map = L.map( mapElement, {
+            zoomControl: false,
+            zoomSnap: 0.5,
+            zoomDelta: 1
+        } ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
+        L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        } ).addTo( map )
 
-        // Make initMap a global function so the Maps API callback can find it
-        window.initMap = async function () {
-            // Import the new Advanced Marker library
-            const { Map } = await google.maps.importLibrary( "maps" )
-            const { AdvancedMarkerElement } = await google.maps.importLibrary( "marker" )
+        // Map Layers
+        const routeLayer = L.layerGroup().addTo( map )
+        const chargerLayer = L.layerGroup().addTo( map )
+        const restaurantLayer = L.layerGroup().addTo( map )
+        const userLocationLayer = L.layerGroup().addTo( map )
 
-            // Get origin and destination from URL query parameters
+        // --- STATE MANAGEMENT ---
+        let userLocationMarker = null
+        let locationTrackingInterval = null
+        let stationData = [] // Single source of truth for all station data
+        let filteredChargerIDs = null
+        let currentSearchTerm = ''
+        let currentCuisineFilter = []
+
+
+        // --- EVENT LISTENERS ---
+        findRouteBtn.addEventListener( 'click', handleRouteSearch )
+        locationBtn.addEventListener( 'click', handleLocationClick )
+        restaurantSearchInput.addEventListener( 'input', () => {
+            filterListAndMap( restaurantSearchInput.value, currentCuisineFilter )
+        } )
+
+        cuisineFilterButtons.addEventListener( 'click', ( e ) => {
+            if ( e.target.tagName === 'BUTTON' ) {
+                const cuisine = e.target.dataset.cuisine
+                const cuisineKey = cuisine.toLowerCase()
+                if ( currentCuisineFilter.includes( cuisineKey ) ) {
+                    currentCuisineFilter = currentCuisineFilter.filter( c => c !== cuisineKey )
+                    e.target.classList.remove( 'selected' )
+                } else {
+                    currentCuisineFilter.push( cuisineKey )
+                    e.target.classList.add( 'selected' )
+                }
+                if ( cuisine === '' && e.target.classList.contains( 'selected' ) ) {
+                    currentCuisineFilter = [ '' ]
+                    Array.from( cuisineFilterButtons.children ).forEach( btn => {
+                        if ( btn !== e.target ) btn.classList.remove( 'selected' )
+                    } )
+                } else if ( cuisine !== '' ) {
+                    const allButton = cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )
+                    if ( allButton ) {
+                        allButton.classList.remove( 'selected' )
+                        currentCuisineFilter = currentCuisineFilter.filter( c => c !== '' )
+                    }
+                }
+                if ( currentCuisineFilter.length === 0 ) {
+                    const allButton = cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )
+                    if ( allButton ) {
+                        allButton.classList.add( 'selected' )
+                        currentCuisineFilter = [ '' ]
+                    }
+                }
+                filterListAndMap( currentSearchTerm, currentCuisineFilter.filter( c => c !== '' ) )
+            }
+        } )
+
+        map.on( 'moveend zoomend', updateVisibleMarkers );
+
+        // --- AUTO-SEARCH FROM URL PARAMS ---
+        ( function autoSearchFromUrl () {
             const urlParams = new URLSearchParams( window.location.search )
-            const origin = urlParams.get( 'origin' )
-            const destination = urlParams.get( 'destination' )
+            const originParam = urlParams.get( 'origin' )
+            const destinationParam = urlParams.get( 'destination' )
+            if ( originParam && destinationParam ) {
+                originInput.value = decodeURIComponent( originParam )
+                destinationInput.value = decodeURIComponent( destinationParam )
+                setTimeout( () => handleRouteSearch(), 500 )
+            }
+        } )()
+
+        // --- CORE APPLICATION LOGIC ---
+
+        /**
+         * Main function to handle the entire search process.
+         */
+        async function handleRouteSearch () {
+            const origin = originInput.value.trim()
+            const destination = destinationInput.value.trim()
 
             if ( !origin || !destination ) {
-                loadingMessage.innerHTML = `<p class="text-red-500 font-semibold">Error: 'origin' and 'destination' query parameters are required.</p>
-                <p class="text-sm text-gray-500 mt-2">Example: ?origin=San+Francisco,CA&destination=Los+Angeles,CA</p>`
+                updateStatus( "Please enter both an origin and a destination.", true )
                 return
             }
 
-            // Create a default map centered on the US
-            map = new Map( document.getElementById( "map" ), {
-                center: { lat: 39.8283, lng: -98.5795 },
-                zoom: 4,
-                mapId: "ROUTE_MAP", // Required for Advanced Markers
-                mapTypeControl: false,
-                streetViewControl: false,
-            } )
+            updateUrlForSearch( origin, destination )
+            clearPreviousResults()
+            showLoadingState( "Planning your royal journey..." )
 
-            // Fetch data from the Go API
-            fetchRouteData( AdvancedMarkerElement )
-        }
-
-        async function fetchRouteData ( AdvancedMarkerElement ) {
-            const urlParams = new URLSearchParams( window.location.search )
-            const origin = urlParams.get( 'origin' )
-            const destination = urlParams.get( 'destination' )
             try {
-                const response = await fetch( `${ GO_API_URL }/route?origin=${ encodeURIComponent( origin ) }&destination=${ encodeURIComponent( destination ) }` )
-                if ( !response.ok ) {
-                    throw new Error( `API responded with status: ${ response.status }` )
-                }
+                const response = await fetch( `/route?origin=${ encodeURIComponent( origin ) }&destination=${ encodeURIComponent( destination ) }` )
                 const data = await response.json()
-                loadingMessage.style.display = 'none'
 
-                // Process and display the data
-                displayRouteOnMap( data.steps )
-                displaySuperchargers( data.superchargers, AdvancedMarkerElement )
-                displayDebugInfo( data.debug_info )
-                displayDetailsInPanel( data )
+                if ( !response.ok ) {
+                    throw new Error( data.error || "An unknown error occurred." )
+                }
+
+                processAndDisplayResults( data )
+
+                updateStatus( `Found ${ data.superchargers.length } Superchargers with restaurants.`, false )
 
             } catch ( error ) {
-                loadingMessage.innerText = `Error fetching route data: ${ error.message }. Make sure your Go API server is running.`
-                console.error( "Error fetching route data:", error )
+                console.error( "Error during route search:", error )
+                const userMessage = error.message.includes( "Could not find a route" ) ?
+                    "Could not find a route. Please try a different or more specific location." :
+                    `An error occurred: ${ error.message }`
+                showErrorState( userMessage )
             }
         }
 
-        function displayRouteOnMap ( steps ) {
-            const bounds = new google.maps.LatLngBounds()
-            steps.forEach( step => {
-                const decodedPath = google.maps.geometry.encoding.decodePath( step.polyline )
-                const ratio = step.duration_in_traffic / step.duration
-                let color = '#4285F4' // blue for no traffic
-                if ( ratio > 1.5 ) {
-                    color = '#FF0000' // red for heavy traffic
-                } else if ( ratio > 1.2 ) {
-                    color = '#FFFF00' // yellow for moderate traffic
-                }
-                const polyline = new google.maps.Polyline( {
-                    path: decodedPath,
-                    geodesic: true,
-                    strokeColor: color,
-                    strokeOpacity: 0.8,
-                    strokeWeight: 6,
-                } )
-                polyline.setMap( map )
-                decodedPath.forEach( point => bounds.extend( point ) )
-            } )
-            map.fitBounds( bounds )
-        } function displaySuperchargers ( superchargers, AdvancedMarkerElement ) {
-            const infoWindow = new google.maps.InfoWindow()
-
-            superchargers.forEach( sc => {
-                // Create marker for the supercharger
-                const marker = new AdvancedMarkerElement( {
-                    position: { lat: sc.lat, lng: sc.lng },
-                    map: map,
-                    title: sc.name,
-                } )
-
-                const contentString = `
-                    <div class="info-window-content">
-                        <h2>${ sc.name }</h2>
-                        <p>${ sc.address }</p>
-                        <p><strong>Arrival:</strong> ${ sc.arrival_time }</p>
-                        <p><strong>Distance along route:</strong> ${ Math.round( sc.distance_meters / 1000 ) } km</p>
-                        <p><strong>Distance from route:</strong> ${ sc.distance_from_route_meters } m</p>
-                    </div>`
-
-                marker.addListener( "click", () => {
-                    infoWindow.setContent( contentString )
-                    infoWindow.open( { anchor: marker, map } )
-                } )
-
-                // Draw line from supercharger to closest point on route
-                if ( sc.closest_point_on_route ) {
-                    const line = new google.maps.Polyline( {
-                        path: [
-                            { lat: sc.lat, lng: sc.lng },
-                            { lat: sc.closest_point_on_route.lat, lng: sc.closest_point_on_route.lng }
-                        ],
-                        geodesic: true,
-                        strokeColor: '#FF0000',
-                        strokeOpacity: 0.6,
-                        strokeWeight: 2,
-                        map: map
-                    } )
-                }
-
-                // Create markers for associated restaurants
-                if ( sc.restaurants ) {
-                    sc.restaurants.forEach( resto => {
-                        const restaurantMarker = new AdvancedMarkerElement( {
-                            position: { lat: resto.lat, lng: resto.lng },
-                            map: map,
-                            title: `${ resto.name } (${ resto.cuisine_types.join( ', ' ) || 'Restaurant' })`,
-                        } )
-                        // Create a custom icon element for restaurants
-                        const icon = document.createElement( 'img' )
-                        icon.src = "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-                        restaurantMarker.content = icon
-                    } )
-                }
-            } )
-        }
-
-        function displayDebugInfo ( debugInfo ) {
-            debugInfo.api_calls.forEach( call => {
-                if ( call.search_area ) {
-                    // Draw a circle for each search radius
-                    new google.maps.Circle( {
-                        strokeColor: '#FF0000',
-                        strokeOpacity: 0.3,
-                        strokeWeight: 1,
-                        fillColor: '#FF0000',
-                        fillOpacity: 0.05,
-                        map: map,
-                        center: { lat: call.search_area.center_lat, lng: call.search_area.center_lng },
-                        radius: call.search_area.radius_m,
-                    } )
-                }
-            } )
-        }
-
-        function displayDetailsInPanel ( data ) {
-            let content = `
-                <div class="mb-6 pb-4 border-b">
-                    <h2 class="text-xl font-semibold text-gray-700">${ data.route.total_distance }</h2>
-                    <p class="text-lg text-gray-600">${ data.route.total_duration }</p>
-                </div>
-                <h2 class="text-xl font-semibold text-gray-700 mb-3">Supercharger Stops</h2>
-            `
+        /**
+         * Takes the full API response, processes it, and builds the UI.
+         */
+        function processAndDisplayResults ( data ) {
+            // Draw route on map
+            const routeCoords = decodePolyline( data.route.polyline )
+            drawRoute( routeCoords )
+            if ( routeCoords.length > 0 ) {
+                map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
+            }
 
             if ( data.superchargers.length === 0 ) {
-                content += '<p class="text-gray-500">No superchargers found on this route.</p>'
+                showEmptyState( "No Superchargers found near your route." )
+                return
             }
 
-            console.log( data.superchargers )
+            // Reset state and build the new `stationData` and table UI
+            stationData = []
+            const tbody = document.getElementById( 'chargers-tbody' )
+            tbody.innerHTML = ''
+            const fragment = document.createDocumentFragment()
 
-            data.superchargers.forEach( sc => {
-                content += `
-                    <div class="mb-5 p-4 bg-gray-50 rounded-lg shadow-sm">
-                        <h3 class="font-bold text-lg text-red-600">${ sc.name }</h3>
-                        <p class="text-sm text-gray-600">${ sc.address }</p>
-                        <p class="text-sm text-gray-600"><strong>Arrival:</strong> ${ sc.arrival_time }</p>
-                        <p class="text-sm text-gray-600"><strong>Distance along route:</strong> ${ Math.round( sc.distance_meters / 1000 ) } km</p>
-                        
-                        <h4 class="font-semibold mt-3 mb-2 text-gray-700">Nearby Restaurants:</h4>
-                        <ul class="list-disc list-inside text-sm space-y-1">
-                `
+            data.superchargers.forEach( ( charger, index ) => {
+                // The API provides sorted data, so we can use the index as a unique ID
+                const chargerId = `charger-${ index }`
 
-                if ( !sc.restaurants || sc.restaurants.length === 0 ) {
-                    content += '<li class="text-gray-500">No restaurants found nearby.</li>'
-                }
+                const chargerMarker = createChargerMarker( charger, chargerId )
+                const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
 
-                sc.restaurants.forEach( resto => {
-                    const cuisine = resto.cuisine_types.length > 0 ? `(${ resto.cuisine_types.join( ', ' ) })` : ''
-                    content += `
-                        <li class="text-gray-600">
-                            ${ resto.name } ${ cuisine } - ${ resto.walking_distance_meters } m walk
-                        </li>`
+                // Add the complete station object to our master data array
+                stationData.push( {
+                    id: chargerId,
+                    chargerInfo: charger,
+                    restaurants: charger.restaurants || [],
+                    chargerMarker: chargerMarker,
+                    restaurantMarkers: restaurantMarkers,
                 } )
 
-                content += `</ul></div>`
+                // Create and append the table row(s)
+                const tableRows = createTableRowsForStation( charger, chargerId )
+                tableRows.forEach( row => fragment.appendChild( row ) )
             } )
 
-            detailsPanel.innerHTML = content
+            tbody.appendChild( fragment )
+            populateCuisineFilter()
+            showResultsTable()
+            updateVisibleMarkers() // Initial map update
         }
 
-        // --- DYNAMIC SCRIPT LOADING ---
-        // This function dynamically creates and injects the Google Maps script tag.
-        // This is the correct way to use a JavaScript variable (like GOOGLE_MAPS_API_KEY) in the script URL.
-        function loadGoogleMapsScript () {
-            const script = document.createElement( 'script' )
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${ GOOGLE_MAPS_API_KEY }&libraries=geometry&callback=initMap`
-            script.async = true
-            document.head.appendChild( script )
+        /**
+         * Filters the list and map based on search term and cuisine.
+         */
+        function filterListAndMap ( searchTerm, cuisines ) {
+            currentSearchTerm = searchTerm.toLowerCase()
+            currentCuisineFilter = Array.isArray( cuisines ) ? cuisines.map( c => c.toLowerCase() ) : ( cuisines ? [ cuisines.toLowerCase() ] : [] )
+
+            const tbody = document.getElementById( 'chargers-tbody' )
+            if ( !tbody ) return
+
+            const rows = tbody.querySelectorAll( 'tr[data-charger-id]' )
+            let chargerVisibility = new Map()
+
+            rows.forEach( row => {
+                const chargerId = row.dataset.chargerId
+                const restaurantCell = row.querySelector( '.restaurant-link' )
+
+                if ( !chargerVisibility.has( chargerId ) ) {
+                    chargerVisibility.set( chargerId, { visible: false } )
+                }
+
+                if ( restaurantCell ) {
+                    const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
+                    const restaurantName = restaurantCell.textContent
+                    const originalCuisineText = cuisineCell.dataset.originalCuisine || cuisineCell.textContent
+
+                    const nameMatches = !currentSearchTerm || restaurantName.toLowerCase().includes( currentSearchTerm )
+                    const restaurantCuisines = originalCuisineText.toLowerCase().split( '; ' ).map( c => c.trim() )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( filterCuisine => filterCuisine !== '' && restaurantCuisines.includes( filterCuisine ) )
+
+                    if ( nameMatches && cuisineMatches ) {
+                        chargerVisibility.get( chargerId ).visible = true
+                    }
+                } else { // "No restaurants found" row
+                    if ( !currentSearchTerm && ( currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) ) ) {
+                        chargerVisibility.get( chargerId ).visible = true
+                    }
+                }
+            } )
+
+            let visibleChargerIDs = new Set()
+            rows.forEach( row => {
+                const chargerId = row.dataset.chargerId
+                const visibility = chargerVisibility.get( chargerId )
+                const isVisible = visibility && visibility.visible
+
+                row.style.display = isVisible ? '' : 'none'
+
+                if ( isVisible ) {
+                    visibleChargerIDs.add( chargerId )
+                    // Add highlighting logic here
+                    const restaurantCell = row.querySelector( '.restaurant-link' )
+                    if ( restaurantCell ) {
+                        const restaurantName = restaurantCell.dataset.originalName || restaurantCell.textContent
+                        restaurantCell.innerHTML = currentSearchTerm ?
+                            restaurantName.replace( new RegExp( `(${ searchTerm })`, 'gi' ), '<mark>$1</mark>' ) :
+                            restaurantName
+                        if ( !restaurantCell.dataset.originalName ) restaurantCell.dataset.originalName = restaurantName
+                    }
+                }
+            } )
+
+            filteredChargerIDs = ( currentSearchTerm || currentCuisineFilter.length > 0 ) ? Array.from( visibleChargerIDs ) : null
+            updateVisibleMarkers()
         }
 
-        loadGoogleMapsScript();
+        // --- MAP AND MARKER FUNCTIONS ---
 
+        /**
+         * Decodes Google's encoded polyline format.
+         */
+        function decodePolyline ( encoded ) {
+            let points = []
+            let index = 0, len = encoded.length
+            let lat = 0, lng = 0
+
+            while ( index < len ) {
+                let b, shift = 0, result = 0
+                do {
+                    b = encoded.charCodeAt( index++ ) - 63
+                    result |= ( b & 0x1f ) << shift
+                    shift += 5
+                } while ( b >= 0x20 )
+                let dlat = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
+                lat += dlat
+                shift = 0
+                result = 0
+                do {
+                    b = encoded.charCodeAt( index++ ) - 63
+                    result |= ( b & 0x1f ) << shift
+                    shift += 5
+                } while ( b >= 0x20 )
+                let dlng = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
+                lng += dlng
+                points.push( [ lat / 1e5, lng / 1e5 ] )
+            }
+            return points
+        }
+
+
+        function updateVisibleMarkers () {
+            const bounds = map.getBounds()
+            const zoom = map.getZoom()
+
+            stationData.forEach( station => {
+                const chargerShouldBeVisible = filteredChargerIDs === null || filteredChargerIDs.includes( station.id )
+                const chargerMarker = station.chargerMarker
+
+                if ( chargerShouldBeVisible && bounds.contains( chargerMarker.getLatLng() ) ) {
+                    if ( !chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.addLayer( chargerMarker )
+                } else {
+                    if ( chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.removeLayer( chargerMarker )
+                }
+
+                const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
+                station.restaurantMarkers.forEach( restaurantMarker => {
+                    const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                    const restaurantCuisines = ( restaurantMarker.options.cuisine || '' ).toLowerCase().split( '; ' ).map( c => c.trim() )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisines.includes( fc.toLowerCase() ) )
+
+                    if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
+                        if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
+                    } else {
+                        if ( restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.removeLayer( restaurantMarker )
+                    }
+                } )
+            } )
+        }
+
+        function createChargerMarker ( charger, chargerId ) {
+            const distanceFromOrigin = ( charger.distance_meters / 1609.34 ).toFixed( 1 ) + ' mi'
+            let popupContent = `
+                <div class="font-sans max-w-xs">
+                    <strong class="text-lg">${ charger.name }</strong><br>
+                    <strong>Address:</strong> ${ charger.address }<br>
+                    <strong>Arrival:</strong> ${ charger.arrival_time }<br>
+                    <strong>Distance:</strong> ${ distanceFromOrigin }<br>
+                    <button onclick="showChargerInResults('${ chargerId }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-2 py-1 rounded mt-2 mr-2">View in Results</button>
+                    <a href="https://maps.google.com/?q=${ charger.lat },${ charger.lng }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
+                `
+
+            if ( charger.restaurants && charger.restaurants.length > 0 ) {
+                popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
+                popupContent += charger.restaurants.slice( 0, 5 ).map( r => `<div class="text-sm mt-1">• ${ r.name } (${ r.walking_distance_meters }m)</div>` ).join( '' )
+                if ( charger.restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-black">and ${ charger.restaurants.length - 5 } more...</div>`
+            }
+            popupContent += '</div>'
+
+            return L.marker( [ charger.lat, charger.lng ], {
+                icon: L.divIcon( {
+                    className: 'emoji-icon',
+                    html: '⚡️',
+                    iconSize: [ 24, 24 ],
+                } )
+            } ).bindPopup( popupContent )
+        }
+
+        function createRestaurantMarkers ( restaurants ) {
+            return ( restaurants || [] ).map( restaurant => {
+                return L.marker( [ restaurant.lat, restaurant.lng ], {
+                    icon: L.divIcon( {
+                        className: 'emoji-icon',
+                        html: '🌭',
+                        iconSize: [ 24, 24 ],
+                    } ),
+                    restaurantName: restaurant.name,
+                    cuisine: ( restaurant.cuisine_types || [] ).join( '; ' )
+                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.walking_distance_meters }m away` )
+            } )
+        }
+
+        function drawRoute ( coords ) {
+            L.polyline( coords, {
+                color: 'hotpink',
+                weight: 5,
+                opacity: 0.7
+            } ).addTo( routeLayer )
+        }
+
+        // --- UI AND DOM MANIPULATION ---
+
+        function createTableRowsForStation ( charger, chargerId ) {
+            const rows = []
+            const restaurants = charger.restaurants || []
+            const distanceFromOrigin = ( charger.distance_meters / 1609.34 ).toFixed( 1 ) + ' mi'
+
+            const chargerCell = `
+                <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
+                    <div class="flex flex-col">
+                        <span>${ distanceFromOrigin }</span>
+                        <span class="font-bold">${ charger.arrival_time }</span>
+                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.address }</span>
+                    </div>
+                </td>
+            `
+
+            if ( restaurants.length === 0 ) {
+                const row = document.createElement( 'tr' )
+                row.dataset.chargerId = chargerId
+                row.innerHTML = `
+                    ${ chargerCell }
+                    <td class="px-1 py-0 text-sm text-pink-700" colspan="5">No restaurants found</td>
+                `
+                rows.push( row )
+            } else {
+                restaurants.forEach( ( restaurant, index ) => {
+                    const row = document.createElement( 'tr' )
+                    row.dataset.chargerId = chargerId
+                    row.dataset.restaurantId = restaurant.name // Use name as a simple ID
+
+                    const cuisineStr = ( restaurant.cuisine_types || [] ).join( '; ' )
+                    const statusHtml = restaurant.is_open_now ?
+                        '<span class="text-green-600 font-semibold">Open Now</span>' :
+                        '<span class="text-red-600">Closed</span>'
+
+                    const restaurantContent = `
+                        <td class="px-1 py-0 text-sm text-pink-700">
+                            <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link">${ restaurant.name }</span>
+                        </td>
+                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.walking_distance_meters }m</td>
+                        <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
+                        <td class="px-1 py-0 text-sm text-pink-700">${ statusHtml }</td>
+                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.rating || 'N/A' }</td>
+                    `
+
+                    row.innerHTML = ( index === 0 ) ? `${ chargerCell }${ restaurantContent }` : restaurantContent
+                    rows.push( row )
+                } )
+            }
+
+            addClickHandlersToRows( rows, chargerId )
+            return rows
+        }
+
+        function addClickHandlersToRows ( rows, chargerId ) {
+            rows.forEach( row => {
+                row.querySelector( '.city-link' )?.addEventListener( 'click', ( e ) => {
+                    e.stopPropagation()
+                    const station = stationData.find( s => s.id === chargerId )
+                    if ( station ) {
+                        map.setView( station.chargerMarker.getLatLng(), 15 )
+                        station.chargerMarker.openPopup()
+                        bottomResults.style.display = 'none'
+                        document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+                    }
+                } )
+
+                row.querySelector( '.restaurant-link' )?.addEventListener( 'click', ( e ) => {
+                    e.stopPropagation()
+                    const restaurantName = e.target.textContent
+                    const station = stationData.find( s => s.id === chargerId )
+                    if ( station ) {
+                        const restaurantMarker = station.restaurantMarkers.find( m => m.options.restaurantName === restaurantName )
+                        if ( restaurantMarker ) {
+                            map.setView( restaurantMarker.getLatLng(), 16 )
+                            restaurantMarker.openPopup()
+                            bottomResults.style.display = 'none'
+                            document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+                        }
+                    }
+                } )
+            } )
+        }
+
+        function populateCuisineFilter () {
+            const cuisines = new Set()
+            stationData.forEach( station => {
+                station.restaurants.forEach( r => {
+                    ( r.cuisine_types || [] ).forEach( c => cuisines.add( c.trim() ) )
+                } )
+            } )
+
+            const sortedCuisines = Array.from( cuisines ).sort()
+            cuisineFilterButtons.innerHTML = '' // Clear previous
+
+            const createButton = ( text, value ) => {
+                const button = document.createElement( 'button' )
+                button.textContent = text
+                button.dataset.cuisine = value
+                button.className = 'px-3 py-1 border border-pink-300 rounded-full text-sm text-pink-700 hover:bg-pink-100 transition-colors duration-200'
+                return button
+            }
+
+            const allButton = createButton( 'All Cuisines', '' )
+            allButton.classList.add( 'selected' )
+            currentCuisineFilter = [ '' ]
+            cuisineFilterButtons.appendChild( allButton )
+
+            sortedCuisines.forEach( c => {
+                cuisineFilterButtons.appendChild( createButton( c, c ) )
+            } )
+        }
+
+        function clearPreviousResults () {
+            routeLayer.clearLayers()
+            chargerLayer.clearLayers()
+            restaurantLayer.clearLayers()
+            stationData = []
+            filteredChargerIDs = null
+            currentSearchTerm = ''
+            restaurantSearchInput.value = ''
+            document.getElementById( 'chargers-tbody' ).innerHTML = ''
+            stopLocationTracking()
+        }
+
+        function showLoadingState ( message ) {
+            document.getElementById( 'loading-container' ).classList.remove( 'hidden' )
+            document.getElementById( 'loading-text' ).textContent = message
+            document.getElementById( 'chargers-table' ).classList.add( 'hidden' )
+            document.getElementById( 'no-results' ).classList.add( 'hidden' )
+            searchForm.style.display = 'none'
+            bottomResults.style.display = 'block'
+            topToolbar.style.display = 'flex'
+            mapElement.style.top = '60px'
+            mapElement.style.height = 'calc(100vh - 60px)'
+            bottomResults.style.top = '60px'
+            bottomResults.style.height = 'calc(100vh - 60px)'
+            document.getElementById( 'toggle-btn' ).textContent = 'Show map'
+        }
+
+        function showResultsTable () {
+            document.getElementById( 'loading-container' ).classList.add( 'hidden' )
+            document.getElementById( 'chargers-table' ).classList.remove( 'hidden' )
+            document.getElementById( 'no-results' ).classList.add( 'hidden' )
+        }
+
+        function showChargerInResults ( chargerId ) {
+            bottomResults.style.display = 'block'
+            document.getElementById( 'toggle-btn' ).textContent = 'Show map'
+            const chargerRow = document.querySelector( `tr[data-charger-id="${ chargerId }"]` )
+            if ( chargerRow ) {
+                chargerRow.scrollIntoView( { behavior: 'smooth', block: 'center' } )
+                chargerRow.style.backgroundColor = '#fef2f2'
+                setTimeout( () => { chargerRow.style.backgroundColor = '' }, 2000 )
+            }
+            setTimeout( () => map.invalidateSize(), 100 )
+        }
+
+        function showEmptyState ( message ) {
+            document.getElementById( 'loading-container' ).classList.add( 'hidden' )
+            document.getElementById( 'chargers-table' ).classList.add( 'hidden' )
+            const noResults = document.getElementById( 'no-results' )
+            noResults.textContent = message
+            noResults.classList.remove( 'hidden' )
+        }
+
+        function showErrorState ( message ) {
+            document.getElementById( 'loading-container' ).classList.add( 'hidden' )
+            document.getElementById( 'chargers-table' ).classList.add( 'hidden' )
+            updateStatus( message, true )
+            searchForm.style.display = 'block'
+            bottomResults.style.display = 'none'
+            topToolbar.style.display = 'none'
+            mapElement.style.top = '0'
+            mapElement.style.height = '100vh'
+        }
+
+        // --- HELPER FUNCTIONS (Autocomplete, Location, Modals, etc.) ---
+
+        async function handleLocationClick () {
+            if ( locationTrackingInterval ) {
+                stopLocationTracking()
+                updateStatus( "Location tracking stopped.", false )
+                return
+            }
+            locationText.textContent = 'Getting location...'
+            loadingSpinner.classList.remove( 'hidden' )
+            locationBtn.disabled = true
+            try {
+                const position = await new Promise( ( resolve, reject ) => navigator.geolocation.getCurrentPosition( resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                } ) )
+                const { latitude: lat, longitude: lon } = position.coords
+                originInput.value = `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+                updateStatus( "Location detected and set as origin.", false )
+                startLocationTracking()
+                locationText.textContent = '👸 Tracking Active'
+                locationBtn.classList.add( 'tracking-active' )
+            } catch ( error ) {
+                console.log( "Geolocation error:", error )
+                updateStatus( "Could not access your location.", true )
+            } finally {
+                loadingSpinner.classList.add( 'hidden' )
+                locationBtn.disabled = false
+            }
+        }
+
+        function startLocationTracking () {
+            if ( locationTrackingInterval ) clearInterval( locationTrackingInterval )
+            document.getElementById( 'gps-btn' ).classList.remove( 'hidden' )
+
+            const updateMarker = ( position ) => {
+                const { latitude: lat, longitude: lon } = position.coords
+                updateUserLocationMarker( lat, lon )
+            }
+
+            navigator.geolocation.getCurrentPosition( updateMarker, ( err ) => console.log( "Initial location error:", err ) )
+            locationTrackingInterval = setInterval( () => {
+                navigator.geolocation.getCurrentPosition( updateMarker, ( err ) => console.log( "Tracking location error:", err ) )
+            }, 5000 )
+        }
+
+        function updateUserLocationMarker ( lat, lon ) {
+            if ( userLocationMarker ) userLocationLayer.removeLayer( userLocationMarker )
+            userLocationMarker = L.marker( [ lat, lon ], {
+                icon: L.divIcon( {
+                    className: 'princess-marker',
+                    html: '👸',
+                    iconSize: [ 36, 36 ],
+                } )
+            } ).bindPopup( `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }` )
+            userLocationLayer.addLayer( userLocationMarker )
+        }
+
+        function stopLocationTracking () {
+            if ( locationTrackingInterval ) {
+                clearInterval( locationTrackingInterval )
+                locationTrackingInterval = null
+            }
+            if ( userLocationMarker ) {
+                userLocationLayer.removeLayer( userLocationMarker )
+                userLocationMarker = null
+            }
+            document.getElementById( 'gps-btn' ).classList.add( 'hidden' )
+            locationText.textContent = '👸 Use Current Location'
+            locationBtn.classList.remove( 'tracking-active' )
+        }
+
+        let debounceTimer
+        function setupAutocomplete ( inputElement, suggestionsDiv ) {
+            inputElement.addEventListener( 'input', () => {
+                clearTimeout( debounceTimer )
+                debounceTimer = setTimeout( async () => {
+                    const query = inputElement.value
+                    if ( query.length < 3 ) {
+                        suggestionsDiv.classList.add( 'hidden' )
+                        return
+                    }
+                    try {
+                        const response = await fetch( `/autocomplete?partial=${ encodeURIComponent( query ) }` )
+                        if ( !response.ok ) throw new Error( 'Autocomplete failed' )
+                        const data = await response.json()
+                        displaySuggestions( data.predictions, suggestionsDiv, inputElement )
+                    } catch ( error ) {
+                        console.error( 'Autocomplete error:', error )
+                        suggestionsDiv.classList.add( 'hidden' )
+                    }
+                }, 300 )
+            } )
+            inputElement.addEventListener( 'blur', () => setTimeout( () => suggestionsDiv.classList.add( 'hidden' ), 150 ) )
+        }
+
+        function displaySuggestions ( predictions, suggestionsDiv, input ) {
+            suggestionsDiv.innerHTML = ''
+            if ( !predictions || predictions.length === 0 ) {
+                suggestionsDiv.classList.add( 'hidden' )
+                return
+            }
+            predictions.forEach( prediction => {
+                const suggestion = document.createElement( 'div' )
+                suggestion.className = 'autocomplete-suggestion'
+                suggestion.textContent = prediction.description
+                suggestion.addEventListener( 'mousedown', () => { // Use mousedown to fire before blur
+                    input.value = prediction.description
+                    suggestionsDiv.classList.add( 'hidden' )
+                } )
+                suggestionsDiv.appendChild( suggestion )
+            } )
+            const inputRect = input.getBoundingClientRect()
+            suggestionsDiv.style.left = `${ inputRect.left }px`
+            suggestionsDiv.style.top = `${ inputRect.bottom + window.scrollY }px`
+            suggestionsDiv.style.width = `${ inputRect.width }px`
+            suggestionsDiv.classList.remove( 'hidden' )
+        }
+
+        setupAutocomplete( originInput, originSuggestions )
+        setupAutocomplete( destinationInput, destinationSuggestions )
+
+        document.getElementById( 'toggle-btn' ).addEventListener( 'click', () => {
+            const isHidden = bottomResults.style.display === 'none'
+            bottomResults.style.display = isHidden ? 'block' : 'none'
+            document.getElementById( 'toggle-btn' ).textContent = isHidden ? 'Show map' : 'Show Results'
+            setTimeout( () => map.invalidateSize(), 100 )
+        } )
+
+        newSearchBtn.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
+        document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
+        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
+            stopLocationTracking()
+            window.location.href = window.location.pathname
+        } )
+
+        document.getElementById( 'toggle-cuisine-btn' ).addEventListener( 'click', () => {
+            const cuisineDiv = document.getElementById( 'cuisine-filter-buttons' )
+            cuisineDiv.style.display = cuisineDiv.style.display === 'none' ? 'flex' : 'none'
+        } )
+
+        document.getElementById( 'gps-btn' ).addEventListener( 'click', () => {
+            if ( userLocationMarker ) {
+                map.setView( userLocationMarker.getLatLng(), Math.max( map.getZoom(), 15 ) )
+                bottomResults.style.display = 'none'
+                document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+                setTimeout( () => map.invalidateSize(), 100 )
+            }
+        } )
+
+        function updateStatus ( message, isError = false ) {
+            statusMessage.textContent = message
+            statusMessage.className = `text-center mt-3 text-sm font-medium ${ isError ? 'text-red-600' : 'text-pink-600' }`
+        }
+
+        function updateUrlForSearch ( origin, destination ) {
+            const url = new URL( window.location )
+            url.searchParams.set( 'origin', encodeURIComponent( origin ) )
+            url.searchParams.set( 'destination', encodeURIComponent( destination ) )
+            window.history.pushState( {}, '', url )
+        }
     </script>
 </body>
 
