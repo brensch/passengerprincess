@@ -265,24 +265,6 @@
             font-size: 36px !important;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
-
-        /* Location tracking button styling */
-        #location-btn.tracking-active {
-            background: linear-gradient(to-r, #ec4899, #f97316);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.8;
-            }
-        }
     </style>
 </head>
 
@@ -927,7 +909,7 @@
             currentSearchTerm = ''
             restaurantSearchInput.value = ''
             document.getElementById( 'chargers-tbody' ).innerHTML = ''
-            stopLocationTracking()
+            // Removed stopLocationTracking() to keep princess location visible during searches
         }
 
         function showLoadingState ( message ) {
@@ -985,28 +967,32 @@
         // --- HELPER FUNCTIONS (Autocomplete, Location, Modals, etc.) ---
 
         async function handleLocationClick () {
-            if ( locationTrackingInterval ) {
-                stopLocationTracking()
-                updateStatus( "Location tracking stopped.", false )
+            if ( !navigator.geolocation ) {
+                updateStatus( "Geolocation is not supported by this browser.", true )
                 return
             }
-            locationText.textContent = 'Getting location...'
             loadingSpinner.classList.remove( 'hidden' )
             locationBtn.disabled = true
             try {
                 const position = await new Promise( ( resolve, reject ) => navigator.geolocation.getCurrentPosition( resolve, reject, {
                     enableHighAccuracy: true,
-                    timeout: 10000
+                    timeout: 20000
                 } ) )
                 const { latitude: lat, longitude: lon } = position.coords
                 originInput.value = `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
                 updateStatus( "Location detected and set as origin.", false )
                 startLocationTracking()
-                locationText.textContent = '👸 Tracking Active'
-                locationBtn.classList.add( 'tracking-active' )
             } catch ( error ) {
                 console.log( "Geolocation error:", error )
-                updateStatus( "Could not access your location.", true )
+                let errorMessage = "Could not access your location."
+                if ( error.code === error.PERMISSION_DENIED ) {
+                    errorMessage += " Please enable location permissions in your browser."
+                } else if ( error.code === error.POSITION_UNAVAILABLE ) {
+                    errorMessage += " Location information is unavailable."
+                } else if ( error.code === error.TIMEOUT ) {
+                    errorMessage += " Location request timed out. Try again or check your GPS signal."
+                }
+                updateStatus( errorMessage, true )
             } finally {
                 loadingSpinner.classList.add( 'hidden' )
                 locationBtn.disabled = false
@@ -1050,8 +1036,6 @@
                 userLocationMarker = null
             }
             document.getElementById( 'gps-btn' ).classList.add( 'hidden' )
-            locationText.textContent = '👸 Use Current Location'
-            locationBtn.classList.remove( 'tracking-active' )
         }
 
         let debounceTimer
@@ -1142,6 +1126,11 @@
             url.searchParams.set( 'origin', encodeURIComponent( origin ) )
             url.searchParams.set( 'destination', encodeURIComponent( destination ) )
             window.history.pushState( {}, '', url )
+        }
+
+        // Start location tracking on page load to show princess location continuously
+        if ( navigator.geolocation ) {
+            startLocationTracking()
         }
     </script>
 </body>
