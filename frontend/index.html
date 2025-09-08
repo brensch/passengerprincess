@@ -150,7 +150,8 @@
                         <h2>${ sc.name }</h2>
                         <p>${ sc.address }</p>
                         <p><strong>Arrival:</strong> ${ sc.arrival_time }</p>
-                        <p><strong>Distance:</strong> ${ sc.distance }</p>
+                        <p><strong>Distance along route:</strong> ${ Math.round( sc.distance_meters / 1000 ) } km</p>
+                        <p><strong>Distance from route:</strong> ${ sc.distance_from_route_meters } m</p>
                     </div>`
 
                 marker.addListener( "click", () => {
@@ -210,7 +211,7 @@
                         <h3 class="font-bold text-lg text-red-600">${ sc.name }</h3>
                         <p class="text-sm text-gray-600">${ sc.address }</p>
                         <p class="text-sm text-gray-600"><strong>Arrival:</strong> ${ sc.arrival_time }</p>
-                        <p class="text-sm text-gray-600"><strong>Distance along route:</strong> ${ sc.distance }</p>
+                        <p class="text-sm text-gray-600"><strong>Distance along route:</strong> ${ Math.round( sc.distance_meters / 1000 ) } km</p>
                         
                         <h4 class="font-semibold mt-3 mb-2 text-gray-700">Nearby Restaurants:</h4>
                         <ul class="list-disc list-inside text-sm space-y-1">
@@ -224,7 +225,7 @@
                     const cuisine = resto.cuisine_types.length > 0 ? `(${ resto.cuisine_types.join( ', ' ) })` : ''
                     content += `
                         <li class="text-gray-600">
-                            ${ resto.name } ${ cuisine } - ${ resto.walking_distance } walk
+                            ${ resto.name } ${ cuisine } - ${ resto.walking_distance_meters } m walk
                         </li>`
                 } )
 

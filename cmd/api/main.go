@@ -44,26 +44,27 @@ type RouteDetails struct {
 
 // SuperchargerInfo contains details about a supercharger and nearby restaurants.
 type SuperchargerInfo struct {
-	Name                 string           `json:"name"`
-	Address              string           `json:"address"`
-	Distance             string           `json:"distance"`
-	ArrivalTime          string           `json:"arrival_time"` // Estimated arrival time
-	Lat                  float64          `json:"lat"`
-	Lng                  float64          `json:"lng"`
-	Restaurants          []RestaurantInfo `json:"restaurants"`
-	DistanceFromOriginKm float64          `json:"-"` // Internal field for sorting
+	Name                    string           `json:"name"`
+	Address                 string           `json:"address"`
+	DistanceMeters          int              `json:"distance_meters"`            // Distance along route in meters
+	DistanceFromRouteMeters int              `json:"distance_from_route_meters"` // Distance from route in meters
+	ArrivalTime             string           `json:"arrival_time"`               // Estimated arrival time
+	Lat                     float64          `json:"lat"`
+	Lng                     float64          `json:"lng"`
+	Restaurants             []RestaurantInfo `json:"restaurants"`
+	DistanceFromOriginKm    float64          `json:"-"` // Internal field for sorting
 }
 
 // RestaurantInfo contains details for a single restaurant.
 type RestaurantInfo struct {
-	Name            string   `json:"name"`
-	Address         string   `json:"address"`
-	Rating          float64  `json:"rating"`
-	IsOpenNow       bool     `json:"is_open_now"`
-	Lat             float64  `json:"lat"`
-	Lng             float64  `json:"lng"`
-	CuisineTypes    []string `json:"cuisine_types"`
-	WalkingDistance string   `json:"walking_distance"`
+	Name                  string   `json:"name"`
+	Address               string   `json:"address"`
+	Rating                float64  `json:"rating"`
+	IsOpenNow             bool     `json:"is_open_now"`
+	Lat                   float64  `json:"lat"`
+	Lng                   float64  `json:"lng"`
+	CuisineTypes          []string `json:"cuisine_types"`
+	WalkingDistanceMeters int      `json:"walking_distance_meters"`
 }
 
 // --- Structs for Debugging ---
@@ -90,6 +91,12 @@ type SearchAreaDetails struct {
 type GeoBounds struct {
 	Southwest LatLng `json:"southwest"`
 	Northeast LatLng `json:"northeast"`
+}
+
+// LatLng represents a geographical point.
+type LatLng struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
 }
 
 // GoogleDirectionsResponse is for parsing the Directions API response.
@@ -177,10 +184,10 @@ type LocationNew struct {
 	Longitude float64 `json:"longitude"`
 }
 
-// LatLng represents a geographical point.
-type LatLng struct {
-	Lat float64 `json:"lat"`
-	Lng float64 `json:"lng"`
+// SegmentInfo holds information about a search segment.
+type SegmentInfo struct {
+	Center               LatLng
+	CumulativeDistanceKm float64
 }
 
 func main() {
@@ -295,18 +302,22 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
 	log.Println("Starting comprehensive search for superchargers along the route...")
-	allSuperchargersMap := make(map[string]PlaceNew) // Use map for de-duplication by PlaceID
+	allSuperchargersBySegment := make(map[int][]PlaceNew) // Segment index to list of superchargers
+	segmentInfos := make(map[int]SegmentInfo)             // Segment index to info
 
 	const searchIntervalKm = 40.0    // How often to search along the route
 	const searchRadiusMeters = 30000 // How far to search off the route (30km)
 
 	var distanceSinceLastSearch float64 = 0
+	var cumulativeDistance float64 = 0
+	segmentIndex := 0
 
 	for i := 1; i < len(decodedPolyline); i++ {
 		p1 := decodedPolyline[i-1]
 		p2 := decodedPolyline[i]
 		segmentDistance := haversineDistance(p1.Lat, p1.Lng, p2.Lat, p2.Lng)
 		distanceSinceLastSearch += segmentDistance
+		cumulativeDistance += segmentDistance
 
 		if distanceSinceLastSearch >= searchIntervalKm || i == len(decodedPolyline)-1 {
 			requestBody := SearchTextRequest{
@@ -330,63 +341,60 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			teslaCount := 0
 			for _, res := range results {
 				// Since we're searching for "Tesla Supercharger" with includedType, most results should be relevant
-				allSuperchargersMap[res.ID] = res
+				allSuperchargersBySegment[segmentIndex] = append(allSuperchargersBySegment[segmentIndex], res)
 				teslaCount++
 				log.Printf("Found Supercharger: %s, Types: %v", res.DisplayName.Text, res.Types)
 			}
+			segmentInfos[segmentIndex] = SegmentInfo{
+				Center:               LatLng{Lat: p2.Lat, Lng: p2.Lng},
+				CumulativeDistanceKm: cumulativeDistance,
+			}
 			if teslaCount > 0 {
-				log.Printf("Found %d Superchargers at point %d", teslaCount, i)
+				log.Printf("Found %d Superchargers at segment %d", teslaCount, segmentIndex)
 			}
 			distanceSinceLastSearch = 0 // Reset counter
+			segmentIndex++
 		}
 	}
 
-	var allSuperchargersInArea []PlaceNew
-	for _, sc := range allSuperchargersMap {
-		allSuperchargersInArea = append(allSuperchargersInArea, sc)
-	}
-	log.Printf("Found %d unique potential superchargers along the route.", len(allSuperchargersInArea))
-
-	// --- 3. Filter Precisely: Prune superchargers to only those near the polyline ---
-	log.Println("Including all superchargers found along the route...")
-	relevantSuperchargers := make([]PlaceNew, len(allSuperchargersInArea))
-	copy(relevantSuperchargers, allSuperchargersInArea)
-	log.Printf("Found %d superchargers along the route.", len(relevantSuperchargers))
-
-	// --- 4. Narrow Search & Refined Timing: For each relevant supercharger, find restaurants and get accurate arrival time ---
-	log.Println("Getting accurate arrival times and finding restaurants...")
+	// --- 3. Filter Precisely: Prune superchargers to only those near the polyline and calculate ETAs ---
+	log.Println("Filtering superchargers within 1km of the route and calculating ETAs...")
 	var finalSuperchargerList []SuperchargerInfo
-	for _, sc := range relevantSuperchargers {
-		restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
-		if err != nil {
-			log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
+	totalDistanceKm := float64(leg.Distance.Value) / 1000.0
+	totalDuration := time.Duration(leg.Duration.Value) * time.Second
+
+	for segmentIndex, superchargers := range allSuperchargersBySegment {
+		segmentInfo := segmentInfos[segmentIndex]
+		arrivalRatio := segmentInfo.CumulativeDistanceKm / totalDistanceKm
+		durationToSegment := time.Duration(float64(totalDuration) * arrivalRatio)
+		arrivalTime := time.Now().Add(durationToSegment)
+
+		for _, sc := range superchargers {
+			scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
+			distFromRoute, _ := distanceToPolyline(scLoc, decodedPolyline)
+			log.Printf("Supercharger %s is %.2f km from the route", sc.DisplayName.Text, distFromRoute)
+			if distFromRoute <= 5.0 { // Within 1km
+				restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
+				if err != nil {
+					log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
+				}
+
+				finalSuperchargerList = append(finalSuperchargerList, SuperchargerInfo{
+					Name:                    sc.DisplayName.Text,
+					Address:                 sc.FormattedAddress,
+					DistanceMeters:          int(segmentInfo.CumulativeDistanceKm * 1000),
+					DistanceFromRouteMeters: int(distFromRoute * 1000),
+					ArrivalTime:             arrivalTime.Format(time.Kitchen),
+					Lat:                     sc.Location.Latitude,
+					Lng:                     sc.Location.Longitude,
+					Restaurants:             restaurants,
+					DistanceFromOriginKm:    segmentInfo.CumulativeDistanceKm,
+				})
+			}
 		}
-
-		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
-		var arrivalTime time.Time
-		durationToSupercharger, err := getDurationToDestination(origin, scLoc, counter, &apiCalls)
-		if err != nil {
-			log.Printf("Warning: could not get specific travel time for %s, using approximation. Error: %v", sc.DisplayName.Text, err)
-			_, distAlongRouteFallback := distanceToPolyline(scLoc, decodedPolyline)
-			arrivalRatio := distAlongRouteFallback / (float64(leg.Distance.Value) / 1000.0)
-			durationToSupercharger = time.Duration(float64(leg.Duration.Value)*arrivalRatio) * time.Second
-		}
-
-		distFromRoute, distAlongRoute := distanceToPolyline(scLoc, decodedPolyline)
-		smudgeFactorSeconds := (distFromRoute / 50.0) * 3600 // Assume 50 km/h average for final leg
-		arrivalTime = time.Now().Add(durationToSupercharger + time.Duration(smudgeFactorSeconds)*time.Second)
-
-		finalSuperchargerList = append(finalSuperchargerList, SuperchargerInfo{
-			Name:                 sc.DisplayName.Text,
-			Address:              sc.FormattedAddress,
-			Distance:             fmt.Sprintf("%.1f km", distAlongRoute),
-			ArrivalTime:          arrivalTime.Format(time.Kitchen),
-			Lat:                  sc.Location.Latitude,
-			Lng:                  sc.Location.Longitude,
-			Restaurants:          restaurants,
-			DistanceFromOriginKm: distAlongRoute,
-		})
 	}
+
+	log.Printf("Found %d superchargers within 1km of the route.", len(finalSuperchargerList))
 
 	// Sort superchargers by their order along the route
 	sort.Slice(finalSuperchargerList, func(i, j int) bool {
@@ -597,17 +605,16 @@ func findNearbyRestaurantsNew(supercharger PlaceNew, counter *APICallCounter, ap
 
 	for _, p := range nearbyPlaces {
 		walkingDistKm := haversineDistance(superchargerLoc.Lat, superchargerLoc.Lng, p.Location.Latitude, p.Location.Longitude)
-		walkingDistStr := fmt.Sprintf("%.0f m", walkingDistKm*1000)
 
 		allRestaurants = append(allRestaurants, RestaurantInfo{
-			Name:            p.DisplayName.Text,
-			Address:         p.FormattedAddress,
-			Rating:          p.Rating,
-			IsOpenNow:       p.CurrentOpeningHours.OpenNow,
-			Lat:             p.Location.Latitude,
-			Lng:             p.Location.Longitude,
-			CuisineTypes:    extractCuisineFromNewPlace(p),
-			WalkingDistance: walkingDistStr,
+			Name:                  p.DisplayName.Text,
+			Address:               p.FormattedAddress,
+			Rating:                p.Rating,
+			IsOpenNow:             p.CurrentOpeningHours.OpenNow,
+			Lat:                   p.Location.Latitude,
+			Lng:                   p.Location.Longitude,
+			CuisineTypes:          extractCuisineFromNewPlace(p),
+			WalkingDistanceMeters: int(walkingDistKm * 1000),
 		})
 	}
 
