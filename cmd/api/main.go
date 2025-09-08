@@ -302,32 +302,28 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
 	log.Println("Starting comprehensive search for superchargers along the route...")
-	allSuperchargersBySegment := make(map[int][]PlaceNew) // Segment index to list of superchargers
-	segmentInfos := make(map[int]SegmentInfo)             // Segment index to info
+	allSuperchargers := []PlaceNew{} // Collect all superchargers
 
 	const searchIntervalKm = 40.0    // How often to search along the route
 	const searchRadiusMeters = 30000 // How far to search off the route (30km)
 
 	var distanceSinceLastSearch float64 = 0
-	var cumulativeDistance float64 = 0
-	segmentIndex := 0
 
 	for i := 1; i < len(decodedPolyline); i++ {
 		p1 := decodedPolyline[i-1]
 		p2 := decodedPolyline[i]
 		segmentDistance := haversineDistance(p1.Lat, p1.Lng, p2.Lat, p2.Lng)
 		distanceSinceLastSearch += segmentDistance
-		cumulativeDistance += segmentDistance
 
 		if distanceSinceLastSearch >= searchIntervalKm || i == len(decodedPolyline)-1 {
 			requestBody := SearchTextRequest{
 				TextQuery:      "Tesla Supercharger",
 				IncludedType:   "electric_vehicle_charging_station",
-				MaxResultCount: 20, // Explicitly request maximum results
+				MaxResultCount: 20, // Request maximum results
 				LocationBias: LocationBias{
 					Circle: Circle{
 						Center: Center{Latitude: p2.Lat, Longitude: p2.Lng},
-						Radius: searchRadiusMeters,
+						Radius: float64(searchRadiusMeters),
 					},
 				},
 			}
@@ -337,66 +333,79 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Warning: search failed at point %d: %v", i, err)
 			} else {
 				log.Printf("Search at point %d (%.6f, %.6f) returned %d total results", i, p2.Lat, p2.Lng, len(results))
-			}
-			teslaCount := 0
-			for _, res := range results {
-				// Since we're searching for "Tesla Supercharger" with includedType, most results should be relevant
-				allSuperchargersBySegment[segmentIndex] = append(allSuperchargersBySegment[segmentIndex], res)
-				teslaCount++
-				log.Printf("Found Supercharger: %s, Types: %v", res.DisplayName.Text, res.Types)
-			}
-			segmentInfos[segmentIndex] = SegmentInfo{
-				Center:               LatLng{Lat: p2.Lat, Lng: p2.Lng},
-				CumulativeDistanceKm: cumulativeDistance,
-			}
-			if teslaCount > 0 {
-				log.Printf("Found %d Superchargers at segment %d", teslaCount, segmentIndex)
+				allSuperchargers = append(allSuperchargers, results...)
 			}
 			distanceSinceLastSearch = 0 // Reset counter
-			segmentIndex++
 		}
 	}
 
-	// --- 3. Filter Precisely: Prune superchargers to only those near the polyline and calculate ETAs ---
-	log.Println("Filtering superchargers within 1km of the route and calculating ETAs...")
-	var finalSuperchargerList []SuperchargerInfo
-	totalDistanceKm := float64(leg.Distance.Value) / 1000.0
+	// Remove duplicates by ID
+	seen := make(map[string]bool)
+	var uniqueSuperchargers []PlaceNew
+	for _, sc := range allSuperchargers {
+		if !seen[sc.ID] {
+			seen[sc.ID] = true
+			uniqueSuperchargers = append(uniqueSuperchargers, sc)
+		}
+	}
+
+	log.Printf("Found %d unique superchargers from interval searches.", len(uniqueSuperchargers))
+
+	// --- 3. Filter and calculate distances ---
+	log.Println("Filtering superchargers and calculating distances...")
+	var finalSuperchargers []PlaceNew
+	totalRouteDistanceKm := float64(leg.Distance.Value) / 1000.0
 	totalDuration := time.Duration(leg.Duration.Value) * time.Second
 
-	for segmentIndex, superchargers := range allSuperchargersBySegment {
-		segmentInfo := segmentInfos[segmentIndex]
-		arrivalRatio := segmentInfo.CumulativeDistanceKm / totalDistanceKm
-		durationToSegment := time.Duration(float64(totalDuration) * arrivalRatio)
-		arrivalTime := time.Now().Add(durationToSegment)
-
-		for _, sc := range superchargers {
-			scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
-			distFromRoute, _ := distanceToPolyline(scLoc, decodedPolyline)
-			log.Printf("Supercharger %s is %.2f km from the route", sc.DisplayName.Text, distFromRoute)
-			if distFromRoute <= 5.0 { // Within 1km
-				restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
-				if err != nil {
-					log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
-				}
-
-				finalSuperchargerList = append(finalSuperchargerList, SuperchargerInfo{
-					Name:                    sc.DisplayName.Text,
-					Address:                 sc.FormattedAddress,
-					DistanceMeters:          int(segmentInfo.CumulativeDistanceKm * 1000),
-					DistanceFromRouteMeters: int(distFromRoute * 1000),
-					ArrivalTime:             arrivalTime.Format(time.Kitchen),
-					Lat:                     sc.Location.Latitude,
-					Lng:                     sc.Location.Longitude,
-					Restaurants:             restaurants,
-					DistanceFromOriginKm:    segmentInfo.CumulativeDistanceKm,
-				})
-			}
+	for _, sc := range uniqueSuperchargers {
+		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
+		distFromRoute, distAlongRoute := distanceToPolyline(scLoc, decodedPolyline)
+		if distFromRoute > 10.0 { // Within 10km of route
+			continue
 		}
+		totalDistKm := distAlongRoute + distFromRoute
+		if totalDistKm > totalRouteDistanceKm {
+			continue // Beyond destination
+		}
+		finalSuperchargers = append(finalSuperchargers, sc)
+		log.Printf("Included Supercharger: %s, distAlong: %.1f km, distFrom: %.1f km, total: %.1f km", sc.DisplayName.Text, distAlongRoute, distFromRoute, totalDistKm)
 	}
 
-	log.Printf("Found %d superchargers within 1km of the route.", len(finalSuperchargerList))
+	log.Printf("Found %d superchargers within 10km of the route.", len(finalSuperchargers))
 
-	// Sort superchargers by their order along the route
+	// --- 4. Process superchargers and calculate ETAs ---
+	log.Println("Processing superchargers and calculating ETAs...")
+	var finalSuperchargerList []SuperchargerInfo
+
+	for _, sc := range finalSuperchargers {
+		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
+		distFromRoute, distAlongRoute := distanceToPolyline(scLoc, decodedPolyline)
+		totalDistKm := distAlongRoute + distFromRoute
+		arrivalRatio := totalDistKm / totalRouteDistanceKm
+		durationToSupercharger := time.Duration(float64(totalDuration) * arrivalRatio)
+		arrivalTime := time.Now().Add(durationToSupercharger)
+
+		restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
+		if err != nil {
+			log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
+		}
+
+		finalSuperchargerList = append(finalSuperchargerList, SuperchargerInfo{
+			Name:                    sc.DisplayName.Text,
+			Address:                 sc.FormattedAddress,
+			DistanceMeters:          int(totalDistKm * 1000),
+			DistanceFromRouteMeters: int(distFromRoute * 1000),
+			ArrivalTime:             arrivalTime.Format(time.Kitchen),
+			Lat:                     sc.Location.Latitude,
+			Lng:                     sc.Location.Longitude,
+			Restaurants:             restaurants,
+			DistanceFromOriginKm:    totalDistKm,
+		})
+	}
+
+	log.Printf("Processed %d superchargers.", len(finalSuperchargerList))
+
+	// Sort superchargers by their total distance
 	sort.Slice(finalSuperchargerList, func(i, j int) bool {
 		return finalSuperchargerList[i].DistanceFromOriginKm < finalSuperchargerList[j].DistanceFromOriginKm
 	})
