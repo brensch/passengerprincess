@@ -710,7 +710,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build final supercharger list
-	var finalSuperchargerList []SuperchargerInfo
+	finalSuperchargerList := make([]SuperchargerInfo, 0)
 	for i, data := range processingData {
 		durationToSupercharger := time.Duration(data.selectedCumDur) * time.Second
 		arrivalTime := time.Now().Add(durationToSupercharger)
