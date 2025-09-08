@@ -338,6 +338,24 @@
             font-size: 36px !important;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
+
+        /* Location tracking button styling */
+        #location-btn.tracking-active {
+            background: linear-gradient(to-r, #ec4899, #f97316);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
     </style>
 </head>
 
@@ -348,10 +366,14 @@
         class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-pink-200 to-pink-300 border-b border-pink-400 p-3 flex justify-between items-center shadow-lg">
         <div class="text-2xl font-bold text-pink-800 font-dancing">PPP</div>
         <div class="flex space-x-2">
+            <button id="gps-btn"
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 hidden"
+                title="Center on Princess">📍</button>
             <button id="toggle-btn"
-                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">▼</button>
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200">Show
+                Results</button>
             <button id="new-search-btn"
-                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">New
+                class="bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200">New
                 Search</button>
         </div>
     </div>
@@ -387,7 +409,7 @@
                                 Restaurant
                             </th>
                             <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider">
-                                Distance
+                                Walk
                             </th>
                             <th
                                 class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-24">
@@ -417,7 +439,7 @@
                 <div class="flex items-center justify-between mb-1">
                     <label for="origin" class="block text-sm font-medium text-pink-700">Origin</label>
                     <button id="location-btn"
-                        class="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white px-3 py-1 rounded-md text-xs font-medium focus:outline-none disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
+                        class="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white px-3 py-1 rounded-md text-xs font-medium focus:outline-none disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg transition-all duration-200">
                         <span id="location-text">👑 Use Current Location</span>
                         <div id="loading-spinner"
                             class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block ml-2">
@@ -438,7 +460,7 @@
             </div>
             <div class="md:col-span-2">
                 <button id="find-route-btn"
-                    class="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-200 text-sm hover:shadow-lg transform hover:-translate-y-0.5">
+                    class="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-200 text-sm hover:shadow-lg">
                     Find Route & Amenities
                 </button>
             </div>
@@ -463,7 +485,9 @@
 
     <script>
         // --- CONFIGURATION ---
-        const ORS_API_KEY = 'YOUR_OPENROUTESERVICE_API_KEY' // IMPORTANT: Get your free API key from https://openrouteservice.org/
+        // const ORS_API_KEY = 'YOUR_OPENROUTESERVICE_API_KEY' // IMPORTANT: Get your free API key from https://openrouteservice.org/
+        const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjFlYjc0OTUzYTFlYjQ4MjVhMzRiMmZkOTYzYjQyZTUzIiwiaCI6Im11cm11cjY0In0=' // IMPORTANT: Get your free API key from https://openrouteservice.org/
+
         const SEARCH_RADIUS_MILES = 5
 
         // --- DOM ELEMENTS ---
@@ -508,6 +532,7 @@
 
         // --- STATE MANAGEMENT ---
         let userLocationMarker = null
+        let locationTrackingInterval = null
         // The single source of truth for all station data.
         // Each object contains all info: charger data, restaurant data, and map markers.
         let stationData = []
@@ -1023,6 +1048,8 @@
             currentSearchTerm = ''
             restaurantSearchInput.value = ''
             document.getElementById( 'chargers-tbody' ).innerHTML = ''
+            // Stop location tracking when clearing results
+            stopLocationTracking()
         }
 
         function showLoadingState ( message ) {
@@ -1232,6 +1259,13 @@
         // --- UNCHANGED HELPER FUNCTIONS (Autocomplete, Location, Modals, etc.) ---
 
         async function handleLocationClick () {
+            // If already tracking, stop it
+            if ( locationTrackingInterval ) {
+                stopLocationTracking()
+                updateStatus( "Location tracking stopped.", false )
+                return
+            }
+
             locationText.textContent = 'Getting location...'
             loadingSpinner.classList.remove( 'hidden' )
             locationBtn.disabled = true
@@ -1244,14 +1278,97 @@
                 const address = await reverseGeocode( lat, lon )
                 originInput.value = address || `${ lat.toFixed( 4 ) }, ${ lon.toFixed( 4 ) }`
                 updateStatus( "Location detected and set as origin.", false )
+                // Start continuous location tracking
+                startLocationTracking()
+                // Update button to show tracking is active
+                locationText.textContent = '👸 Tracking Active'
+                locationBtn.classList.add( 'tracking-active' )
             } catch ( error ) {
                 console.log( "Geolocation error:", error )
                 updateStatus( "Could not access your location.", true )
             } finally {
-                locationText.textContent = '👑 Use Current Location'
                 loadingSpinner.classList.add( 'hidden' )
                 locationBtn.disabled = false
             }
+        }
+
+        function startLocationTracking () {
+            // Clear any existing tracking
+            if ( locationTrackingInterval ) {
+                clearInterval( locationTrackingInterval )
+            }
+
+            // Show GPS button
+            document.getElementById( 'gps-btn' ).classList.remove( 'hidden' )
+
+            // Get initial position immediately
+            navigator.geolocation.getCurrentPosition(
+                ( position ) => {
+                    const { latitude: lat, longitude: lon } = position.coords
+                    updateUserLocationMarker( lat, lon )
+                },
+                ( error ) => {
+                    console.log( "Initial location error:", error )
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 10000
+                }
+            )
+
+            // Start tracking every 5 seconds
+            locationTrackingInterval = setInterval( async () => {
+                try {
+                    const position = await new Promise( ( resolve, reject ) =>
+                        navigator.geolocation.getCurrentPosition( resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 5000,
+                            maximumAge: 10000 // Accept positions up to 10 seconds old
+                        } )
+                    )
+                    const { latitude: lat, longitude: lon } = position.coords
+                    updateUserLocationMarker( lat, lon )
+                } catch ( error ) {
+                    console.log( "Location tracking error:", error )
+                    // Don't show error for tracking failures, just continue
+                }
+            }, 5000 )
+        }
+
+        function updateUserLocationMarker ( lat, lon ) {
+            // Remove existing marker if it exists
+            if ( userLocationMarker ) {
+                userLocationLayer.removeLayer( userLocationMarker )
+            }
+
+            // Create new marker with princess icon and lat/lon popup
+            userLocationMarker = L.marker( [ lat, lon ], {
+                icon: L.divIcon( {
+                    className: 'princess-marker',
+                    html: '👸',
+                    iconSize: [ 36, 36 ],
+                } )
+            } ).bindPopup( `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }` )
+
+            // Add to map
+            userLocationLayer.addLayer( userLocationMarker )
+        }
+
+        function stopLocationTracking () {
+            if ( locationTrackingInterval ) {
+                clearInterval( locationTrackingInterval )
+                locationTrackingInterval = null
+            }
+            if ( userLocationMarker ) {
+                userLocationLayer.removeLayer( userLocationMarker )
+                userLocationMarker = null
+            }
+            // Hide GPS button
+            document.getElementById( 'gps-btn' ).classList.add( 'hidden' )
+            // Reset button appearance
+            locationText.textContent = '👑 Use Current Location'
+            locationBtn.classList.remove( 'tracking-active' )
         }
 
         async function reverseGeocode ( lat, lon ) {
@@ -1322,13 +1439,28 @@
 
         newSearchBtn.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
         document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
-        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => window.location.href = window.location.pathname )
+        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
+            stopLocationTracking()
+            window.location.href = window.location.pathname
+        } )
 
         // Toggle cuisine filter buttons
         document.getElementById( 'toggle-cuisine-btn' ).addEventListener( 'click', () => {
             const cuisineDiv = document.getElementById( 'cuisine-filter-buttons' )
             const isVisible = cuisineDiv.style.display !== 'none'
             cuisineDiv.style.display = isVisible ? 'none' : 'flex'
+        } )
+
+        // GPS button to center on user location
+        document.getElementById( 'gps-btn' ).addEventListener( 'click', () => {
+            if ( userLocationMarker ) {
+                const latLng = userLocationMarker.getLatLng()
+                map.setView( latLng, Math.max( map.getZoom(), 15 ) )
+                // Hide results panel
+                bottomResults.style.display = 'none'
+                document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+                setTimeout( () => map.invalidateSize(), 100 )
+            }
         } )
 
         function updateStatus ( message, isError = false ) {
@@ -1342,6 +1474,48 @@
             url.searchParams.set( 'destination', encodeURIComponent( destination ) )
             window.history.pushState( {}, '', url )
         }
+
+        // --- AUTO-START LOCATION TRACKING ---
+        async function autoStartLocationTracking () {
+            // Check if geolocation is supported
+            if ( !navigator.geolocation ) {
+                console.log( "Geolocation not supported" )
+                return
+            }
+
+            try {
+                // Try to get current position without prompting (if permission already granted)
+                const position = await new Promise( ( resolve, reject ) =>
+                    navigator.geolocation.getCurrentPosition( resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 30000 // Accept positions up to 30 seconds old
+                    } )
+                )
+
+                const { latitude: lat, longitude: lon } = position.coords
+                console.log( "Auto-started location tracking with coordinates:", lat, lon )
+
+                // Start continuous tracking (this will also update the marker immediately)
+                startLocationTracking()
+
+                // Update button to show tracking is active
+                locationText.textContent = '👸 Tracking Active'
+                locationBtn.classList.add( 'tracking-active' )
+
+                // Set origin input with coordinates (don't reverse geocode to keep it fast)
+                originInput.value = `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+
+            } catch ( error ) {
+                console.log( "Auto location detection failed:", error.message )
+                // Don't show error - user can manually click the button if they want
+            }
+        }
+
+        // Start auto location tracking when page loads
+        window.addEventListener( 'load', () => {
+            setTimeout( autoStartLocationTracking, 1000 ) // Small delay to ensure everything is loaded
+        } )
 
     </script>
 
