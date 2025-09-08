@@ -440,7 +440,7 @@
                     <label for="origin" class="block text-sm font-medium text-pink-700">Origin</label>
                     <button id="location-btn"
                         class="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white px-3 py-1 rounded-md text-xs font-medium focus:outline-none disabled:opacity-50 whitespace-nowrap shadow-md hover:shadow-lg transition-all duration-200">
-                        <span id="location-text">👑 Use Current Location</span>
+                        <span id="location-text">👸 Use Current Location</span>
                         <div id="loading-spinner"
                             class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block ml-2">
                         </div>
@@ -1283,7 +1283,7 @@
                 // Start continuous location tracking
                 startLocationTracking()
                 // Update button to show tracking is active
-                locationText.textContent = '👑 Tracking Active'
+                locationText.textContent = '👸 Tracking Active'
                 locationBtn.classList.add( 'tracking-active' )
             } catch ( error ) {
                 console.log( "Geolocation error:", error )
@@ -1348,7 +1348,7 @@
             userLocationMarker = L.marker( [ lat, lon ], {
                 icon: L.divIcon( {
                     className: 'princess-marker',
-                    html: '👑',
+                    html: '👸',
                     iconSize: [ 36, 36 ],
                 } )
             } ).bindPopup( `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }` )
@@ -1369,7 +1369,7 @@
             // Hide GPS button
             document.getElementById( 'gps-btn' ).classList.add( 'hidden' )
             // Reset button appearance
-            locationText.textContent = '👑 Use Current Location'
+            locationText.textContent = '👸 Use Current Location'
             locationBtn.classList.remove( 'tracking-active' )
         }
 
@@ -1502,7 +1502,7 @@
                 startLocationTracking()
 
                 // Update button to show tracking is active
-                locationText.textContent = '👑 Tracking Active'
+                locationText.textContent = '👸 Tracking Active'
                 locationBtn.classList.add( 'tracking-active' )
 
                 // Set origin input with coordinates (don't reverse geocode to keep it fast)
