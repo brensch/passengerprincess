@@ -225,6 +225,8 @@
                 content += '<p class="text-gray-500">No superchargers found on this route.</p>'
             }
 
+            console.log( data.superchargers )
+
             data.superchargers.forEach( sc => {
                 content += `
                     <div class="mb-5 p-4 bg-gray-50 rounded-lg shadow-sm">
@@ -237,7 +239,7 @@
                         <ul class="list-disc list-inside text-sm space-y-1">
                 `
 
-                if ( sc.restaurants.length === 0 ) {
+                if ( !sc.restaurants || sc.restaurants.length === 0 ) {
                     content += '<li class="text-gray-500">No restaurants found nearby.</li>'
                 }
 

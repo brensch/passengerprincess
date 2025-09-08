@@ -388,57 +388,64 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	const searchIntervalKm = 40.0    // How often to search along the route
 	const searchRadiusMeters = 30000 // How far to search off the route (30km)
 
-	// Search at the starting point (0 meters along the route)
-	startPoint := decodedPolyline[0]
-	requestBody := SearchTextRequest{
-		TextQuery:      "Tesla Supercharger",
-		IncludedType:   "electric_vehicle_charging_station",
-		MaxResultCount: 20, // Request maximum results
-		LocationBias: LocationBias{
-			Circle: Circle{
-				Center: Center{Latitude: startPoint.Lat, Longitude: startPoint.Lng},
-				Radius: float64(searchRadiusMeters),
+	// Helper function to search for superchargers at a specific point
+	searchSuperchargersAtPoint := func(center LatLng, pointDesc string) {
+		requestBody := SearchTextRequest{
+			TextQuery:      "Tesla Supercharger",
+			IncludedType:   "electric_vehicle_charging_station",
+			MaxResultCount: 20, // Request maximum results
+			LocationBias: LocationBias{
+				Circle: Circle{
+					Center: Center{Latitude: center.Lat, Longitude: center.Lng},
+					Radius: float64(searchRadiusMeters),
+				},
 			},
-		},
-	}
-	fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
-	results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
-	if err != nil {
-		log.Printf("Warning: search failed at starting point: %v", err)
-	} else {
-		log.Printf("Search at starting point (%.6f, %.6f) returned %d total results", startPoint.Lat, startPoint.Lng, len(results))
-		allSuperchargers = append(allSuperchargers, results...)
+		}
+		fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
+		results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
+		if err != nil {
+			log.Printf("Warning: search failed at %s: %v", pointDesc, err)
+		} else {
+			log.Printf("Search at %s returned %d total results", pointDesc, len(results))
+			// Filter results to only include superchargers
+			var filteredResults []PlaceNew
+			for _, sc := range results {
+				if strings.Contains(strings.ToLower(sc.DisplayName.Text), "supercharger") {
+					filteredResults = append(filteredResults, sc)
+				}
+			}
+			log.Printf("After filtering, %d superchargers remain", len(filteredResults))
+			allSuperchargers = append(allSuperchargers, filteredResults...)
+		}
 	}
 
 	var distanceSinceLastSearch float64 = 0
 
-	for i := 1; i < len(decodedPolyline); i++ {
-		p1 := decodedPolyline[i-1]
-		p2 := decodedPolyline[i]
-		segmentDistance := haversineDistance(p1.Lat, p1.Lng, p2.Lat, p2.Lng)
-		distanceSinceLastSearch += segmentDistance
+	// Start loop from the beginning, including the starting point
+	for i := 0; i < len(decodedPolyline); i++ {
+		var currentPoint LatLng
+		if i == 0 {
+			// First point - search immediately
+			currentPoint = decodedPolyline[0]
+		} else {
+			// Subsequent points - accumulate distance
+			p1 := decodedPolyline[i-1]
+			p2 := decodedPolyline[i]
+			segmentDistance := haversineDistance(p1.Lat, p1.Lng, p2.Lat, p2.Lng)
+			distanceSinceLastSearch += segmentDistance
+			currentPoint = p2
+		}
 
-		if distanceSinceLastSearch >= searchIntervalKm || i == len(decodedPolyline)-1 {
-			requestBody := SearchTextRequest{
-				TextQuery:      "Tesla Supercharger",
-				IncludedType:   "electric_vehicle_charging_station",
-				MaxResultCount: 20, // Request maximum results
-				LocationBias: LocationBias{
-					Circle: Circle{
-						Center: Center{Latitude: p2.Lat, Longitude: p2.Lng},
-						Radius: float64(searchRadiusMeters),
-					},
-				},
+		// Search if it's the first point, we've reached the interval, or it's the last point
+		if i == 0 || distanceSinceLastSearch >= searchIntervalKm || i == len(decodedPolyline)-1 {
+			pointDesc := fmt.Sprintf("point %d (%.6f, %.6f)", i, currentPoint.Lat, currentPoint.Lng)
+			if i == 0 {
+				pointDesc = fmt.Sprintf("starting point (%.6f, %.6f)", currentPoint.Lat, currentPoint.Lng)
 			}
-			fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
-			results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
-			if err != nil {
-				log.Printf("Warning: search failed at point %d: %v", i, err)
-			} else {
-				log.Printf("Search at point %d (%.6f, %.6f) returned %d total results", i, p2.Lat, p2.Lng, len(results))
-				allSuperchargers = append(allSuperchargers, results...)
+			searchSuperchargersAtPoint(currentPoint, pointDesc)
+			if i > 0 {
+				distanceSinceLastSearch = 0 // Reset counter only for non-starting points
 			}
-			distanceSinceLastSearch = 0 // Reset counter
 		}
 	}
 
@@ -506,6 +513,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
 		if err != nil {
 			log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
+			restaurants = []RestaurantInfo{} // Set to empty slice to avoid null in JSON
 		}
 
 		finalSuperchargerList = append(finalSuperchargerList, SuperchargerInfo{
@@ -709,7 +717,7 @@ func performTextSearch(requestBody SearchTextRequest, fieldMask string, counter 
 
 // findNearbyRestaurantsNew finds restaurants using the Places API (New).
 func findNearbyRestaurantsNew(supercharger PlaceNew, counter *APICallCounter, apiCalls *[]APICallDetails) ([]RestaurantInfo, error) {
-	var allRestaurants []RestaurantInfo
+	allRestaurants := []RestaurantInfo{}
 	superchargerLoc := LatLng{Lat: supercharger.Location.Latitude, Lng: supercharger.Location.Longitude}
 
 	requestBody := SearchNearbyRequest{
