@@ -10,12 +10,20 @@ if (!apiKey) {
   process.exit(1);
 }
 
+console.log('API Key from env:', apiKey);
+
 // Read the source HTML file from root
 const sourceFilePath = path.join(__dirname, 'index.html');
 let htmlContent = fs.readFileSync(sourceFilePath, 'utf8');
 
 // Replace the placeholder with the actual API key
-htmlContent = htmlContent.replace(/YOUR_OPENROUTESERVICE_API_KEY/g, apiKey);
+// Only replace the assignment line, not the check
+htmlContent = htmlContent.replace(
+  /const ORS_API_KEY = 'YOUR_OPENROUTESERVICE_API_KEY'/g,
+  `const ORS_API_KEY = '${apiKey}'`
+);
+
+console.log('After replacement:', htmlContent.substring(htmlContent.indexOf('const ORS_API_KEY') - 10, htmlContent.indexOf('const ORS_API_KEY') + 50));
 
 // Ensure public directory exists
 const publicDir = path.join(__dirname, 'public');
