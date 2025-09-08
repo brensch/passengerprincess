@@ -178,17 +178,19 @@
                 }
 
                 // Create markers for associated restaurants
-                sc.restaurants.forEach( resto => {
-                    const restaurantMarker = new AdvancedMarkerElement( {
-                        position: { lat: resto.lat, lng: resto.lng },
-                        map: map,
-                        title: `${ resto.name } (${ resto.cuisine_types.join( ', ' ) || 'Restaurant' })`,
+                if ( sc.restaurants ) {
+                    sc.restaurants.forEach( resto => {
+                        const restaurantMarker = new AdvancedMarkerElement( {
+                            position: { lat: resto.lat, lng: resto.lng },
+                            map: map,
+                            title: `${ resto.name } (${ resto.cuisine_types.join( ', ' ) || 'Restaurant' })`,
+                        } )
+                        // Create a custom icon element for restaurants
+                        const icon = document.createElement( 'img' )
+                        icon.src = "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                        restaurantMarker.content = icon
                     } )
-                    // Create a custom icon element for restaurants
-                    const icon = document.createElement( 'img' )
-                    icon.src = "https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-                    restaurantMarker.content = icon
-                } )
+                }
             } )
         }
 
