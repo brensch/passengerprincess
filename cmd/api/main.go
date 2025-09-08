@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"math"
@@ -20,9 +21,8 @@ var googleAPIKey = os.Getenv("GOOGLE_MAPS_API_KEY")
 
 // APICallCounter tracks the number of API calls made during a request.
 type APICallCounter struct {
-	Directions    int
-	Places        int
-	PlacesDetails int // Counts calls to the new Places API or legacy Place Details
+	Directions int
+	Places     int // Counts calls to the new Places API
 }
 
 // --- Structs for our final API response ---
@@ -31,6 +31,7 @@ type APICallCounter struct {
 type RouteResponse struct {
 	Route         RouteDetails       `json:"route"`
 	Superchargers []SuperchargerInfo `json:"superchargers"`
+	DebugInfo     DebugInfo          `json:"debug_info"`
 }
 
 // RouteDetails contains information about the overall route.
@@ -65,6 +66,24 @@ type RestaurantInfo struct {
 	WalkingDistance string   `json:"walking_distance"`
 }
 
+// --- Structs for Debugging ---
+type DebugInfo struct {
+	APICalls []APICallDetails `json:"api_calls"`
+}
+
+type APICallDetails struct {
+	API         string      `json:"api"`
+	URL         string      `json:"url"`
+	RequestBody interface{} `json:"request_body,omitempty"`
+	SearchArea  interface{} `json:"search_area,omitempty"` // For nearby searches
+}
+
+type SearchAreaDetails struct {
+	CenterLat float64 `json:"center_lat"`
+	CenterLng float64 `json:"center_lng"`
+	RadiusM   float64 `json:"radius_m"`
+}
+
 // --- Structs for parsing Google Maps API responses ---
 
 // GeoBounds defines a named struct for a geographic bounding box.
@@ -97,36 +116,28 @@ type GoogleDirectionsResponse struct {
 	} `json:"routes"`
 }
 
-// (Legacy) GooglePlacesResponse is for parsing the Places API (Nearby Search) response for superchargers.
-type GooglePlacesResponse struct {
-	Results       []PlaceResult `json:"results"`
-	NextPageToken string        `json:"next_page_token"`
-	Status        string        `json:"status"`
-}
-
-// (Legacy) PlaceResult represents a single place from the Places API.
-type PlaceResult struct {
-	PlaceID  string   `json:"place_id"`
-	Name     string   `json:"name"`
-	Vicinity string   `json:"vicinity"`
-	Rating   float64  `json:"rating"`
-	Types    []string `json:"types"`
-	Geometry struct {
-		Location LatLng `json:"location"`
-	} `json:"geometry"`
-	OpeningHours struct {
-		OpenNow bool `json:"open_now"`
-	} `json:"opening_hours"`
-}
-
 // --- Structs for Places API (New) ---
 
 // SearchNearbyRequest is the request body for the new Places API.
 type SearchNearbyRequest struct {
-	IncludedTypes       []string            `json:"includedTypes"`
-	MaxResultCount      int                 `json:"maxResultCount"`
+	IncludedTypes       []string            `json:"includedTypes,omitempty"`
+	TextQuery           string              `json:"textQuery,omitempty"`
+	MaxResultCount      int                 `json:"maxResultCount,omitempty"`
 	LocationRestriction LocationRestriction `json:"locationRestriction"`
 }
+
+// SearchTextRequest is the request body for the Places Text Search API.
+type SearchTextRequest struct {
+	TextQuery      string       `json:"textQuery"`
+	IncludedType   string       `json:"includedType,omitempty"`
+	MaxResultCount int          `json:"maxResultCount,omitempty"`
+	LocationBias   LocationBias `json:"locationBias"`
+}
+
+type LocationBias struct {
+	Circle Circle `json:"circle"`
+}
+
 type LocationRestriction struct {
 	Circle Circle `json:"circle"`
 }
@@ -146,6 +157,7 @@ type SearchNearbyResponse struct {
 
 // PlaceNew represents a place object from the new Places API.
 type PlaceNew struct {
+	ID                  string              `json:"id"`
 	DisplayName         DisplayName         `json:"displayName"`
 	FormattedAddress    string              `json:"formattedAddress"`
 	Rating              float64             `json:"rating"`
@@ -181,17 +193,33 @@ func main() {
 		log.Fatal("FATAL: Please replace 'YOUR_GOOGLE_MAPS_API_KEY' with your actual Google Maps API key.")
 	}
 
-	// Register handlers for the two endpoints.
+	// Register handlers.
+	http.HandleFunc("/", serveFrontend) // Serve the HTML file at the root
 	http.HandleFunc("/autocomplete", autocompleteHandler)
 	http.HandleFunc("/route", routeHandler)
 
 	// Start the server.
 	port := "8080"
-	log.Printf("Server starting on port %s...\n", port)
-	log.Printf("Available endpoints: http://localhost:%s/autocomplete and http://localhost:%s/route", port, port)
+	log.Printf("Server starting...")
+	log.Printf("Access the web interface at http://localhost:%s/", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// serveFrontend serves the index.html file.
+func serveFrontend(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("frontend/index.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data := struct {
+		APIKey string
+	}{
+		APIKey: googleAPIKey,
+	}
+	tmpl.Execute(w, data)
 }
 
 // autocompleteHandler handles place autocomplete requests.
@@ -228,12 +256,14 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 
 // routeHandler implements the new, efficient strategy for finding superchargers and restaurants.
 func routeHandler(w http.ResponseWriter, r *http.Request) {
-	// Initialize API call counter for this request
+	// Initialize API call counter and details slice for this request
 	counter := &APICallCounter{}
+	var apiCalls []APICallDetails
+
 	// Defer the logging of the final counts
 	defer func() {
-		log.Printf("API Call Summary: Directions=%d, Places (Nearby Legacy)=%d, Places (Nearby New)=%d",
-			counter.Directions, counter.Places, counter.PlacesDetails) // PlacesDetails now counts Places (New) calls
+		log.Printf("API Call Summary: Directions=%d, Places (Nearby New)=%d",
+			counter.Directions, counter.Places)
 	}()
 
 	origin := r.URL.Query().Get("origin")
@@ -244,25 +274,14 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- 1. Get Route Details (including polyline) ---
-	directionsURL := fmt.Sprintf(
-		"https://maps.googleapis.com/maps/api/directions/json?origin=%s&destination=%s&departure_time=now&traffic_model=best_guess&key=%s",
-		url.QueryEscape(origin),
-		url.QueryEscape(destination),
-		googleAPIKey,
-	)
-	log.Printf("Calling Directions API for main route: %s", directionsURL)
-	counter.Directions++ // Increment directions counter
-	resp, err := http.Get(directionsURL)
-	if err != nil || resp.StatusCode != http.StatusOK {
+	var directionsData GoogleDirectionsResponse
+	if err := getDirections(origin, destination, counter, &apiCalls, &directionsData); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get directions: %v", err), http.StatusInternalServerError)
 		return
 	}
-	directionsBody, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
 
-	var directionsData GoogleDirectionsResponse
-	if json.Unmarshal(directionsBody, &directionsData) != nil || len(directionsData.Routes) == 0 {
-		http.Error(w, "Could not parse directions or find a route", http.StatusInternalServerError)
+	if len(directionsData.Routes) == 0 {
+		http.Error(w, "Could not find a route", http.StatusInternalServerError)
 		return
 	}
 
@@ -276,10 +295,10 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- 2. Comprehensive Search: Find ALL Superchargers by searching at intervals along the route ---
 	log.Println("Starting comprehensive search for superchargers along the route...")
-	allSuperchargersMap := make(map[string]PlaceResult) // Use map for de-duplication by PlaceID
+	allSuperchargersMap := make(map[string]PlaceNew) // Use map for de-duplication by PlaceID
 
 	const searchIntervalKm = 40.0    // How often to search along the route
-	const searchRadiusMeters = 20000 // How far to search off the route (20km)
+	const searchRadiusMeters = 30000 // How far to search off the route (30km)
 
 	var distanceSinceLastSearch float64 = 0
 
@@ -290,66 +309,80 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		distanceSinceLastSearch += segmentDistance
 
 		if distanceSinceLastSearch >= searchIntervalKm || i == len(decodedPolyline)-1 {
-			results, err := performLegacyNearbySearch(p2, searchRadiusMeters, "Tesla Supercharger", "electric_vehicle_charging_station", counter)
+			requestBody := SearchTextRequest{
+				TextQuery:      "Tesla Supercharger",
+				IncludedType:   "electric_vehicle_charging_station",
+				MaxResultCount: 20, // Explicitly request maximum results
+				LocationBias: LocationBias{
+					Circle: Circle{
+						Center: Center{Latitude: p2.Lat, Longitude: p2.Lng},
+						Radius: searchRadiusMeters,
+					},
+				},
+			}
+			fieldMask := "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType"
+			results, err := performTextSearch(requestBody, fieldMask, counter, &apiCalls)
 			if err != nil {
 				log.Printf("Warning: search failed at point %d: %v", i, err)
+			} else {
+				log.Printf("Search at point %d (%.6f, %.6f) returned %d total results", i, p2.Lat, p2.Lng, len(results))
 			}
+			teslaCount := 0
 			for _, res := range results {
-				allSuperchargersMap[res.PlaceID] = res
+				// Since we're searching for "Tesla Supercharger" with includedType, most results should be relevant
+				allSuperchargersMap[res.ID] = res
+				teslaCount++
+				log.Printf("Found Supercharger: %s, Types: %v", res.DisplayName.Text, res.Types)
+			}
+			if teslaCount > 0 {
+				log.Printf("Found %d Superchargers at point %d", teslaCount, i)
 			}
 			distanceSinceLastSearch = 0 // Reset counter
 		}
 	}
 
-	var allSuperchargersInArea []PlaceResult
+	var allSuperchargersInArea []PlaceNew
 	for _, sc := range allSuperchargersMap {
 		allSuperchargersInArea = append(allSuperchargersInArea, sc)
 	}
 	log.Printf("Found %d unique potential superchargers along the route.", len(allSuperchargersInArea))
 
 	// --- 3. Filter Precisely: Prune superchargers to only those near the polyline ---
-	log.Println("Filtering superchargers by proximity to route polyline...")
-	var relevantSuperchargers []PlaceResult
-	for _, sc := range allSuperchargersInArea {
-		dist, _ := distanceToPolyline(sc.Geometry.Location, decodedPolyline)
-		if dist <= 1.0 { // 1 km deviation allowance
-			relevantSuperchargers = append(relevantSuperchargers, sc)
-		}
-	}
-	log.Printf("Found %d superchargers within 1km of the route.", len(relevantSuperchargers))
+	log.Println("Including all superchargers found along the route...")
+	relevantSuperchargers := make([]PlaceNew, len(allSuperchargersInArea))
+	copy(relevantSuperchargers, allSuperchargersInArea)
+	log.Printf("Found %d superchargers along the route.", len(relevantSuperchargers))
 
 	// --- 4. Narrow Search & Refined Timing: For each relevant supercharger, find restaurants and get accurate arrival time ---
 	log.Println("Getting accurate arrival times and finding restaurants...")
 	var finalSuperchargerList []SuperchargerInfo
 	for _, sc := range relevantSuperchargers {
-		restaurants, err := findNearbyRestaurantsNew(sc, counter)
+		restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
 		if err != nil {
-			log.Printf("Warning: could not find restaurants for %s: %v", sc.Name, err)
+			log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
 		}
 
-		// New: Get traffic-aware travel time to this specific supercharger
+		scLoc := LatLng{Lat: sc.Location.Latitude, Lng: sc.Location.Longitude}
 		var arrivalTime time.Time
-		durationToSupercharger, err := getDurationToDestination(origin, sc.Geometry.Location, counter)
+		durationToSupercharger, err := getDurationToDestination(origin, scLoc, counter, &apiCalls)
 		if err != nil {
-			log.Printf("Warning: could not get specific travel time for %s, using approximation. Error: %v", sc.Name, err)
-			// Fallback to old method if specific route fails
-			_, distAlongRouteFallback := distanceToPolyline(sc.Geometry.Location, decodedPolyline)
+			log.Printf("Warning: could not get specific travel time for %s, using approximation. Error: %v", sc.DisplayName.Text, err)
+			_, distAlongRouteFallback := distanceToPolyline(scLoc, decodedPolyline)
 			arrivalRatio := distAlongRouteFallback / (float64(leg.Distance.Value) / 1000.0)
 			durationToSupercharger = time.Duration(float64(leg.Duration.Value)*arrivalRatio) * time.Second
 		}
 
-		// Add a "smudge factor" for the final deviation from the route
-		distFromRoute, distAlongRoute := distanceToPolyline(sc.Geometry.Location, decodedPolyline)
+		distFromRoute, distAlongRoute := distanceToPolyline(scLoc, decodedPolyline)
 		smudgeFactorSeconds := (distFromRoute / 50.0) * 3600 // Assume 50 km/h average for final leg
 		arrivalTime = time.Now().Add(durationToSupercharger + time.Duration(smudgeFactorSeconds)*time.Second)
 
 		finalSuperchargerList = append(finalSuperchargerList, SuperchargerInfo{
-			Name:                 sc.Name,
-			Address:              sc.Vicinity,
+			Name:                 sc.DisplayName.Text,
+			Address:              sc.FormattedAddress,
 			Distance:             fmt.Sprintf("%.1f km", distAlongRoute),
 			ArrivalTime:          arrivalTime.Format(time.Kitchen),
-			Lat:                  sc.Geometry.Location.Lat,
-			Lng:                  sc.Geometry.Location.Lng,
+			Lat:                  sc.Location.Latitude,
+			Lng:                  sc.Location.Longitude,
 			Restaurants:          restaurants,
 			DistanceFromOriginKm: distAlongRoute,
 		})
@@ -364,18 +397,44 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	response := RouteResponse{
 		Route: RouteDetails{
 			TotalDistance: leg.Distance.Text,
-			TotalDuration: leg.DurationInTraffic.Text, // Use duration_in_traffic for the main route
+			TotalDuration: leg.DurationInTraffic.Text,
 			Polyline:      route.OverviewPolyline.Points,
 		},
 		Superchargers: finalSuperchargerList,
+		DebugInfo: DebugInfo{
+			APICalls: apiCalls,
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
+func getDirections(origin, destination string, counter *APICallCounter, apiCalls *[]APICallDetails, data *GoogleDirectionsResponse) error {
+	apiURL := fmt.Sprintf(
+		"https://maps.googleapis.com/maps/api/directions/json?origin=%s&destination=%s&departure_time=now&traffic_model=best_guess&key=%s",
+		url.QueryEscape(origin),
+		url.QueryEscape(destination),
+		googleAPIKey,
+	)
+	log.Printf("Calling Directions API for main route: %s", apiURL)
+	counter.Directions++
+	*apiCalls = append(*apiCalls, APICallDetails{API: "Directions (Main Route)", URL: apiURL})
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(body, data)
+}
+
 // getDurationToDestination gets a traffic-aware travel time from an origin to a specific point.
-func getDurationToDestination(origin string, destination LatLng, counter *APICallCounter) (time.Duration, error) {
+func getDurationToDestination(origin string, destination LatLng, counter *APICallCounter, apiCalls *[]APICallDetails) (time.Duration, error) {
 	destStr := fmt.Sprintf("%f,%f", destination.Lat, destination.Lng)
 	apiURL := fmt.Sprintf(
 		"https://maps.googleapis.com/maps/api/directions/json?origin=%s&destination=%s&departure_time=now&traffic_model=best_guess&key=%s",
@@ -384,7 +443,9 @@ func getDurationToDestination(origin string, destination LatLng, counter *APICal
 		googleAPIKey,
 	)
 	log.Printf("Calling Directions API for arrival time: %s", apiURL)
-	counter.Directions++ // Increment directions counter
+	counter.Directions++
+	*apiCalls = append(*apiCalls, APICallDetails{API: "Directions (Arrival Time)", URL: apiURL})
+
 	resp, err := http.Get(apiURL)
 	if err != nil {
 		return 0, err
@@ -401,7 +462,6 @@ func getDurationToDestination(origin string, destination LatLng, counter *APICal
 		return 0, fmt.Errorf("could not parse directions to supercharger")
 	}
 
-	// Use duration_in_traffic if available, otherwise fall back to normal duration
 	durationSeconds := directionsData.Routes[0].Legs[0].Duration.Value
 	if directionsData.Routes[0].Legs[0].DurationInTraffic.Value > 0 {
 		durationSeconds = directionsData.Routes[0].Legs[0].DurationInTraffic.Value
@@ -410,68 +470,8 @@ func getDurationToDestination(origin string, destination LatLng, counter *APICal
 	return time.Duration(durationSeconds) * time.Second, nil
 }
 
-// performLegacyNearbySearch executes a paginated nearby search using the older API.
-func performLegacyNearbySearch(location LatLng, radiusMeters int, keyword, placeType string, counter *APICallCounter) ([]PlaceResult, error) {
-	var allResults []PlaceResult
-	nextPageToken := ""
-
-	for {
-		var apiURL string
-		if nextPageToken == "" {
-			apiURL = fmt.Sprintf(
-				"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=%f,%f&radius=%d&keyword=%s&type=%s&key=%s",
-				location.Lat, location.Lng, radiusMeters, url.QueryEscape(keyword), url.QueryEscape(placeType), googleAPIKey,
-			)
-			log.Printf("Calling Legacy Places Nearby Search API: %s", apiURL)
-		} else {
-			time.Sleep(2 * time.Second) // Required delay for next page token
-			apiURL = fmt.Sprintf("https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=%s&key=%s", nextPageToken, googleAPIKey)
-			log.Printf("Calling Legacy Places Nearby Search API (next page): %s", apiURL)
-		}
-		counter.Places++ // Increment places counter for each page
-		resp, err := http.Get(apiURL)
-		if err != nil {
-			return nil, err
-		}
-
-		body, _ := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-
-		var placesData GooglePlacesResponse
-		if json.Unmarshal(body, &placesData) != nil || placesData.Status == "INVALID_REQUEST" {
-			log.Printf("Warning: Invalid Places API response. Body: %s", string(body))
-			break
-		}
-
-		allResults = append(allResults, placesData.Results...)
-
-		if placesData.NextPageToken == "" {
-			break
-		}
-		nextPageToken = placesData.NextPageToken
-	}
-	return allResults, nil
-}
-
-// findNearbyRestaurantsNew finds restaurants using the Places API (New).
-func findNearbyRestaurantsNew(supercharger PlaceResult, counter *APICallCounter) ([]RestaurantInfo, error) {
-	var allRestaurants []RestaurantInfo
-	superchargerLoc := supercharger.Geometry.Location
-
-	requestBody := SearchNearbyRequest{
-		IncludedTypes:  []string{"restaurant"},
-		MaxResultCount: 20,
-		LocationRestriction: LocationRestriction{
-			Circle: Circle{
-				Center: Center{
-					Latitude:  superchargerLoc.Lat,
-					Longitude: superchargerLoc.Lng,
-				},
-				Radius: 500.0,
-			},
-		},
-	}
-
+// performNewNearbySearch executes a search using the Places API (New).
+func performNewNearbySearch(requestBody SearchNearbyRequest, fieldMask string, counter *APICallCounter, apiCalls *[]APICallDetails) ([]PlaceNew, error) {
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
@@ -483,13 +483,22 @@ func findNearbyRestaurantsNew(supercharger PlaceResult, counter *APICallCounter)
 		return nil, fmt.Errorf("failed to create new request: %w", err)
 	}
 
-	// Set required headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Goog-Api-Key", googleAPIKey)
-	req.Header.Set("X-Goog-FieldMask", "places.displayName,places.formattedAddress,places.rating,places.currentOpeningHours,places.location,places.primaryType,places.types")
+	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
-	log.Printf("Calling Places API (New) for restaurants near %s: %s", supercharger.Name, apiURL)
-	counter.PlacesDetails++ // Using this counter for the new API calls
+	log.Printf("Calling Places API (New): %s with body %s", apiURL, string(jsonData))
+	counter.Places++
+	*apiCalls = append(*apiCalls, APICallDetails{
+		API:         "Places API (New)",
+		URL:         apiURL,
+		RequestBody: requestBody,
+		SearchArea: SearchAreaDetails{
+			CenterLat: requestBody.LocationRestriction.Circle.Center.Latitude,
+			CenterLng: requestBody.LocationRestriction.Circle.Center.Longitude,
+			RadiusM:   requestBody.LocationRestriction.Circle.Radius,
+		},
+	})
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -508,7 +517,85 @@ func findNearbyRestaurantsNew(supercharger PlaceResult, counter *APICallCounter)
 		return nil, fmt.Errorf("could not parse new places response. Body: %s", string(body))
 	}
 
-	for _, p := range searchData.Places {
+	return searchData.Places, nil
+}
+
+// performTextSearch executes a text search using the Places API.
+func performTextSearch(requestBody SearchTextRequest, fieldMask string, counter *APICallCounter, apiCalls *[]APICallDetails) ([]PlaceNew, error) {
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	apiURL := "https://places.googleapis.com/v1/places:searchText"
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Goog-Api-Key", googleAPIKey)
+	req.Header.Set("X-Goog-FieldMask", fieldMask)
+
+	log.Printf("Calling Places Text Search API: %s with body %s", apiURL, string(jsonData))
+	counter.Places++
+	*apiCalls = append(*apiCalls, APICallDetails{
+		API:         "Places Text Search API",
+		URL:         apiURL,
+		RequestBody: requestBody,
+		SearchArea: SearchAreaDetails{
+			CenterLat: requestBody.LocationBias.Circle.Center.Latitude,
+			CenterLng: requestBody.LocationBias.Circle.Center.Longitude,
+			RadiusM:   requestBody.LocationBias.Circle.Radius,
+		},
+	})
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var searchData SearchNearbyResponse
+	if json.Unmarshal(body, &searchData) != nil {
+		return nil, fmt.Errorf("could not parse text search response. Body: %s", string(body))
+	}
+
+	return searchData.Places, nil
+}
+
+// findNearbyRestaurantsNew finds restaurants using the Places API (New).
+func findNearbyRestaurantsNew(supercharger PlaceNew, counter *APICallCounter, apiCalls *[]APICallDetails) ([]RestaurantInfo, error) {
+	var allRestaurants []RestaurantInfo
+	superchargerLoc := LatLng{Lat: supercharger.Location.Latitude, Lng: supercharger.Location.Longitude}
+
+	requestBody := SearchNearbyRequest{
+		IncludedTypes:  []string{"restaurant"},
+		MaxResultCount: 20, // Explicitly request maximum results
+		LocationRestriction: LocationRestriction{
+			Circle: Circle{
+				Center: Center{
+					Latitude:  superchargerLoc.Lat,
+					Longitude: superchargerLoc.Lng,
+				},
+				Radius: 500.0,
+			},
+		},
+	}
+	fieldMask := "places.displayName,places.formattedAddress,places.rating,places.currentOpeningHours,places.location,places.primaryType,places.types"
+	nearbyPlaces, err := performNewNearbySearch(requestBody, fieldMask, counter, apiCalls)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not parse restaurant data: %w", err)
+	}
+
+	for _, p := range nearbyPlaces {
 		walkingDistKm := haversineDistance(superchargerLoc.Lat, superchargerLoc.Lng, p.Location.Latitude, p.Location.Longitude)
 		walkingDistStr := fmt.Sprintf("%.0f m", walkingDistKm*1000)
 
