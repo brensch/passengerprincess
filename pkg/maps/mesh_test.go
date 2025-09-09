@@ -1,10 +1,8 @@
 package maps
 
 import (
-	"fmt"
 	"math"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -58,45 +56,8 @@ func TestCreateMeshAndVisualise(t *testing.T) {
 
 	t.Log(len(targets))
 
-	// Generate circles JSON for Leaflet visualization
-	var builder strings.Builder
-	builder.WriteString("[")
-	for i, target := range targets {
-		if i > 0 {
-			builder.WriteString(",")
-		}
-		builder.WriteString(fmt.Sprintf(`{"lat": %f, "lon": %f, "radius": %f}`, target.Center.Latitude, target.Center.Longitude, target.Radius))
-	}
-	builder.WriteString("]")
-	circlesJSON := builder.String()
-
-	// Generate HTML file with embedded JSON
-	html := fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head>
-  <title>Circle Visualization</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-<body>
-  <div id="map" style="height: 600px;"></div>
-  <script>
-    var map = L.map('map').setView([%f, %f], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    var circles = %s;
-
-    circles.forEach(circle => {
-      L.circle([circle.lat, circle.lon], {
-        color: 'blue',
-        fillColor: 'blue',
-        fillOpacity: 0.2,
-        radius: circle.radius
-      }).addTo(map);
-    });
-  </script>
-</body>
-</html>`, lat, lon, circlesJSON)
+	// Generate HTML using VisualiseMeshHTML
+	html := VisualiseMeshHTML(lat, lon, targets)
 
 	// Write HTML to file
 	err = os.WriteFile("mesh.html", []byte(html), 0644)

@@ -48,25 +48,21 @@ type place struct {
 // GetPlaceIDsViaTextSearch queries the Google Places API (Text Search - New) to find all place IDs
 // matching a query within a specified circular search area. It now takes a 'circle' struct directly.
 func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle circle) ([]string, error) {
-	// 1. Construct the request body from the function arguments.
 	reqBody := requestBody{
 		TextQuery:    query,
 		LocationBias: locationBias{Circle: targetCircle},
 	}
 
-	// 2. Marshal the Go struct into a JSON byte slice.
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	// 3. Create a new HTTP POST request using the package-level endpoint.
 	req, err := http.NewRequest("POST", placesAPIEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 
-	// 4. Set the necessary headers.
 	// The FieldMask is crucial for performance and cost-effectiveness.
 	// It tells Google to only return the data we absolutely need.
 	req.Header.Set("Content-Type", "application/json")
@@ -80,24 +76,20 @@ func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle circle) ([]stri
 	}
 	defer resp.Body.Close()
 
-	// 6. Read the response body.
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// 7. Check for a non-successful status code.
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("google places api returned an error. status: %s, body: %s", resp.Status, string(bodyBytes))
 	}
 
-	// 8. Unmarshal the response JSON into our apiResponse struct.
 	var apiResp apiResponse
 	if err := json.Unmarshal(bodyBytes, &apiResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response json: %w", err)
 	}
 
-	// 9. Extract the place IDs from the response and return them.
 	placeIDs := make([]string, 0, len(apiResp.Places))
 	for _, p := range apiResp.Places {
 		placeIDs = append(placeIDs, p.ID)
