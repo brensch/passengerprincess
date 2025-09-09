@@ -9,12 +9,12 @@ import (
 // CreateMesh takes lat/lon bounds and generates an efficient hexagonal grid of
 // overlapping circles of the specified radius within that rectangular area.
 // This version uses the correct spacing for a full COVERING, eliminating all gaps.
-func CreateMesh(latMin, latMax, lonMin, lonMax float64, radius int) ([]circle, error) {
+func CreateMesh(latMin, latMax, lonMin, lonMax float64, radius int) ([]Circle, error) {
 	if radius <= 0 {
 		return nil, fmt.Errorf("radius must be a positive integer")
 	}
 
-	var targets []circle
+	var targets []Circle
 	r := float64(radius)
 
 	// --- Coordinate and Dimension Calculations ---
@@ -54,8 +54,8 @@ func CreateMesh(latMin, latMax, lonMin, lonMax float64, radius int) ([]circle, e
 			latOffset := y / metersPerDegreeLat
 			lonOffset := x / metersPerDegreeLon
 
-			targets = append(targets, circle{
-				Center: center{
+			targets = append(targets, Circle{
+				Center: Center{
 					Latitude:  latMin + latOffset,
 					Longitude: lonMin + lonOffset,
 				},
@@ -68,7 +68,7 @@ func CreateMesh(latMin, latMax, lonMin, lonMax float64, radius int) ([]circle, e
 	return targets, nil
 }
 
-func VisualiseMeshHTML(lat, lon float64, targets []circle) string {
+func VisualiseMeshHTML(lat, lon float64, targets []Circle) string {
 	var builder strings.Builder
 	builder.WriteString("[")
 	for i, target := range targets {

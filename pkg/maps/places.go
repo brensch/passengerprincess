@@ -18,19 +18,19 @@ var (
 // requestBody represents the JSON structure for the Google Places API searchText request.
 type requestBody struct {
 	TextQuery    string       `json:"textQuery"`
-	LocationBias locationBias `json:"locationBias"`
+	LocationBias LocationBias `json:"locationBias"`
 }
 
-type locationBias struct {
-	Circle circle `json:"circle"`
+type LocationBias struct {
+	Circle Circle `json:"circle"`
 }
 
-type circle struct {
-	Center center  `json:"center"`
+type Circle struct {
+	Center Center  `json:"center"`
 	Radius float64 `json:"radius"`
 }
 
-type center struct {
+type Center struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
@@ -38,19 +38,19 @@ type center struct {
 // apiResponse defines the structure for unmarshalling the API's JSON response.
 // We only care about the place IDs.
 type apiResponse struct {
-	Places []place `json:"places"`
+	Places []Place `json:"places"`
 }
 
-type place struct {
+type Place struct {
 	ID string `json:"id"`
 }
 
 // GetPlaceIDsViaTextSearch queries the Google Places API (Text Search - New) to find all place IDs
 // matching a query within a specified circular search area. It now takes a 'circle' struct directly.
-func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle circle) ([]string, error) {
+func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle Circle) ([]string, error) {
 	reqBody := requestBody{
 		TextQuery:    query,
-		LocationBias: locationBias{Circle: targetCircle},
+		LocationBias: LocationBias{Circle: targetCircle},
 	}
 
 	jsonData, err := json.Marshal(reqBody)

@@ -16,8 +16,8 @@ func TestGetPlaceIDsViaTextSearch(t *testing.T) {
 
 	// Test parameters
 	query := "pizza"
-	targetCircle := circle{
-		Center: center{
+	targetCircle := Circle{
+		Center: Center{
 			Latitude:  40.7128, // New York City
 			Longitude: -74.0060,
 		},
