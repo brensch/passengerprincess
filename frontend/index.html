@@ -420,6 +420,7 @@
         const chargerLayer = L.layerGroup().addTo( map )
         const restaurantLayer = L.layerGroup().addTo( map )
         const userLocationLayer = L.layerGroup().addTo( map )
+        const viewportSuperchargersLayer = L.layerGroup().addTo( map )
 
         // --- STATE MANAGEMENT ---
         let userLocationMarker = null
@@ -428,6 +429,8 @@
         let filteredChargerIDs = null
         let currentSearchTerm = ''
         let currentCuisineFilter = []
+        let viewportSuperchargers = new Map() // Map of place_id to supercharger data
+        let lastViewportBounds = null // Track last viewport bounds to avoid unnecessary API calls
 
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
@@ -467,6 +470,9 @@
         } )
 
         map.on( 'moveend zoomend', updateVisibleMarkers );
+
+        // Initial call to load viewport superchargers
+        updateVisibleMarkers();
 
         // --- AUTO-SEARCH FROM URL PARAMS ---
         ( function autoSearchFromUrl () {
@@ -708,6 +714,81 @@
                     }
                 } )
             } )
+
+            // Update viewport superchargers
+            updateViewportSuperchargers( bounds )
+        }
+
+        /**
+         * Fetches and updates superchargers for the current viewport.
+         */
+        async function updateViewportSuperchargers ( bounds ) {
+            const boundsStr = bounds.toBBoxString()
+            if ( lastViewportBounds === boundsStr ) {
+                return // No change in viewport
+            }
+            lastViewportBounds = boundsStr
+
+            const [ minLng, minLat, maxLng, maxLat ] = boundsStr.split( ',' ).map( parseFloat )
+
+            try {
+                const response = await fetch( `/superchargers/viewport?min_lat=${ minLat }&max_lat=${ maxLat }&min_lng=${ minLng }&max_lng=${ maxLng }` )
+                const data = await response.json()
+
+                if ( !response.ok ) {
+                    console.error( 'Failed to fetch viewport superchargers:', data )
+                    return
+                }
+
+                const superchargers = data.superchargers
+
+                // Create a set of current supercharger place_ids
+                const currentPlaceIds = new Set( superchargers.map( sc => sc.place_id ) )
+
+                // Remove superchargers that are no longer in viewport
+                for ( const [ placeId, superchargerData ] of viewportSuperchargers ) {
+                    if ( !currentPlaceIds.has( placeId ) ) {
+                        viewportSuperchargersLayer.removeLayer( superchargerData.marker )
+                        viewportSuperchargers.delete( placeId )
+                    }
+                }
+
+                // Add new superchargers
+                superchargers.forEach( supercharger => {
+                    if ( !viewportSuperchargers.has( supercharger.place_id ) ) {
+                        const marker = createViewportSuperchargerMarker( supercharger )
+                        viewportSuperchargers.set( supercharger.place_id, {
+                            data: supercharger,
+                            marker: marker
+                        } )
+                        viewportSuperchargersLayer.addLayer( marker )
+                    }
+                } )
+
+            } catch ( error ) {
+                console.error( 'Error fetching viewport superchargers:', error )
+            }
+        }
+
+        /**
+         * Creates a marker for a viewport supercharger.
+         */
+        function createViewportSuperchargerMarker ( supercharger ) {
+            const popupContent = `
+                <div class="font-sans max-w-xs">
+                    <strong class="text-lg">${ supercharger.name }</strong><br>
+                    <strong>Address:</strong> ${ supercharger.address }<br>
+                    <a href="https://maps.google.com/?q=${ supercharger.latitude },${ supercharger.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
+                </div>
+            `
+
+            return L.marker( [ supercharger.latitude, supercharger.longitude ], {
+                icon: L.divIcon( {
+                    className: 'emoji-icon',
+                    html: '🔌',
+                    iconSize: [ 24, 24 ],
+                } )
+            } ).bindPopup( popupContent )
         }
 
         function createChargerMarker ( charger, chargerId ) {
@@ -898,7 +979,10 @@
             routeLayer.clearLayers()
             chargerLayer.clearLayers()
             restaurantLayer.clearLayers()
+            viewportSuperchargersLayer.clearLayers()
             stationData = []
+            viewportSuperchargers.clear()
+            lastViewportBounds = null
             filteredChargerIDs = null
             currentSearchTerm = ''
             restaurantSearchInput.value = ''

@@ -16,6 +16,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/brensch/passengerprincess/pkg/db"
+	"gorm.io/gorm/logger"
 )
 
 // Global variable for the Google Maps API key.
@@ -52,6 +55,20 @@ type RouteResponse struct {
 	TrafficSegments []TrafficSegment   `json:"traffic_segments,omitempty"`
 }
 
+// ViewportRequest represents the request for superchargers in a viewport
+type ViewportRequest struct {
+	MinLat float64 `json:"min_lat"`
+	MaxLat float64 `json:"max_lat"`
+	MinLng float64 `json:"min_lng"`
+	MaxLng float64 `json:"max_lng"`
+}
+
+// ViewportResponse represents the response with superchargers in the viewport
+type ViewportResponse struct {
+	Superchargers []SuperchargerInfo `json:"superchargers"`
+	Count         int                `json:"count"`
+}
+
 // RouteDetails contains information about the overall route.
 type RouteDetails struct {
 	TotalDistance string `json:"total_distance"`
@@ -62,13 +79,14 @@ type RouteDetails struct {
 
 // SuperchargerInfo contains details about a supercharger and nearby restaurants.
 type SuperchargerInfo struct {
+	PlaceID                 string           `json:"place_id"`
 	Name                    string           `json:"name"`
 	Address                 string           `json:"address"`
 	DistanceMeters          int              `json:"distance_meters"`            // Distance along route in meters
 	DistanceFromRouteMeters int              `json:"distance_from_route_meters"` // Distance from route in meters
 	ArrivalTime             string           `json:"arrival_time"`               // Estimated arrival time
-	Lat                     float64          `json:"lat"`
-	Lng                     float64          `json:"lng"`
+	Latitude                float64          `json:"latitude"`
+	Longitude               float64          `json:"longitude"`
 	ClosestPointOnRoute     LatLng           `json:"closest_point_on_route"` // Closest point on the route
 	Restaurants             []RestaurantInfo `json:"restaurants"`
 	DistanceFromOriginKm    float64          `json:"-"` // Internal field for sorting
@@ -259,10 +277,20 @@ func main() {
 		log.Fatal("FATAL: Please replace 'YOUR_GOOGLE_MAPS_API_KEY' with your actual Google Maps API key.")
 	}
 
+	// Initialize database
+	config := &db.Config{
+		DatabasePath: "passengerprincess.db",
+		LogLevel:     logger.Info,
+	}
+	if err := db.Initialize(config); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+
 	// Register handlers.
 	http.HandleFunc("/", serveFrontend) // Serve the HTML file at the root
 	http.HandleFunc("/autocomplete", autocompleteHandler)
 	http.HandleFunc("/route", routeHandler)
+	http.HandleFunc("/superchargers/viewport", viewportHandler)
 
 	// Start the server.
 	port := "8080"
@@ -898,8 +926,8 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			DistanceMeters:          int(data.totalDistKm * 1000),
 			DistanceFromRouteMeters: int(data.distFromRoute * 1000),
 			ArrivalTime:             arrivalTime.Format(time.Kitchen),
-			Lat:                     data.sc.Location.Latitude,
-			Lng:                     data.sc.Location.Longitude,
+			Latitude:                data.sc.Location.Latitude,
+			Longitude:               data.sc.Location.Longitude,
 			ClosestPointOnRoute:     data.closestPoint,
 			Restaurants:             restaurantResults[i],
 			DistanceFromOriginKm:    data.totalDistKm,
@@ -925,6 +953,88 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 			APICalls: apiCalls,
 		},
 		TrafficSegments: trafficSegments,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func viewportHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow GET requests
+	if r.Method != http.MethodGet {
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse query parameters
+	minLatStr := r.URL.Query().Get("min_lat")
+	maxLatStr := r.URL.Query().Get("max_lat")
+	minLngStr := r.URL.Query().Get("min_lng")
+	maxLngStr := r.URL.Query().Get("max_lng")
+
+	if minLatStr == "" || maxLatStr == "" || minLngStr == "" || maxLngStr == "" {
+		writeJSONError(w, "Query parameters 'min_lat', 'max_lat', 'min_lng', and 'max_lng' are required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse float values
+	minLat, err := strconv.ParseFloat(minLatStr, 64)
+	if err != nil {
+		writeJSONError(w, "Invalid min_lat parameter", http.StatusBadRequest)
+		return
+	}
+
+	maxLat, err := strconv.ParseFloat(maxLatStr, 64)
+	if err != nil {
+		writeJSONError(w, "Invalid max_lat parameter", http.StatusBadRequest)
+		return
+	}
+
+	minLng, err := strconv.ParseFloat(minLngStr, 64)
+	if err != nil {
+		writeJSONError(w, "Invalid min_lng parameter", http.StatusBadRequest)
+		return
+	}
+
+	maxLng, err := strconv.ParseFloat(maxLngStr, 64)
+	if err != nil {
+		writeJSONError(w, "Invalid max_lng parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Validate viewport bounds
+	if minLat >= maxLat || minLng >= maxLng {
+		writeJSONError(w, "Invalid viewport bounds: min values must be less than max values", http.StatusBadRequest)
+		return
+	}
+
+	// Get database service
+	service := db.GetDefaultService()
+
+	// Query superchargers in the viewport
+	superchargers, err := service.Supercharger.GetByLocation(minLat, maxLat, minLng, maxLng)
+	if err != nil {
+		log.Printf("Failed to query superchargers: %v", err)
+		writeJSONError(w, "Failed to query superchargers", http.StatusInternalServerError)
+		return
+	}
+
+	// Convert to SuperchargerInfo format
+	var superchargerInfos []SuperchargerInfo
+	for _, sc := range superchargers {
+		superchargerInfos = append(superchargerInfos, SuperchargerInfo{
+			PlaceID:  sc.PlaceID,
+			Name:     sc.Name,
+			Address:  sc.Address,
+			Latitude: sc.Latitude,
+			Longitude: sc.Longitude,
+		})
+	}
+
+	// Create response
+	response := ViewportResponse{
+		Superchargers: superchargerInfos,
+		Count:         len(superchargerInfos),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
