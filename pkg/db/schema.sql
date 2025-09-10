@@ -41,6 +41,15 @@ CREATE TABLE IF NOT EXISTS maps_call_log (
     details TEXT
 );
 
+-- cache hits for place details
+CREATE TABLE IF NOT EXISTS cache_hits (
+    object_id TEXT PRIMARY KEY,
+    hit BOOLEAN,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    type TEXT
+);
+
+
 -- route call log
 CREATE TABLE IF NOT EXISTS route_call_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
