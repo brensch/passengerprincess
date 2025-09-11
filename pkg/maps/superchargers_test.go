@@ -56,11 +56,11 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 
 	t.Logf("Found %d superchargers on route :", len(superchargers))
 	for i, sc := range superchargers {
-		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f)", i+1, sc.Name, sc.Address, sc.Latitude, sc.Longitude)
+		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f) - ETA: %s", i+1, sc.Supercharger.Name, sc.Supercharger.Address, sc.Supercharger.Latitude, sc.Supercharger.Longitude, sc.ArrivalTime)
 	}
 
-	// Generate HTML visualization
-	err = generateSuperchargerHTMLMap(route, superchargers, circles)
+	// Generate HTML visualization with ETA data
+	err = generateSuperchargerHTMLMapWithETA(route, superchargers, circles)
 	if err != nil {
 		t.Fatalf("Failed to generate HTML map: %v", err)
 	}
@@ -74,22 +74,22 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 
 	superchargersCached := resultCached.Superchargers
 
-	t.Logf("Found %d superchargers on route from Salinas to Gonzales:", len(superchargersCached))
+	t.Logf("Found %d superchargers on route from cached results:", len(superchargersCached))
 	for i, sc := range superchargersCached {
-		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f)", i+1, sc.Name, sc.Address, sc.Latitude, sc.Longitude)
+		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f) - ETA: %s", i+1, sc.Supercharger.Name, sc.Supercharger.Address, sc.Supercharger.Latitude, sc.Supercharger.Longitude, sc.ArrivalTime)
 	}
 
 	// make sure they're the same superchargers
 	for _, sc := range superchargers {
 		found := false
 		for _, scCached := range superchargersCached {
-			if sc.PlaceID == scCached.PlaceID {
+			if sc.Supercharger.PlaceID == scCached.Supercharger.PlaceID {
 				found = true
 				break
 			}
 		}
 		if !found {
-			t.Errorf("Supercharger %s not found in cached results", sc.PlaceID)
+			t.Errorf("Supercharger %s not found in cached results", sc.Supercharger.PlaceID)
 		}
 	}
 
@@ -101,8 +101,8 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 	defer db.Close()
 }
 
-// generateSuperchargerHTMLMap creates an HTML file with a map visualizing the route and superchargers.
-func generateSuperchargerHTMLMap(route *RouteInfo, superchargers []*db.Supercharger, circles []Circle) error {
+// generateSuperchargerHTMLMapWithETA creates an HTML file with a map visualizing the route and superchargers with ETA information.
+func generateSuperchargerHTMLMapWithETA(route *RouteInfo, superchargers []SuperchargerWithETA, circles []Circle) error {
 	// Decode the polyline to get the path
 	decodedPath, err := DecodePolyline(route.EncodedPolyline)
 	if err != nil {
@@ -119,15 +119,16 @@ func generateSuperchargerHTMLMap(route *RouteInfo, superchargers []*db.Superchar
 		return fmt.Errorf("failed to marshal path: %w", err)
 	}
 
-	// Convert superchargers to JavaScript format
+	// Convert superchargers to JavaScript format with ETA information
 	superchargersForJS := make([]map[string]interface{}, len(superchargers))
 	for i, sc := range superchargers {
 		superchargersForJS[i] = map[string]interface{}{
-			"name":      sc.Name,
-			"address":   sc.Address,
-			"latitude":  sc.Latitude,
-			"longitude": sc.Longitude,
-			"placeId":   sc.PlaceID,
+			"name":        sc.Supercharger.Name,
+			"address":     sc.Supercharger.Address,
+			"latitude":    sc.Supercharger.Latitude,
+			"longitude":   sc.Supercharger.Longitude,
+			"placeId":     sc.Supercharger.PlaceID,
+			"arrivalTime": sc.ArrivalTime,
 		}
 	}
 	superchargersJSON, err := json.Marshal(superchargersForJS)
@@ -289,6 +290,7 @@ const superchargerMapTemplate = `
                     '<div>' +
                     '<h4>' + charger.name + '</h4>' +
                     '<p><strong>Address:</strong> ' + charger.address + '</p>' +
+                    '<p><strong>ETA:</strong> ' + charger.arrivalTime + '</p>' +
                     '<p><strong>Coordinates:</strong> ' + charger.latitude.toFixed(6) + ', ' + charger.longitude.toFixed(6) + '</p>' +
                     '<p><strong>Place ID:</strong> ' + charger.placeId + '</p>' +
                     '</div>'
