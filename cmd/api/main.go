@@ -1023,10 +1023,10 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 	var superchargerInfos []SuperchargerInfo
 	for _, sc := range superchargers {
 		superchargerInfos = append(superchargerInfos, SuperchargerInfo{
-			PlaceID:  sc.PlaceID,
-			Name:     sc.Name,
-			Address:  sc.Address,
-			Latitude: sc.Latitude,
+			PlaceID:   sc.PlaceID,
+			Name:      sc.Name,
+			Address:   sc.Address,
+			Latitude:  sc.Latitude,
 			Longitude: sc.Longitude,
 		})
 	}
