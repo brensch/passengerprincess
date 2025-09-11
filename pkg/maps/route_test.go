@@ -14,7 +14,7 @@ func TestGetRoute(t *testing.T) {
 		t.Skip("MAPS_API_KEY environment variable not set")
 	}
 
-	origin := "New York, NY"
+	origin := "Framingham, MA"
 	destination := "Boston, MA"
 
 	result, err := GetRoute(apiKey, origin, destination)
