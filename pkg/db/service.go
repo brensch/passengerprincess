@@ -6,7 +6,7 @@ import (
 
 // Service provides a unified interface to all database operations
 type Service struct {
-	Place        *PlaceRepository
+	Restaurant   *RestaurantRepository
 	Supercharger *SuperchargerRepository
 	MapsCallLog  *MapsCallLogRepository
 	CacheHit     *CacheHitRepository
@@ -17,7 +17,7 @@ type Service struct {
 // NewService creates a new database service with all repositories
 func NewService(db *gorm.DB) *Service {
 	return &Service{
-		Place:        NewPlaceRepository(db),
+		Restaurant:   NewRestaurantRepository(db),
 		Supercharger: NewSuperchargerRepository(db),
 		MapsCallLog:  NewMapsCallLogRepository(db),
 		CacheHit:     NewCacheHitRepository(db),
@@ -42,34 +42,34 @@ func (s *Service) Transaction(fn func(*Service) error) error {
 	})
 }
 
-// PlaceAssociationOperations provides operations for place-supercharger associations using GORM's many-to-many
-type PlaceAssociationOperations struct {
+// RestaurantAssociationOperations provides operations for restaurant-supercharger associations using GORM's many-to-many
+type RestaurantAssociationOperations struct {
 	db *gorm.DB
 }
 
-// NewPlaceAssociationOperations creates operations for place-supercharger relationships
-func NewPlaceAssociationOperations(db *gorm.DB) *PlaceAssociationOperations {
-	return &PlaceAssociationOperations{db: db}
+// NewRestaurantAssociationOperations creates operations for restaurant-supercharger relationships
+func NewRestaurantAssociationOperations(db *gorm.DB) *RestaurantAssociationOperations {
+	return &RestaurantAssociationOperations{db: db}
 }
 
-// AddAssociation creates an association between a place and supercharger
-func (ops *PlaceAssociationOperations) AddAssociation(placeID, superchargerID string) error {
-	place := Place{PlaceID: placeID}
+// AddAssociation creates an association between a restaurant and supercharger
+func (ops *RestaurantAssociationOperations) AddAssociation(restaurantID, superchargerID string) error {
+	restaurant := Restaurant{PlaceID: restaurantID}
 	supercharger := Supercharger{PlaceID: superchargerID}
-	return ops.db.Model(&place).Association("Superchargers").Append(&supercharger)
+	return ops.db.Model(&restaurant).Association("Superchargers").Append(&supercharger)
 }
 
-// RemoveAssociation removes an association between a place and supercharger
-func (ops *PlaceAssociationOperations) RemoveAssociation(placeID, superchargerID string) error {
-	place := Place{PlaceID: placeID}
+// RemoveAssociation removes an association between a restaurant and supercharger
+func (ops *RestaurantAssociationOperations) RemoveAssociation(restaurantID, superchargerID string) error {
+	restaurant := Restaurant{PlaceID: restaurantID}
 	supercharger := Supercharger{PlaceID: superchargerID}
-	return ops.db.Model(&place).Association("Superchargers").Delete(&supercharger)
+	return ops.db.Model(&restaurant).Association("Superchargers").Delete(&supercharger)
 }
 
-// AssociationExists checks if an association exists between a place and supercharger
-func (ops *PlaceAssociationOperations) AssociationExists(placeID, superchargerID string) (bool, error) {
-	var place Place
-	if err := ops.db.Where("place_id = ?", placeID).First(&place).Error; err != nil {
+// AssociationExists checks if an association exists between a restaurant and supercharger
+func (ops *RestaurantAssociationOperations) AssociationExists(restaurantID, superchargerID string) (bool, error) {
+	var restaurant Restaurant
+	if err := ops.db.Where("place_id = ?", restaurantID).First(&restaurant).Error; err != nil {
 		return false, err
 	}
 
@@ -78,42 +78,42 @@ func (ops *PlaceAssociationOperations) AssociationExists(placeID, superchargerID
 		return false, err
 	}
 
-	count := ops.db.Model(&place).Association("Superchargers").Count()
+	count := ops.db.Model(&restaurant).Association("Superchargers").Count()
 	if count == 0 {
 		return false, nil
 	}
 
 	// Check if this specific supercharger is associated
 	var result Supercharger
-	err := ops.db.Model(&place).Association("Superchargers").Find(&result, "place_id = ?", superchargerID)
+	err := ops.db.Model(&restaurant).Association("Superchargers").Find(&result, "place_id = ?", superchargerID)
 	return err == nil && result.PlaceID == superchargerID, nil
 }
 
-// GetSuperchargersForPlace retrieves all superchargers associated with a place
-func (ops *PlaceAssociationOperations) GetSuperchargersForPlace(placeID string) ([]Supercharger, error) {
-	var place Place
-	if err := ops.db.Where("place_id = ?", placeID).First(&place).Error; err != nil {
+// GetSuperchargersForRestaurant retrieves all superchargers associated with a restaurant
+func (ops *RestaurantAssociationOperations) GetSuperchargersForRestaurant(restaurantID string) ([]Supercharger, error) {
+	var restaurant Restaurant
+	if err := ops.db.Where("place_id = ?", restaurantID).First(&restaurant).Error; err != nil {
 		return nil, err
 	}
 
 	var superchargers []Supercharger
-	err := ops.db.Model(&place).Association("Superchargers").Find(&superchargers)
+	err := ops.db.Model(&restaurant).Association("Superchargers").Find(&superchargers)
 	return superchargers, err
 }
 
-// GetPlacesForSupercharger retrieves all places associated with a supercharger
-func (ops *PlaceAssociationOperations) GetPlacesForSupercharger(superchargerID string) ([]Place, error) {
+// GetRestaurantsForSupercharger retrieves all restaurants associated with a supercharger
+func (ops *RestaurantAssociationOperations) GetRestaurantsForSupercharger(superchargerID string) ([]Restaurant, error) {
 	var supercharger Supercharger
 	if err := ops.db.Where("place_id = ?", superchargerID).First(&supercharger).Error; err != nil {
 		return nil, err
 	}
 
-	var places []Place
-	err := ops.db.Model(&supercharger).Association("Places").Find(&places)
-	return places, err
+	var restaurants []Restaurant
+	err := ops.db.Model(&supercharger).Association("Restaurants").Find(&restaurants)
+	return restaurants, err
 }
 
-// GetPlaceAssociationOps returns operations for place-supercharger relationships
-func (s *Service) GetPlaceAssociationOps() *PlaceAssociationOperations {
-	return NewPlaceAssociationOperations(s.db)
+// GetRestaurantAssociationOps returns operations for restaurant-supercharger relationships
+func (s *Service) GetRestaurantAssociationOps() *RestaurantAssociationOperations {
+	return NewRestaurantAssociationOperations(s.db)
 }

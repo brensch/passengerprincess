@@ -2,13 +2,11 @@ package maps
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-
-	"github.com/brensch/passengerprincess/pkg/db"
-	"gorm.io/gorm"
 )
 
 // Making the endpoint and client package-level variables allows us to
@@ -42,19 +40,17 @@ type Center struct {
 // apiResponse defines the structure for unmarshalling the API's JSON response.
 // We only care about the place IDs.
 type apiResponse struct {
-	Places []Place `json:"places"`
-}
-
-type Place struct {
-	ID string `json:"id"`
+	Places []*PlaceDetails `json:"places"`
 }
 
 // PlaceDetails represents the essential place information from Google Places API
 type PlaceDetails struct {
-	ID               string   `json:"id"`
-	Name             string   `json:"name"`
-	FormattedAddress string   `json:"formattedAddress,omitempty"`
-	Location         Location `json:"location,omitempty"`
+	ID                     string    `json:"id"`
+	DisplayName            *string   `json:"displayName"`
+	FormattedAddress       *string   `json:"formattedAddress,omitempty"`
+	Location               *Location `json:"location,omitempty"`
+	PrimaryType            *string   `json:"primaryType,omitempty"`
+	PrimaryTypeDisplayName *string   `json:"primaryTypeDisplayName,omitempty"`
 }
 
 type Location struct {
@@ -62,9 +58,9 @@ type Location struct {
 	Longitude float64 `json:"longitude"`
 }
 
-// GetPlaceIDsViaTextSearch queries the Google Places API (Text Search - New) to find all place IDs
+// GetPlacesViaTextSearch queries the Google Places API (Text Search - New) to find all places
 // matching a query within a specified circular search area. It now takes a 'circle' struct directly.
-func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle Circle) ([]string, error) {
+func GetPlacesViaTextSearch(ctx context.Context, apiKey, query, fieldMask string, targetCircle Circle) ([]*PlaceDetails, error) {
 	reqBody := requestBody{
 		TextQuery:    query,
 		LocationBias: LocationBias{Circle: targetCircle},
@@ -75,7 +71,7 @@ func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle Circle) ([]stri
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", placesAPIEndpoint, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", placesAPIEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
@@ -84,7 +80,7 @@ func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle Circle) ([]stri
 	// It tells Google to only return the data we absolutely need.
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Goog-Api-Key", apiKey)
-	req.Header.Set("X-Goog-FieldMask", "places.id")
+	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 	// 5. Execute the request using the package-level client.
 	resp, err := httpClient.Do(req)
@@ -107,25 +103,26 @@ func GetPlaceIDsViaTextSearch(apiKey, query string, targetCircle Circle) ([]stri
 		return nil, fmt.Errorf("failed to unmarshal response json: %w", err)
 	}
 
-	placeIDs := make([]string, 0, len(apiResp.Places))
 	for _, p := range apiResp.Places {
-		placeIDs = append(placeIDs, p.ID)
+		if p.ID == "" {
+			return nil, fmt.Errorf("place ID is missing for a place")
+		}
 	}
 
-	return placeIDs, nil
+	return apiResp.Places, nil
 }
 
 // GetPlaceDetails retrieves essential place information from Google Places API given a place ID
-func GetPlaceDetails(apiKey, placeID string) (*PlaceDetails, error) {
+func GetPlaceDetails(ctx context.Context, apiKey, placeID, fieldMask string) (*PlaceDetails, error) {
 	url := fmt.Sprintf("%s/%s", placeDetailsEndpoint, placeID)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 
 	req.Header.Set("X-Goog-Api-Key", apiKey)
-	req.Header.Set("X-Goog-FieldMask", "id,name,formattedAddress,location")
+	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -143,55 +140,10 @@ func GetPlaceDetails(apiKey, placeID string) (*PlaceDetails, error) {
 	}
 
 	var placeDetails PlaceDetails
-	if err := json.Unmarshal(bodyBytes, &placeDetails); err != nil {
+	err = json.Unmarshal(bodyBytes, &placeDetails)
+	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response json: %w", err)
 	}
 
 	return &placeDetails, nil
-}
-
-// GetPlaceDetailsWithCache retrieves place details with database caching
-// First checks the database, then falls back to API if not found
-func GetPlaceDetailsWithCache(broker *db.Service, apiKey, placeID string) (*PlaceDetails, error) {
-	// First try to get from database
-	place, err := broker.Place.GetByID(placeID)
-	if err == nil {
-		// Found in database, convert to PlaceDetails format
-		return &PlaceDetails{
-			ID:               place.PlaceID,
-			Name:             place.Name,
-			FormattedAddress: place.Address,
-			Location: Location{
-				Latitude:  place.Latitude,
-				Longitude: place.Longitude,
-			},
-		}, nil
-	}
-
-	// Check if error is "not found" (expected when place doesn't exist in DB)
-	if err != gorm.ErrRecordNotFound {
-		return nil, fmt.Errorf("failed to query place from database: %w", err)
-	}
-
-	// Not found in database, fetch from API
-	placeDetails, err := GetPlaceDetails(apiKey, placeID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Store in database for future use
-	dbPlace := &db.Place{
-		PlaceID:   placeDetails.ID,
-		Name:      placeDetails.Name,
-		Address:   placeDetails.FormattedAddress,
-		Latitude:  placeDetails.Location.Latitude,
-		Longitude: placeDetails.Location.Longitude,
-	}
-
-	if err := broker.Place.Create(dbPlace); err != nil {
-		// Log the error but don't fail the request since we already have the data
-		fmt.Printf("Warning: failed to cache place %s in database: %v\n", placeID, err)
-	}
-
-	return placeDetails, nil
 }

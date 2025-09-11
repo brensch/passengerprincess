@@ -92,7 +92,7 @@ func configureSQLite() error {
 // autoMigrate runs automatic migrations for all models
 func autoMigrate() error {
 	return DB.AutoMigrate(
-		&Place{},
+		&Restaurant{},
 		&Supercharger{},
 		&MapsCallLog{},
 		&CacheHit{},

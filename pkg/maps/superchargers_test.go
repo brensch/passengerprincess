@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/brensch/passengerprincess/pkg/db"
+	"gorm.io/gorm/logger"
 )
 
-func TestGetSuperchargersOnRoute_BostonToFramingham(t *testing.T) {
+func TestGetSuperchargersOnRoute(t *testing.T) {
 	apiKey := os.Getenv("MAPS_API_KEY")
 	if apiKey == "" {
 		t.Skip("MAPS_API_KEY not set")
@@ -17,7 +18,7 @@ func TestGetSuperchargersOnRoute_BostonToFramingham(t *testing.T) {
 	// Initialize in-memory database
 	err := db.Initialize(&db.Config{
 		DatabasePath: ":memory:",
-		LogLevel:     4, // Silent
+		LogLevel:     logger.Error,
 	})
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)

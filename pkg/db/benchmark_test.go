@@ -32,7 +32,7 @@ func BenchmarkWriteRandomData(b *testing.B) {
 	}
 
 	// Auto-migrate the schema
-	err = db.AutoMigrate(&Place{}, &Supercharger{})
+	err = db.AutoMigrate(&Restaurant{}, &Supercharger{})
 	if err != nil {
 		b.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -47,8 +47,8 @@ func BenchmarkWriteRandomData(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Clear database between runs
-		db.Exec("DELETE FROM place_superchargers")
-		db.Exec("DELETE FROM places")
+		db.Exec("DELETE FROM restaurant_superchargers")
+		db.Exec("DELETE FROM restaurants")
 		db.Exec("DELETE FROM superchargers")
 
 		// Generate and write data
@@ -79,20 +79,20 @@ func generateAndWriteRandomData(service *Service) error {
 		numPlaces := rand.Intn(20) + 1 // 1 to 20 places
 		totalPlaces += numPlaces
 
-		places := make([]Place, numPlaces)
+		places := make([]Restaurant, numPlaces)
 		for j := 0; j < numPlaces; j++ {
 			places[j] = generateRandomPlaceNear(supercharger.Latitude, supercharger.Longitude)
 		}
 
 		// Create places in batch
 		for _, place := range places {
-			err := service.Place.Create(&place)
+			err := service.Restaurant.Create(&place)
 			if err != nil {
 				return fmt.Errorf("failed to create place for supercharger %d: %w", i, err)
 			}
 
 			// Create association between place and supercharger
-			assocOps := NewPlaceAssociationOperations(service.db)
+			assocOps := NewRestaurantAssociationOperations(service.db)
 			err = assocOps.AddAssociation(place.PlaceID, supercharger.PlaceID)
 			if err != nil {
 				return fmt.Errorf("failed to create association: %w", err)
@@ -124,7 +124,7 @@ func generateRandomSupercharger() Supercharger {
 }
 
 // generateRandomPlaceNear creates a place within 500m of the given coordinates
-func generateRandomPlaceNear(centerLat, centerLon float64) Place {
+func generateRandomPlaceNear(centerLat, centerLon float64) Restaurant {
 	// Generate random point within 500m radius
 	// 500m is approximately 0.0045 degrees latitude
 	// Longitude varies by latitude, but we'll use an approximation
@@ -142,7 +142,7 @@ func generateRandomPlaceNear(centerLat, centerLon float64) Place {
 	placeTypes := []string{"restaurant", "gas_station", "lodging", "tourist_attraction", "shopping_mall", "convenience_store"}
 	primaryType := placeTypes[rand.Intn(len(placeTypes))]
 
-	return Place{
+	return Restaurant{
 		PlaceID:            generateFastID(),
 		Name:               fmt.Sprintf("Place_%s", generateFastID()[:8]),
 		Address:            fmt.Sprintf("Address_%s", generateFastID()[:8]),
@@ -177,7 +177,7 @@ func BenchmarkWriteRandomDataBatched(b *testing.B) {
 	}
 
 	// Auto-migrate the schema
-	err = db.AutoMigrate(&Place{}, &Supercharger{})
+	err = db.AutoMigrate(&Restaurant{}, &Supercharger{})
 	if err != nil {
 		b.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -229,9 +229,9 @@ func generateAndWriteRandomDataBatched(service *Service) error {
 	}
 
 	// Generate places and associations
-	var allPlaces []Place
+	var allPlaces []Restaurant
 	var associations []struct {
-		PlaceID        string
+		RestaurantID   string
 		SuperchargerID string
 	}
 
@@ -243,10 +243,10 @@ func generateAndWriteRandomDataBatched(service *Service) error {
 			place := generateRandomPlaceNear(supercharger.Latitude, supercharger.Longitude)
 			allPlaces = append(allPlaces, place)
 			associations = append(associations, struct {
-				PlaceID        string
+				RestaurantID   string
 				SuperchargerID string
 			}{
-				PlaceID:        place.PlaceID,
+				RestaurantID:   place.PlaceID,
 				SuperchargerID: supercharger.PlaceID,
 			})
 		}
@@ -274,9 +274,9 @@ func generateAndWriteRandomDataBatched(service *Service) error {
 
 		// Use transaction for batch associations
 		err := service.db.Transaction(func(tx *gorm.DB) error {
-			txAssocOps := NewPlaceAssociationOperations(tx)
+			txAssocOps := NewRestaurantAssociationOperations(tx)
 			for j := i; j < end; j++ {
-				err := txAssocOps.AddAssociation(associations[j].PlaceID, associations[j].SuperchargerID)
+				err := txAssocOps.AddAssociation(associations[j].RestaurantID, associations[j].SuperchargerID)
 				if err != nil {
 					return err
 				}

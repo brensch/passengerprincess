@@ -121,9 +121,9 @@ func generateAndCreatePlaces(service *db.Service, superchargers []db.Supercharge
 	placesPerSC := calculatePlacesPerSupercharger()
 	totalGenerated := 0
 	batchSize := 500
-	var placeBatch []db.Place
+	var placeBatch []db.Restaurant
 	var associationPairs []struct {
-		PlaceID        string
+		RestaurantID   string
 		SuperchargerID string
 	}
 
@@ -135,7 +135,7 @@ func generateAndCreatePlaces(service *db.Service, superchargers []db.Supercharge
 			lat, lng := randomPointWithinRadius(sc.Latitude, sc.Longitude, PlaceRadiusM)
 
 			placeID := generateID()
-			place := db.Place{
+			place := db.Restaurant{
 				PlaceID:          placeID,
 				Name:             fmt.Sprintf("Place-%s", generateShortID()),
 				Address:          fmt.Sprintf("Place Address %d-%d", i+1, j+1),
@@ -149,7 +149,7 @@ func generateAndCreatePlaces(service *db.Service, superchargers []db.Supercharge
 
 			placeBatch = append(placeBatch, place)
 			associationPairs = append(associationPairs, struct {
-				PlaceID        string
+				RestaurantID   string
 				SuperchargerID string
 			}{placeID, sc.PlaceID})
 
@@ -182,17 +182,17 @@ func generateAndCreatePlaces(service *db.Service, superchargers []db.Supercharge
 	return nil
 }
 
-func processBatch(service *db.Service, places []db.Place, associations []struct {
-	PlaceID        string
+func processBatch(service *db.Service, places []db.Restaurant, associations []struct {
+	RestaurantID   string
 	SuperchargerID string
 }) error {
 	// Create all places in batch
-	if err := service.Place.CreateBatch(places); err != nil {
+	if err := service.Restaurant.CreateBatch(places); err != nil {
 		return fmt.Errorf("failed to create place batch: %v", err)
 	}
 
 	// Create associations efficiently using batch method
-	if err := service.Place.BatchAssociateWithSuperchargers(associations); err != nil {
+	if err := service.Restaurant.BatchAssociateWithSuperchargers(associations); err != nil {
 		return fmt.Errorf("failed to batch associate places with superchargers: %v", err)
 	}
 
@@ -268,11 +268,11 @@ func printStats(service *db.Service) {
 		fmt.Printf("Total superchargers: %d\n", len(superchargers))
 	}
 
-	// Count places
-	places, err := service.Place.GetAll(200000, 0) // Large limit to get all
+	// Count restaurants
+	restaurants, err := service.Restaurant.GetAll(200000, 0) // Large limit to get all
 	if err != nil {
-		fmt.Printf("Error counting places: %v\n", err)
+		fmt.Printf("Error counting restaurants: %v\n", err)
 	} else {
-		fmt.Printf("Total places: %d\n", len(places))
+		fmt.Printf("Total restaurants: %d\n", len(restaurants))
 	}
 }

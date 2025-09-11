@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// Place represents a place from Google Places API
-type Place struct {
+// Restaurant represents a restaurant from Google Places API
+type Restaurant struct {
 	PlaceID            string    `gorm:"primaryKey;column:place_id" json:"place_id"`
 	Name               string    `gorm:"column:name" json:"name"`
 	Address            string    `gorm:"column:address" json:"address"`
@@ -19,7 +19,7 @@ type Place struct {
 	LastUpdated        time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
 
 	// Many-to-many relationship with superchargers
-	Superchargers []Supercharger `gorm:"many2many:place_superchargers;" json:"superchargers,omitempty"`
+	Superchargers []Supercharger `gorm:"many2many:restaurant_superchargers;" json:"superchargers,omitempty"`
 }
 
 // Supercharger represents a Tesla supercharger location
@@ -31,8 +31,8 @@ type Supercharger struct {
 	Longitude   float64   `gorm:"column:longitude" json:"longitude"`
 	LastUpdated time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
 
-	// Many-to-many relationship with places
-	Places []Place `gorm:"many2many:place_superchargers;" json:"places,omitempty"`
+	// Many-to-many relationship with restaurants
+	Restaurants []Restaurant `gorm:"many2many:restaurant_superchargers;" json:"restaurants,omitempty"`
 }
 
 // MapsCallLog represents API call logging for maps operations

@@ -8,10 +8,10 @@ import (
 	"github.com/brensch/passengerprincess/pkg/db"
 )
 
-// TestGetPlacesViaTextSearch makes an actual call to Google Places API
-// and verifies it returns valid places. This test requires MAPS_API_KEY environment variable.
-// Run with: MAPS_API_KEY=your_key go test -run TestGetPlacesViaTextSearch ./pkg/maps
-func TestGetPlacesViaTextSearch(t *testing.T) {
+// TestGetPlaceIDsViaTextSearch makes an actual call to Google Places API
+// and verifies it returns valid place IDs. This test requires MAPS_API_KEY environment variable.
+// Run with: MAPS_API_KEY=your_key go test -run TestGetPlaceIDsViaTextSearch ./pkg/maps
+func TestGetPlaceIDsViaTextSearch(t *testing.T) {
 	apiKey := os.Getenv("MAPS_API_KEY")
 	if apiKey == "" {
 		t.Skip("MAPS_API_KEY not set, skipping integration test")
@@ -28,7 +28,28 @@ func TestGetPlacesViaTextSearch(t *testing.T) {
 	}
 
 	// Call the real API
-	places, err := GetPlacesViaTextSearch(context.Background(), apiKey, query, "id,displayName,formattedAddress,location", targetCircle)
+	places, err := GetPlacesViaTextSearch(context.Background(), apiKey, query, "places.id", targetCircle)
+	if err != nil {
+		t.Fatalf("GetPlaceIDsViaTextSearch failed: %v", err)
+	}
+
+	// Verify we got some results
+	if len(places) == 0 {
+		t.Error("Expected some places, got empty slice")
+	}
+
+	// Verify each place ID looks valid (Google Place IDs start with "ChIJ")
+	for i, place := range places {
+		if place.ID == "" {
+			t.Errorf("Place ID at index %d is empty", i)
+		}
+		if len(place.ID) < 10 {
+			t.Errorf("Place ID %s seems too short to be valid", place.ID)
+		}
+	}
+
+	// do 1 pro request to make sure all fields are populated
+	places, err = GetPlacesViaTextSearch(context.Background(), apiKey, query, FieldMaskRestaurantTextSearch, targetCircle)
 	if err != nil {
 		t.Fatalf("GetPlaceIDsViaTextSearch failed: %v", err)
 	}
@@ -56,15 +77,21 @@ func TestGetPlacesViaTextSearch(t *testing.T) {
 		if place.Location != nil {
 			t.Logf("Place %d location: %.6f, %.6f", i, place.Location.Latitude, place.Location.Longitude)
 		}
+		if place.PrimaryType != nil {
+			t.Logf("Place %d primary type: %s", i, *place.PrimaryType)
+		}
+		if place.PrimaryTypeDisplayName != nil {
+			t.Logf("Place %d primary type display name: %s", i, *place.PrimaryTypeDisplayName)
+		}
 	}
 
 	t.Logf("Successfully retrieved %d places for query '%s'", len(places), query)
 }
 
-// TestGetSuperchargerWithCache makes an actual call to Google Places API
+// TestGetSuperchargerWithCacheRestaurants makes an actual call to Google Places API
 // and verifies it returns valid supercharger details. This test requires MAPS_API_KEY environment variable.
-// Run with: MAPS_API_KEY=your_key go test -run TestGetSuperchargerWithCache ./pkg/maps
-func TestGetSuperchargerWithCache(t *testing.T) {
+// Run with: MAPS_API_KEY=your_key go test -run TestGetSuperchargerWithCacheRestaurants ./pkg/maps
+func TestGetSuperchargerWithCacheRestaurants(t *testing.T) {
 	apiKey := os.Getenv("MAPS_API_KEY")
 	if apiKey == "" {
 		t.Skip("MAPS_API_KEY not set, skipping integration test")

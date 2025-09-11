@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -66,13 +67,16 @@ func main() {
 			var placeIDs []string
 			errorsCount := 0
 			for {
-				ids, err := maps.GetPlaceIDsViaTextSearch(apiKey, query, target)
+				places, err := maps.GetPlacesViaTextSearch(context.Background(), apiKey, query, "id", target)
 				if err != nil {
 					slog.Error("GetPlaceIDsViaTextSearch failed", "error", err, "circle", target)
 					errorsCount++
 					continue
 				}
-				placeIDs = ids
+				placeIDs = make([]string, len(places))
+				for i, place := range places {
+					placeIDs[i] = place.ID
+				}
 				break
 			}
 			mu.Lock()

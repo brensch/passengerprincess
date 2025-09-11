@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/brensch/passengerprincess/pkg/db"
+	"github.com/brensch/passengerprincess/pkg/maps"
 	"gorm.io/gorm/logger"
 )
 
@@ -467,6 +469,8 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	counter := &APICallCounter{}
 	var apiCalls []APICallDetails
 
+	broker := db.GetDefaultService()
+
 	// Defer the logging of the final counts
 	defer func() {
 		log.Printf("API Call Summary: Directions=%d, Places (New)=%d, Geocoding=%d",
@@ -883,7 +887,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		go func(sc PlaceNew, idx int) {
 			defer restaurantWg.Done()
 
-			restaurants, err := findNearbyRestaurantsNew(sc, counter, &apiCalls)
+			restaurants, err := findNearbyRestaurantsNew(broker, sc, counter, &apiCalls)
 			if err != nil {
 				log.Printf("Warning: could not find restaurants for %s: %v", sc.DisplayName.Text, err)
 				restaurants = []RestaurantInfo{} // Set to empty slice to avoid null in JSON
@@ -1149,33 +1153,39 @@ func performTextSearch(requestBody SearchTextRequest, fieldMask string, counter 
 	return searchData.Places, nil
 }
 
-// findNearbyRestaurantsNew finds restaurants using the Places API (New).
-func findNearbyRestaurantsNew(supercharger PlaceNew, counter *APICallCounter, apiCalls *[]APICallDetails) ([]RestaurantInfo, error) {
+// findNearbyRestaurantsNew finds restaurants using the Places API (Text Search).
+func findNearbyRestaurantsNew(broker *db.Service, supercharger PlaceNew, counter *APICallCounter, apiCalls *[]APICallDetails) ([]RestaurantInfo, error) {
 	allRestaurants := []RestaurantInfo{}
 	superchargerLoc := LatLng{Lat: supercharger.Location.Latitude, Lng: supercharger.Location.Longitude}
 
-	requestBody := SearchNearbyRequest{
-		IncludedTypes:  []string{"restaurant"},
-		MaxResultCount: 20, // Explicitly request maximum results
-		LocationRestriction: LocationRestriction{
+	// Use text search for "restaurants" with location bias
+	requestBody := SearchTextRequest{
+		TextQuery:      "restaurants",
+		IncludedType:   "restaurant",
+		MaxResultCount: 20, // Request maximum results
+		LocationBias: LocationBias{
 			Circle: Circle{
-				Center: Center{
-					Latitude:  superchargerLoc.Lat,
-					Longitude: superchargerLoc.Lng,
-				},
+				Center: Center{Latitude: superchargerLoc.Lat, Longitude: superchargerLoc.Lng},
 				Radius: 500.0,
 			},
 		},
 	}
 	fieldMask := "places.displayName,places.formattedAddress,places.rating,places.currentOpeningHours,places.location,places.primaryType,places.types"
-	nearbyPlaces, err := performNewNearbySearch(requestBody, fieldMask, counter, apiCalls)
+	results, err := performTextSearch(requestBody, fieldMask, counter, apiCalls)
 
 	if err != nil {
 		return nil, fmt.Errorf("could not parse restaurant data: %w", err)
 	}
 
-	for _, p := range nearbyPlaces {
+	for _, p := range results {
 		walkingDistKm := haversineDistance(superchargerLoc.Lat, superchargerLoc.Lng, p.Location.Latitude, p.Location.Longitude)
+
+		// Cache the restaurant details
+		_, err = maps.GetSuperchargerWithCache(context.Background(), broker, googleAPIKey, p.ID)
+		if err != nil {
+			// Log but continue
+			log.Printf("Warning: failed to cache restaurant %s: %v", p.ID, err)
+		}
 
 		allRestaurants = append(allRestaurants, RestaurantInfo{
 			Name:                  p.DisplayName.Text,

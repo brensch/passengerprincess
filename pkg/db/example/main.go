@@ -25,7 +25,7 @@ func main() {
 	service := db.GetDefaultService()
 
 	// Example: Create a new place
-	place := &db.Place{
+	place := &db.Restaurant{
 		PlaceID:            "ChIJN1t_tDeuEmsRUsoyG83frY4",
 		Name:               "Example Restaurant",
 		Address:            "123 Example St, Sydney NSW 2000, Australia",
@@ -39,7 +39,7 @@ func main() {
 		LastUpdated:        time.Now(),
 	}
 
-	if err := service.Place.Create(place); err != nil {
+	if err := service.Restaurant.Create(place); err != nil {
 		log.Printf("Error creating place: %v", err)
 	} else {
 		fmt.Printf("Created place: %s\n", place.Name)
@@ -62,7 +62,7 @@ func main() {
 	}
 
 	// Example: Associate place with supercharger
-	placeAssociationOps := service.GetPlaceAssociationOps()
+	placeAssociationOps := service.GetRestaurantAssociationOps()
 	if err := placeAssociationOps.AddAssociation(place.PlaceID, supercharger.PlaceID); err != nil {
 		log.Printf("Error creating association: %v", err)
 	} else {
@@ -70,7 +70,7 @@ func main() {
 	}
 
 	// Example: Retrieve place with superchargers
-	retrievedPlace, err := service.Place.GetByIDWithSuperchargers(place.PlaceID)
+	retrievedPlace, err := service.Restaurant.GetByIDWithSuperchargers(place.PlaceID)
 	if err != nil {
 		log.Printf("Error retrieving place: %v", err)
 	} else {
@@ -79,7 +79,7 @@ func main() {
 	}
 
 	// Example: Search places by name
-	searchResults, err := service.Place.Search("Example", 10)
+	searchResults, err := service.Restaurant.Search("Example", 10)
 	if err != nil {
 		log.Printf("Error searching places: %v", err)
 	} else {
@@ -125,7 +125,7 @@ func main() {
 	// Example: Transaction usage
 	err = service.Transaction(func(txService *db.Service) error {
 		// Create multiple records in a transaction
-		place2 := &db.Place{
+		place2 := &db.Restaurant{
 			PlaceID:   "example_place_2",
 			Name:      "Another Place",
 			Address:   "789 Another St",
@@ -133,7 +133,7 @@ func main() {
 			Longitude: 151.2000,
 		}
 
-		if err := txService.Place.Create(place2); err != nil {
+		if err := txService.Restaurant.Create(place2); err != nil {
 			return err
 		}
 
@@ -154,12 +154,12 @@ func main() {
 	}
 
 	// Example: Get counts
-	placeCount, _ := service.Place.Count()
+	restaurantCount, _ := service.Restaurant.Count()
 	superchargerCount, _ := service.Supercharger.Count()
 	mapsLogCount, _ := service.MapsCallLog.Count()
 
 	fmt.Printf("\nDatabase statistics:\n")
-	fmt.Printf("Places: %d\n", placeCount)
+	fmt.Printf("Restaurants: %d\n", restaurantCount)
 	fmt.Printf("Superchargers: %d\n", superchargerCount)
 	fmt.Printf("Maps call logs: %d\n", mapsLogCount)
 }

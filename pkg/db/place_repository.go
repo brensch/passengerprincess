@@ -4,34 +4,34 @@ import (
 	"gorm.io/gorm"
 )
 
-// PlaceRepository provides CRUD operations for Place entities
-type PlaceRepository struct {
+// RestaurantRepository provides CRUD operations for Restaurant entities
+type RestaurantRepository struct {
 	db *gorm.DB
 }
 
-// NewPlaceRepository creates a new PlaceRepository
-func NewPlaceRepository(db *gorm.DB) *PlaceRepository {
-	return &PlaceRepository{db: db}
+// NewRestaurantRepository creates a new RestaurantRepository
+func NewRestaurantRepository(db *gorm.DB) *RestaurantRepository {
+	return &RestaurantRepository{db: db}
 }
 
-// Create creates a new place
-func (r *PlaceRepository) Create(place *Place) error {
-	return r.db.Create(place).Error
+// Create creates a new restaurant
+func (r *RestaurantRepository) Create(restaurant *Restaurant) error {
+	return r.db.Create(restaurant).Error
 }
 
-// CreateBatch creates multiple places in a single transaction
-func (r *PlaceRepository) CreateBatch(places []Place) error {
-	if len(places) == 0 {
+// CreateBatch creates multiple restaurants in a single transaction
+func (r *RestaurantRepository) CreateBatch(restaurants []Restaurant) error {
+	if len(restaurants) == 0 {
 		return nil
 	}
-	return r.db.Create(&places).Error
+	return r.db.Create(&restaurants).Error
 }
 
-// CreateWithSupercharger creates a place and associates it with a supercharger
-func (r *PlaceRepository) CreateWithSupercharger(place *Place, superchargerID string) error {
+// CreateWithSupercharger creates a restaurant and associates it with a supercharger
+func (r *RestaurantRepository) CreateWithSupercharger(restaurant *Restaurant, superchargerID string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Create the place
-		if err := tx.Create(place).Error; err != nil {
+		// Create the restaurant
+		if err := tx.Create(restaurant).Error; err != nil {
 			return err
 		}
 
@@ -41,16 +41,16 @@ func (r *PlaceRepository) CreateWithSupercharger(place *Place, superchargerID st
 			return err
 		}
 
-		return tx.Model(place).Association("Superchargers").Append(&supercharger)
+		return tx.Model(restaurant).Association("Superchargers").Append(&supercharger)
 	})
 }
 
-// AssociateWithSupercharger associates an existing place with a supercharger
-func (r *PlaceRepository) AssociateWithSupercharger(placeID, superchargerID string) error {
-	var place Place
+// AssociateWithSupercharger associates an existing restaurant with a supercharger
+func (r *RestaurantRepository) AssociateWithSupercharger(restaurantID, superchargerID string) error {
+	var restaurant Restaurant
 	var supercharger Supercharger
 
-	if err := r.db.Where("place_id = ?", placeID).First(&place).Error; err != nil {
+	if err := r.db.Where("place_id = ?", restaurantID).First(&restaurant).Error; err != nil {
 		return err
 	}
 
@@ -58,19 +58,19 @@ func (r *PlaceRepository) AssociateWithSupercharger(placeID, superchargerID stri
 		return err
 	}
 
-	return r.db.Model(&place).Association("Superchargers").Append(&supercharger)
+	return r.db.Model(&restaurant).Association("Superchargers").Append(&supercharger)
 }
 
-// BatchAssociateWithSuperchargers efficiently associates multiple places with their superchargers
-func (r *PlaceRepository) BatchAssociateWithSuperchargers(associations []struct {
-	PlaceID        string
+// BatchAssociateWithSuperchargers efficiently associates multiple restaurants with their superchargers
+func (r *RestaurantRepository) BatchAssociateWithSuperchargers(associations []struct {
+	RestaurantID   string
 	SuperchargerID string
 }) error {
 	// Use raw SQL for efficient batch association
 	for _, assoc := range associations {
 		err := r.db.Exec(
-			"INSERT OR IGNORE INTO place_superchargers (place_place_id, supercharger_place_id) VALUES (?, ?)",
-			assoc.PlaceID, assoc.SuperchargerID,
+			"INSERT OR IGNORE INTO restaurant_superchargers (restaurant_place_id, supercharger_place_id) VALUES (?, ?)",
+			assoc.RestaurantID, assoc.SuperchargerID,
 		).Error
 		if err != nil {
 			return err
@@ -79,29 +79,29 @@ func (r *PlaceRepository) BatchAssociateWithSuperchargers(associations []struct 
 	return nil
 }
 
-// GetByID retrieves a place by its ID
-func (r *PlaceRepository) GetByID(placeID string) (*Place, error) {
-	var place Place
-	err := r.db.Where("place_id = ?", placeID).First(&place).Error
+// GetByID retrieves a restaurant by its ID
+func (r *RestaurantRepository) GetByID(restaurantID string) (*Restaurant, error) {
+	var restaurant Restaurant
+	err := r.db.Where("place_id = ?", restaurantID).First(&restaurant).Error
 	if err != nil {
 		return nil, err
 	}
-	return &place, nil
+	return &restaurant, nil
 }
 
-// GetByIDWithSuperchargers retrieves a place by its ID with associated superchargers
-func (r *PlaceRepository) GetByIDWithSuperchargers(placeID string) (*Place, error) {
-	var place Place
-	err := r.db.Preload("Superchargers").Where("place_id = ?", placeID).First(&place).Error
+// GetByIDWithSuperchargers retrieves a restaurant by its ID with associated superchargers
+func (r *RestaurantRepository) GetByIDWithSuperchargers(restaurantID string) (*Restaurant, error) {
+	var restaurant Restaurant
+	err := r.db.Preload("Superchargers").Where("place_id = ?", restaurantID).First(&restaurant).Error
 	if err != nil {
 		return nil, err
 	}
-	return &place, nil
+	return &restaurant, nil
 }
 
-// GetAll retrieves all places with optional pagination
-func (r *PlaceRepository) GetAll(limit, offset int) ([]Place, error) {
-	var places []Place
+// GetAll retrieves all restaurants with optional pagination
+func (r *RestaurantRepository) GetAll(limit, offset int) ([]Restaurant, error) {
+	var restaurants []Restaurant
 	query := r.db
 
 	if limit > 0 {
@@ -111,41 +111,41 @@ func (r *PlaceRepository) GetAll(limit, offset int) ([]Place, error) {
 		query = query.Offset(offset)
 	}
 
-	err := query.Find(&places).Error
-	return places, err
+	err := query.Find(&restaurants).Error
+	return restaurants, err
 }
 
-// GetByLocation retrieves places within a bounding box
-func (r *PlaceRepository) GetByLocation(minLat, maxLat, minLng, maxLng float64) ([]Place, error) {
-	var places []Place
+// GetByLocation retrieves restaurants within a bounding box
+func (r *RestaurantRepository) GetByLocation(minLat, maxLat, minLng, maxLng float64) ([]Restaurant, error) {
+	var restaurants []Restaurant
 	err := r.db.Where("latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?",
-		minLat, maxLat, minLng, maxLng).Find(&places).Error
-	return places, err
+		minLat, maxLat, minLng, maxLng).Find(&restaurants).Error
+	return restaurants, err
 }
 
-// Update updates an existing place
-func (r *PlaceRepository) Update(place *Place) error {
-	return r.db.Save(place).Error
+// Update updates an existing restaurant
+func (r *RestaurantRepository) Update(restaurant *Restaurant) error {
+	return r.db.Save(restaurant).Error
 }
 
-// Delete deletes a place by ID
-func (r *PlaceRepository) Delete(placeID string) error {
-	return r.db.Where("place_id = ?", placeID).Delete(&Place{}).Error
+// Delete deletes a restaurant by ID
+func (r *RestaurantRepository) Delete(restaurantID string) error {
+	return r.db.Where("place_id = ?", restaurantID).Delete(&Restaurant{}).Error
 }
 
-// Search searches places by name or address
-func (r *PlaceRepository) Search(query string, limit int) ([]Place, error) {
-	var places []Place
+// Search searches restaurants by name or address
+func (r *RestaurantRepository) Search(query string, limit int) ([]Restaurant, error) {
+	var restaurants []Restaurant
 	searchQuery := "%" + query + "%"
 	err := r.db.Where("name LIKE ? OR address LIKE ?", searchQuery, searchQuery).
-		Limit(limit).Find(&places).Error
-	return places, err
+		Limit(limit).Find(&restaurants).Error
+	return restaurants, err
 }
 
-// Count returns total number of places
-func (r *PlaceRepository) Count() (int64, error) {
+// Count returns total number of restaurants
+func (r *RestaurantRepository) Count() (int64, error) {
 	var count int64
-	err := r.db.Model(&Place{}).Count(&count).Error
+	err := r.db.Model(&Restaurant{}).Count(&count).Error
 	return count, err
 }
 
@@ -182,10 +182,10 @@ func (r *SuperchargerRepository) GetByID(placeID string) (*Supercharger, error) 
 	return &supercharger, nil
 }
 
-// GetByIDWithPlaces retrieves a supercharger by its ID with associated places
-func (r *SuperchargerRepository) GetByIDWithPlaces(placeID string) (*Supercharger, error) {
+// GetByIDWithRestaurants retrieves a supercharger by its ID with associated restaurants
+func (r *SuperchargerRepository) GetByIDWithRestaurants(placeID string) (*Supercharger, error) {
 	var supercharger Supercharger
-	err := r.db.Preload("Places").Where("place_id = ?", placeID).First(&supercharger).Error
+	err := r.db.Preload("Restaurants").Where("place_id = ?", placeID).First(&supercharger).Error
 	if err != nil {
 		return nil, err
 	}
