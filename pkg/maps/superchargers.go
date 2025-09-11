@@ -36,7 +36,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 	// get all the ids of superchargers along the route
 	seenPlaceIDs := make(map[string]struct{})
 	for _, circle := range circles {
-		places, err := GetPlacesViaTextSearch(ctx, apiKey, "tesla supercharger", "id,displayName,formattedAddress,location", circle)
+		places, err := GetPlacesViaTextSearch(ctx, apiKey, "tesla supercharger", "places.id", circle)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +90,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 
 	// Check if error is "not found" (expected when place doesn't exist in DB)
 	if err != gorm.ErrRecordNotFound {
-		return nil, fmt.Errorf("failed to query restaurant from database: %w", err)
+		return nil, fmt.Errorf("failed to query supercharger from database: %w", err)
 	}
 
 	// Not found in database, fetch from API
@@ -115,12 +115,12 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 	for _, restaurant := range restaurants {
 		dbRestaurant := db.Restaurant{
 			PlaceID:            restaurant.ID,
-			Name:               derefString(restaurant.DisplayName),
+			Name:               derefDisplayName(restaurant.DisplayName),
 			Address:            derefString(restaurant.FormattedAddress),
 			Latitude:           restaurant.Location.Latitude,
 			Longitude:          restaurant.Location.Longitude,
 			PrimaryType:        derefString(restaurant.PrimaryType),
-			PrimaryTypeDisplay: derefString(restaurant.PrimaryTypeDisplayName),
+			PrimaryTypeDisplay: derefDisplayName(restaurant.PrimaryTypeDisplayName),
 		}
 		dbRestaurants = append(dbRestaurants, dbRestaurant)
 	}
@@ -128,7 +128,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 	// Store in database for future use
 	supercharger = &db.Supercharger{
 		PlaceID:     superchargerDetails.ID,
-		Name:        derefString(superchargerDetails.DisplayName),
+		Name:        derefDisplayName(superchargerDetails.DisplayName),
 		Address:     derefString(superchargerDetails.FormattedAddress),
 		Latitude:    superchargerDetails.Location.Latitude,
 		Longitude:   superchargerDetails.Location.Longitude,
@@ -149,4 +149,11 @@ func derefString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func derefDisplayName(dn *DisplayNameObj) string {
+	if dn == nil {
+		return ""
+	}
+	return dn.Text
 }

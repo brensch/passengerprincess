@@ -28,7 +28,7 @@ func TestGetPlacesViaTextSearch(t *testing.T) {
 	}
 
 	// Call the real API
-	places, err := GetPlacesViaTextSearch(context.Background(), apiKey, query, "id,displayName,formattedAddress,location", targetCircle)
+	places, err := GetPlacesViaTextSearch(context.Background(), apiKey, query, FieldMaskRestaurantTextSearch, targetCircle)
 	if err != nil {
 		t.Fatalf("GetPlaceIDsViaTextSearch failed: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestGetPlacesViaTextSearch(t *testing.T) {
 		}
 		// Optional fields
 		if place.DisplayName != nil {
-			t.Logf("Place %d display name: %s", i, *place.DisplayName)
+			t.Logf("Place %d display name: %s", i, place.DisplayName.Text)
 		}
 		if place.FormattedAddress != nil {
 			t.Logf("Place %d address: %s", i, *place.FormattedAddress)

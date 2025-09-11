@@ -52,7 +52,7 @@ func Initialize(config *Config) error {
 	}
 
 	// Configure SQLite settings
-	if err := configureSQLite(); err != nil {
+	if err := configureSQLite(config); err != nil {
 		return fmt.Errorf("failed to configure SQLite: %w", err)
 	}
 
@@ -65,19 +65,22 @@ func Initialize(config *Config) error {
 }
 
 // configureSQLite applies SQLite-specific settings
-func configureSQLite() error {
+func configureSQLite(config *Config) error {
 	sqlDB, err := DB.DB()
 	if err != nil {
 		return err
 	}
 
-	// Apply SQLite pragmas
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON",
-		"PRAGMA journal_mode = WAL",
 		"PRAGMA synchronous = NORMAL",
 		"PRAGMA cache_size = 1000000",
 		"PRAGMA temp_store = memory",
+	}
+
+	// Skip WAL mode for in-memory databases as it's not supported
+	if config.DatabasePath != ":memory:" {
+		pragmas = append(pragmas, "PRAGMA journal_mode = WAL")
 	}
 
 	for _, pragma := range pragmas {
@@ -92,8 +95,8 @@ func configureSQLite() error {
 // autoMigrate runs automatic migrations for all models
 func autoMigrate() error {
 	return DB.AutoMigrate(
-		&Restaurant{},
 		&Supercharger{},
+		&Restaurant{},
 		&MapsCallLog{},
 		&CacheHit{},
 		&RouteCallLog{},

@@ -43,14 +43,20 @@ type apiResponse struct {
 	Places []*PlaceDetails `json:"places"`
 }
 
+// DisplayNameObj represents the display name object from Google Places API
+type DisplayNameObj struct {
+	Text         string `json:"text"`
+	LanguageCode string `json:"languageCode,omitempty"`
+}
+
 // PlaceDetails represents the essential place information from Google Places API
 type PlaceDetails struct {
-	ID                     string    `json:"id"`
-	DisplayName            *string   `json:"displayName"`
-	FormattedAddress       *string   `json:"formattedAddress,omitempty"`
-	Location               *Location `json:"location,omitempty"`
-	PrimaryType            *string   `json:"primaryType,omitempty"`
-	PrimaryTypeDisplayName *string   `json:"primaryTypeDisplayName,omitempty"`
+	ID                     string          `json:"id"`
+	DisplayName            *DisplayNameObj `json:"displayName"`
+	FormattedAddress       *string         `json:"formattedAddress,omitempty"`
+	Location               *Location       `json:"location,omitempty"`
+	PrimaryType            *string         `json:"primaryType,omitempty"`
+	PrimaryTypeDisplayName *DisplayNameObj `json:"primaryTypeDisplayName,omitempty"`
 }
 
 type Location struct {

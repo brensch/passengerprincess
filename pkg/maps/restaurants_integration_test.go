@@ -8,10 +8,10 @@ import (
 	"github.com/brensch/passengerprincess/pkg/db"
 )
 
-// TestGetPlaceIDsViaTextSearch makes an actual call to Google Places API
+// TestGetPlaceDetailsViaTextSearch makes an actual call to Google Places API
 // and verifies it returns valid place IDs. This test requires MAPS_API_KEY environment variable.
-// Run with: MAPS_API_KEY=your_key go test -run TestGetPlaceIDsViaTextSearch ./pkg/maps
-func TestGetPlaceIDsViaTextSearch(t *testing.T) {
+// Run with: MAPS_API_KEY=your_key go test -run TestGetPlaceDetailsViaTextSearch ./pkg/maps
+func TestGetPlaceDetailsViaTextSearch(t *testing.T) {
 	apiKey := os.Getenv("MAPS_API_KEY")
 	if apiKey == "" {
 		t.Skip("MAPS_API_KEY not set, skipping integration test")
@@ -69,7 +69,7 @@ func TestGetPlaceIDsViaTextSearch(t *testing.T) {
 		}
 		// Optional fields
 		if place.DisplayName != nil {
-			t.Logf("Place %d display name: %s", i, *place.DisplayName)
+			t.Logf("Place %d display name: %s", i, place.DisplayName.Text)
 		}
 		if place.FormattedAddress != nil {
 			t.Logf("Place %d address: %s", i, *place.FormattedAddress)
@@ -81,7 +81,7 @@ func TestGetPlaceIDsViaTextSearch(t *testing.T) {
 			t.Logf("Place %d primary type: %s", i, *place.PrimaryType)
 		}
 		if place.PrimaryTypeDisplayName != nil {
-			t.Logf("Place %d primary type display name: %s", i, *place.PrimaryTypeDisplayName)
+			t.Logf("Place %d primary type display name: %s", i, place.PrimaryTypeDisplayName.Text)
 		}
 	}
 
