@@ -38,7 +38,8 @@ func TestGetRoute(t *testing.T) {
 		t.Error("Expected non-empty encoded polyline")
 	}
 
-	t.Log(result.EncodedPolyline)
+	resultJSON, _ := json.MarshalIndent(result, "", "  ")
+	t.Log(string(resultJSON))
 
 }
 
