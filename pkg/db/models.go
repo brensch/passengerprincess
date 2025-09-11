@@ -22,6 +22,11 @@ type Restaurant struct {
 	Superchargers []Supercharger `gorm:"many2many:restaurant_superchargers;" json:"superchargers,omitempty"`
 }
 
+// TableName returns the table name for Restaurant
+func (Restaurant) TableName() string {
+	return "restaurants"
+}
+
 // Supercharger represents a Tesla supercharger location
 type Supercharger struct {
 	PlaceID     string    `gorm:"primaryKey;column:place_id" json:"place_id"`
@@ -33,6 +38,11 @@ type Supercharger struct {
 
 	// Many-to-many relationship with restaurants
 	Restaurants []Restaurant `gorm:"many2many:restaurant_superchargers;" json:"restaurants,omitempty"`
+}
+
+// TableName returns the table name for Supercharger
+func (Supercharger) TableName() string {
+	return "superchargers"
 }
 
 // MapsCallLog represents API call logging for maps operations

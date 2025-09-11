@@ -46,7 +46,16 @@ func Initialize(config *Config) error {
 	}
 
 	// Open database connection
-	DB, err = gorm.Open(sqlite.Open(config.DatabasePath), gormConfig)
+	var dbPath string
+	if config.DatabasePath == ":memory:" {
+		// Use a shared cache for in-memory databases to allow multiple connections
+		// to access the same database instance
+		dbPath = "file::memory:?cache=shared"
+	} else {
+		dbPath = config.DatabasePath
+	}
+
+	DB, err = gorm.Open(sqlite.Open(dbPath), gormConfig)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -60,6 +69,8 @@ func Initialize(config *Config) error {
 	if err := autoMigrate(); err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
+
+	log.Println("Database initialized and migrated successfully")
 
 	return nil
 }
@@ -83,6 +94,9 @@ func configureSQLite(config *Config) error {
 		pragmas = append(pragmas, "PRAGMA journal_mode = WAL")
 	}
 
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(5)
+
 	for _, pragma := range pragmas {
 		if _, err := sqlDB.Exec(pragma); err != nil {
 			return fmt.Errorf("failed to execute pragma %s: %w", pragma, err)
@@ -95,8 +109,8 @@ func configureSQLite(config *Config) error {
 // autoMigrate runs automatic migrations for all models
 func autoMigrate() error {
 	return DB.AutoMigrate(
-		&Supercharger{},
 		&Restaurant{},
+		&Supercharger{},
 		&MapsCallLog{},
 		&CacheHit{},
 		&RouteCallLog{},

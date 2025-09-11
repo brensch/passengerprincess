@@ -23,7 +23,6 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer db.Close()
 
 	broker := db.GetDefaultService()
 
@@ -65,4 +64,7 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 	if len(superchargers) == 0 {
 		t.Error("Expected to find at least one supercharger on the route")
 	}
+
+	// Close the database after all operations are complete
+	defer db.Close()
 }
