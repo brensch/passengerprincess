@@ -1,20 +1,33 @@
 package db
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"gorm.io/gorm/logger"
 )
 
 func TestInitialize(t *testing.T) {
+	// Create database file in test-databases directory
+	timestamp := time.Now().Format("20060102_150405")
+	dbFile := filepath.Join("test-databases", fmt.Sprintf("TestInitialize_%s.db", timestamp))
+
+	// Ensure the directory exists
+	os.MkdirAll("test-databases", 0755)
+
 	err := Initialize(&Config{
-		DatabasePath: ":memory:",
+		DatabasePath: dbFile,
 		LogLevel:     logger.Error,
 	})
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer Close()
+
+	t.Logf("Database created at: %s", dbFile)
 
 	// Check if tables exist
 	if !DB.Migrator().HasTable(&Supercharger{}) {
@@ -93,14 +106,23 @@ func TestInitialize(t *testing.T) {
 }
 
 func TestSuperchargerRepository(t *testing.T) {
+	// Create database file in test-databases directory
+	timestamp := time.Now().Format("20060102_150405")
+	dbFile := filepath.Join("test-databases", fmt.Sprintf("TestSuperchargerRepository_%s.db", timestamp))
+
+	// Ensure the directory exists
+	os.MkdirAll("test-databases", 0755)
+
 	err := Initialize(&Config{
-		DatabasePath: ":memory:",
+		DatabasePath: dbFile,
 		LogLevel:     logger.Error,
 	})
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer Close()
+
+	t.Logf("Database created at: %s", dbFile)
 
 	service := GetDefaultService()
 
@@ -138,14 +160,23 @@ func TestSuperchargerRepository(t *testing.T) {
 }
 
 func TestRestaurantRepository(t *testing.T) {
+	// Create database file in test-databases directory
+	timestamp := time.Now().Format("20060102_150405")
+	dbFile := filepath.Join("test-databases", fmt.Sprintf("TestRestaurantRepository_%s.db", timestamp))
+
+	// Ensure the directory exists
+	os.MkdirAll("test-databases", 0755)
+
 	err := Initialize(&Config{
-		DatabasePath: ":memory:",
+		DatabasePath: dbFile,
 		LogLevel:     logger.Error,
 	})
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer Close()
+
+	t.Logf("Database created at: %s", dbFile)
 
 	service := GetDefaultService()
 

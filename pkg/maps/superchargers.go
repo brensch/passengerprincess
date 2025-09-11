@@ -19,13 +19,20 @@ type superchargerResult struct {
 	err          error
 }
 
-func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination string) ([]*db.Supercharger, error) {
+// SuperchargersOnRouteResult holds both the route information and the superchargers found along it
+type SuperchargersOnRouteResult struct {
+	Route         *RouteInfo
+	Superchargers []*db.Supercharger
+	SearchCircles []Circle
+}
+
+func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination string) (*SuperchargersOnRouteResult, error) {
 	route, err := GetRoute(apiKey, origin, destination)
 	if err != nil {
 		return nil, err
 	}
 
-	circles, err := PolylineToCircles(route.EncodedPolyline, SuperchargerSearchRadiusMeters) // 10 km radius
+	circles, err := PolylineToCircles(route.EncodedPolyline, SuperchargerSearchRadiusMeters)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +77,11 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		superchargers = append(superchargers, res.supercharger)
 	}
 
-	return superchargers, nil
+	return &SuperchargersOnRouteResult{
+		Route:         route,
+		Superchargers: superchargers,
+		SearchCircles: circles,
+	}, nil
 }
 
 const (

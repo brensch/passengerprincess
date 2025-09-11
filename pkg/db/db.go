@@ -46,16 +46,7 @@ func Initialize(config *Config) error {
 	}
 
 	// Open database connection
-	var dbPath string
-	if config.DatabasePath == ":memory:" {
-		// Use a shared cache for in-memory databases to allow multiple connections
-		// to access the same database instance
-		dbPath = "file::memory:?cache=shared"
-	} else {
-		dbPath = config.DatabasePath
-	}
-
-	DB, err = gorm.Open(sqlite.Open(dbPath), gormConfig)
+	DB, err = gorm.Open(sqlite.Open(config.DatabasePath), gormConfig)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -84,16 +75,13 @@ func configureSQLite(config *Config) error {
 
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON",
+		"PRAGMA journal_mode = WAL",
 		"PRAGMA synchronous = NORMAL",
 		"PRAGMA cache_size = 1000000",
 		"PRAGMA temp_store = memory",
 	}
 
-	// Skip WAL mode for in-memory databases as it's not supported
-	if config.DatabasePath != ":memory:" {
-		pragmas = append(pragmas, "PRAGMA journal_mode = WAL")
-	}
-
+	// Set connection pool settings for concurrent access
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
 

@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Supercharger Route Visualization</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+      #map {
+        height: 90vh;
+        width: 100%;
+      }
+      #info {
+        height: 10vh;
+        padding: 10px;
+        background-color: #f0f0f0;
+        border-bottom: 1px solid #ccc;
+        font-family: Arial, sans-serif;
+      }
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">
+      <h3>Route Information</h3>
+      <p><strong>Distance:</strong> 55708 meters (55.71 km)</p>
+      <p><strong>Duration:</strong> 37m52s</p>
+      <p><strong>Superchargers Found:</strong> <span id="charger-count"></span></p>
+      <p><strong>Search Circles:</strong> <span id="circle-count"></span></p>
+    </div>
+    <div id="map"></div>
+    <script>
+      (function() {
+        const pathData = [[37.39003,-122.08123],[37.38956,-122.08008],[37.38917,-122.07908],[37.39387,-122.07617],[37.39202,-122.07147],[37.39159,-122.07038],[37.39141,-122.06979],[37.39135,-122.06947],[37.39135,-122.06942],[37.3913,-122.06935],[37.39124,-122.06903],[37.3891,-122.06901],[37.38866,-122.06898],[37.38854,-122.06887],[37.38782,-122.06883],[37.37814,-122.06778],[37.37773,-122.06776],[37.37721,-122.06778],[37.37528,-122.06801],[37.37465,-122.06802],[37.37407,-122.06795],[37.37356,-122.06782],[37.37304,-122.06763],[37.37264,-122.06743],[37.36669,-122.06383],[37.36619,-122.06357],[37.36554,-122.0633],[37.36497,-122.06314],[37.36429,-122.06303],[37.36379,-122.063],[37.3598,-122.06307],[37.35886,-122.06305],[37.35793,-122.06294],[37.35739,-122.06284],[37.3564,-122.06259],[37.35564,-122.06232],[37.35473,-122.06193],[37.35277,-122.06096],[37.35162,-122.06052],[37.3508,-122.06029],[37.34989,-122.06011],[37.34897,-122.06002],[37.34807,-122.06],[37.34451,-122.05999],[37.34302,-122.05998],[37.34077,-122.05998],[37.33901,-122.05994],[37.33841,-122.0599],[37.3378,-122.05978],[37.33691,-122.05951],[37.33613,-122.05915],[37.33548,-122.05876],[37.33483,-122.05827],[37.33421,-122.05771],[37.32926,-122.05267],[37.32837,-122.052],[37.3279,-122.05171],[37.32731,-122.05138],[37.32664,-122.05108],[37.32571,-122.05078],[37.32227,-122.04997],[37.32139,-122.04968],[37.32051,-122.04932],[37.31251,-122.04539],[37.31172,-122.04482],[37.31117,-122.04434],[37.31068,-122.04383],[37.29978,-122.03102],[37.29927,-122.03049],[37.29861,-122.02986],[37.28621,-122.01964],[37.28559,-122.019],[37.28501,-122.01832],[37.28256,-122.01515],[37.2796,-122.01131],[37.27798,-122.0092],[37.27697,-122.00788],[37.27631,-122.00688],[37.27568,-122.00575],[37.27519,-122.00473],[37.2736,-122.00118],[37.27317,-122.00005],[37.27286,-121.99906],[37.27205,-121.9962],[37.27172,-121.9952],[37.2713,-121.99417],[37.27079,-121.99313],[37.26907,-121.98976],[37.26807,-121.98764],[37.26498,-121.98091],[37.26306,-121.97643],[37.26024,-121.97026],[37.2598,-121.9691],[37.25945,-121.968],[37.25873,-121.96519],[37.25816,-121.96328],[37.25737,-121.96098],[37.25547,-121.95563],[37.25503,-121.95418],[37.25465,-121.95267],[37.25447,-121.95182],[37.25156,-121.93558],[37.25064,-121.93045],[37.25048,-121.92922],[37.25038,-121.92805],[37.25036,-121.92704],[37.25044,-121.91325],[37.25046,-121.90755],[37.25054,-121.90139],[37.25058,-121.8952],[37.25064,-121.89398],[37.25076,-121.8929],[37.25092,-121.89191],[37.25112,-121.89096],[37.2533,-121.88254],[37.25367,-121.88133],[37.25396,-121.88047],[37.25494,-121.87777],[37.25526,-121.87671],[37.25545,-121.8759],[37.25557,-121.87533],[37.25566,-121.87476],[37.25581,-121.87321],[37.25583,-121.87219],[37.25577,-121.87084],[37.25536,-121.86386],[37.25533,-121.86249],[37.25533,-121.85591],[37.25527,-121.85285],[37.25514,-121.84846],[37.25507,-121.84758],[37.25492,-121.84669],[37.25475,-121.84596],[37.25452,-121.8452],[37.25424,-121.84444],[37.25385,-121.84361],[37.24425,-121.82395],[37.24378,-121.82259],[37.24366,-121.82217],[37.24342,-121.8211],[37.24329,-121.82033],[37.2432,-121.81946],[37.24316,-121.81861],[37.24301,-121.80673],[37.24293,-121.80556],[37.24279,-121.80437],[37.24255,-121.80307],[37.24221,-121.8017],[37.23973,-121.79231],[37.23955,-121.7914],[37.23941,-121.79032],[37.23934,-121.78944],[37.23932,-121.78835],[37.23935,-121.78748],[37.23946,-121.78639],[37.24148,-121.77304],[37.24164,-121.77147],[37.24166,-121.77086],[37.24161,-121.77022],[37.24149,-121.76951],[37.24128,-121.76875],[37.24104,-121.76814],[37.24066,-121.76741],[37.24062,-121.76714],[37.24055,-121.76704],[37.23829,-121.76307],[37.23679,-121.76033],[37.22792,-121.7448],[37.22711,-121.74354],[37.22624,-121.74231],[37.21743,-121.73113],[37.21667,-121.73025],[37.21595,-121.72951],[37.21427,-121.72785],[37.21352,-121.72709],[37.21029,-121.72394],[37.20959,-121.72321],[37.20897,-121.72246],[37.20833,-121.7216],[37.20783,-121.72082],[37.19997,-121.7071],[37.19876,-121.70513],[37.19774,-121.70358],[37.19691,-121.70237],[37.19547,-121.70034],[37.18661,-121.6877],[37.18588,-121.68678],[37.18509,-121.6859],[37.18412,-121.68497],[37.18031,-121.68165],[37.17914,-121.68056],[37.17804,-121.67943],[37.17694,-121.6782],[37.17138,-121.67161],[37.17058,-121.67074],[37.16955,-121.6697],[37.16864,-121.66886],[37.16432,-121.66525],[37.16343,-121.66441],[37.16255,-121.66347],[37.16187,-121.66267],[37.16116,-121.66175],[37.15926,-121.65915],[37.15839,-121.65811],[37.15748,-121.6571],[37.15736,-121.65708],[37.1549,-121.6551],[37.15453,-121.65487],[37.15421,-121.65474],[37.15395,-121.65466],[37.15317,-121.6545],[37.1529,-121.65439],[37.15257,-121.65416],[37.15235,-121.65395],[37.1522,-121.65384],[37.1512,-121.65542],[37.15112,-121.65551],[37.14753,-121.6612],[37.14729,-121.66094],[37.1456,-121.65927],[37.14528,-121.65899],[37.14479,-121.65863],[37.14431,-121.65837],[37.14335,-121.65795],[37.14302,-121.65776],[37.14246,-121.65737],[37.14034,-121.65541],[37.13971,-121.65498],[37.13925,-121.65477],[37.13902,-121.65469],[37.13845,-121.6546],[37.13795,-121.65459],[37.13717,-121.6547],[37.13685,-121.6547],[37.13651,-121.65466],[37.13609,-121.65454],[37.13557,-121.65427],[37.13522,-121.65401],[37.13477,-121.65356],[37.13276,-121.65148],[37.13221,-121.65222],[37.13159,-121.65296],[37.13048,-121.65436]];
+        const superchargersData = [{"address":"Arroyo Cir #8155, Gilroy, CA 95020, USA","latitude":37.0196002,"longitude":-121.56421659999998,"name":"","placeId":"ChIJyRKXbMPjkYAREeDW842xy5Q"},{"address":"533 Coleman Ave, San Jose, CA 95110, USA","latitude":37.339563,"longitude":-121.90365999999999,"name":"","placeId":"ChIJg_KB-__Lj4ARKxcCo2ycXnE"},{"address":"1061 Cochrane Rd, Morgan Hill, CA 95037, USA","latitude":37.1564453,"longitude":-121.65342869999999,"name":"","placeId":"ChIJ-4EjUcogjoARJSbEZ4lcdkQ"},{"address":"10021 Pacheco Pass Hwy, Hollister, CA 95023, USA","latitude":36.989801799999995,"longitude":-121.38048279999998,"name":"","placeId":"ChIJxSlZ-xXxkYARUw7KcV6P7oE"},{"address":"Santana Row, 330 S Winchester Blvd, San Jose, CA 95128, USA","latitude":37.321981,"longitude":-121.94864399999997,"name":"","placeId":"ChIJxX-VDODKj4ARqeJwBn7eWls"},{"address":"925 Blossom Hill Rd, San Jose, CA 95123, USA","latitude":37.250838099999996,"longitude":-121.8607402,"name":"","placeId":"ChIJIWWiL9gzjoARxda7zFHHG8M"},{"address":"3945 Rivermark Plaza, Santa Clara, CA 95054, USA","latitude":37.395486,"longitude":-121.94524,"name":"","placeId":"ChIJ0aYdNXLJj4ARWrRVbC1BKhk"},{"address":"639 S Bernardo Ave, Sunnyvale, CA 94087, USA","latitude":37.3722989,"longitude":-122.0570779,"name":"","placeId":"ChIJt4njKo63j4ARXMN4NsSg6cI"},{"address":"Winchester Garage, 330 Winchester Blvd, San Jose, CA 95128, USA","latitude":37.321884000000004,"longitude":-121.949815,"name":"","placeId":"ChIJDdNhe1zLj4ARfyYvS5rpjOk"},{"address":"140 S Santa Cruz Ave, Los Gatos, CA 95030, USA","latitude":37.2206944,"longitude":-121.98536519999999,"name":"","placeId":"ChIJE35rsPs1joARTF4d5DP__Y8"},{"address":"N Mathilda Ave #1100, Sunnyvale, CA 94089, USA","latitude":37.4043007,"longitude":-122.02537360000001,"name":"","placeId":"ChIJZzI8rIa3j4AR_w9f_gljkVQ"},{"address":"Bryant St #445, Palo Alto, CA 94301, USA","latitude":37.446657200000004,"longitude":-122.1619412,"name":"","placeId":"ChIJiVr2Cgi7j4ARWohyzpN09a0"},{"address":"1350 Grant Rd, Mountain View, CA 94040, USA","latitude":37.3774491,"longitude":-122.07736000000001,"name":"","placeId":"ChIJ9fyoVQC3j4ARaE7BLbTVhUA"},{"address":"46 E Main St, Los Gatos, CA 95030, USA","latitude":37.220872,"longitude":-121.98031899999998,"name":"","placeId":"ChIJMXM4oeQ1joAReFMthNMMKZs"},{"address":"1375 Blossom Hill Rd, San Jose, CA 95118, USA","latitude":37.244591899999996,"longitude":-121.89117949999999,"name":"","placeId":"ChIJGy9jL_0zjoARMoioZT-RSwI"},{"address":"20745 Stevens Creek Blvd, Cupertino, CA 95014, USA","latitude":37.3248353,"longitude":-122.03677270000001,"name":"","placeId":"ChIJ_Sklpau1j4ARfV2NIUSuNNI"},{"address":"55 Race St, San Jose, CA 95126, USA","latitude":37.3296328,"longitude":-121.9122091,"name":"","placeId":"ChIJMbpV21zLj4ARAQwHWbsPcL4"},{"address":"Santana Row - Winchester Garage - Valet 330 South Winchester, Santana Row, San Jose, CA 95128, USA","latitude":37.3214599,"longitude":-121.94897410000002,"name":"","placeId":"ChIJww9z39_Kj4ARQh2V8O9uIHI"},{"address":"560 E El Camino Real, Sunnyvale, CA 94087, USA","latitude":37.3624874,"longitude":-122.02624689999999,"name":"","placeId":"ChIJD0SwmnC2j4AR9n3aUp18Odw"},{"address":"Saratoga Ave #1320, San Jose, CA 95129, USA","latitude":37.3004251,"longitude":-121.98181279999999,"name":"","placeId":"ChIJ4YaTTRrLj4ARSel5zZKMPkM"},{"address":"1401 N Shoreline Blvd, Mountain View, CA 94043, USA","latitude":37.41530910000001,"longitude":-122.07655329999999,"name":"","placeId":"ChIJYyrshlm3j4ARnQhe-d9CmOA"},{"address":"142 Saratoga-Los Gatos Rd, Los Gatos, CA 95032, USA","latitude":37.2296534,"longitude":-121.9794825,"name":"","placeId":"ChIJM91kla01joARj76lyF1330w"},{"address":"1049 El Monte Ave, Mountain View, CA 94040, USA","latitude":37.3898666,"longitude":-122.09575900000002,"name":"","placeId":"ChIJG3WyfACxj4AR1_-8wvJ-WOo"},{"address":"Leavesley Rd, Gilroy, CA 95020, USA","latitude":37.024321,"longitude":-121.56515999999999,"name":"","placeId":"ChIJf6Jcr97jkYARrnQfE43iaJQ"},{"address":"Bernal Rd #117, San Jose, CA 95119, USA","latitude":37.231473199999996,"longitude":-121.77423030000001,"name":"","placeId":"ChIJL5_HYdgvjoARRSGEP0uUCZ4"},{"address":"Los Gatos Blvd #16000, Los Gatos, CA 95032, USA","latitude":37.2367528,"longitude":-121.9622756,"name":"","placeId":"ChIJ7_w9VAA1joARgjZcAJxsL40"},{"address":"95 Holger Way, San Jose, CA 95134, USA","latitude":37.417366099999995,"longitude":-121.95676160000001,"name":"","placeId":"ChIJVYCzZSTJj4ARSZJww3pEYRM"},{"address":"2926 Aborn Sq, San Jose, CA 95121, USA","latitude":37.3131208,"longitude":-121.8085442,"name":"","placeId":"ChIJHWwCqH0tjoARloKvtNK0Jgc"},{"address":"Meridian Ave #3085, San Jose, CA 95124, USA","latitude":37.2692978,"longitude":-121.90620659999999,"name":"","placeId":"ChIJ_wuz13U1joARRT3f_5K-IUQ"},{"address":"32 Loucks Ave, Los Altos, CA 94022, USA","latitude":37.3999022,"longitude":-122.1150162,"name":"","placeId":"ChIJN3ioCpuwj4ARk9vrFxthGCI"},{"address":"19500 Vallco Pkwy, Cupertino, CA 95014, USA","latitude":37.324431,"longitude":-122.009041,"name":"","placeId":"ChIJmfZ9xp21j4ARpxPRYdCVbek"},{"address":"2306 Almaden Rd, San Jose, CA 95125, USA","latitude":37.29226,"longitude":-121.87849600000001,"name":"","placeId":"ChIJt1VNKA0zjoAR9LhlszwP62o"},{"address":"1771 E Bayshore Rd, East Palo Alto, CA 94303, USA","latitude":37.459637,"longitude":-122.13765299999999,"name":"","placeId":"ChIJkdoFSfu7j4ARuOws2i0PP6E"},{"address":"E Capitol Expy #430, San Jose, CA 95136, USA","latitude":37.273854299999996,"longitude":-121.85028530000001,"name":"","placeId":"ChIJY4Ua0rYzjoAR-hW46Ra_A28"},{"address":"1561 W El Camino Real, Mountain View, CA 94040, USA","latitude":37.3894069,"longitude":-122.0920229,"name":"","placeId":"ChIJB8GOKMmwj4ARNY_E2sD6__A"},{"address":"5160 Cherry Ave, San Jose, CA 95118, USA","latitude":37.258638999999995,"longitude":-121.8717858,"name":"","placeId":"ChIJE5hV_iMzjoARY18U4f8IAs0"},{"address":"10050 S De Anza Blvd, Cupertino, CA 95014, USA","latitude":37.321771999999996,"longitude":-122.031361,"name":"","placeId":"ChIJjY_9vq61j4AR-nuk3SqpcyM"},{"address":"4800 El Camino Real, Los Altos, CA 94022, USA","latitude":37.399403299999996,"longitude":-122.1109915,"name":"","placeId":"ChIJt8ddRACxj4AR57UhkdPrvqw"},{"address":"298 W McKinley Ave, Sunnyvale, CA 94086, USA","latitude":37.37339,"longitude":-122.032893,"name":"","placeId":"ChIJu5WFqmC2j4ARktwtw2w0je8"},{"address":"3400 El Camino Real, Palo Alto, CA 94306, USA","latitude":37.4186509,"longitude":-122.135119,"name":"","placeId":"ChIJawEVqYy6j4ARSqOLSkDPOq8"},{"address":"179 Branham Ln, San Jose, CA 95136, USA","latitude":37.26703,"longitude":-121.831647,"name":"","placeId":"ChIJYYob7hgyjoARuYNUSbjc4jc"},{"address":"911 Soquel Ave, Santa Cruz, CA 95062, USA","latitude":36.979026,"longitude":-122.01384600000002,"name":"","placeId":"ChIJV4d7l_1BjoARuoXSdk-4VZY"},{"address":"901 E Calaveras Blvd, Milpitas, CA 95035, USA","latitude":37.4346615,"longitude":-121.89146319999998,"name":"","placeId":"ChIJd7e_p1vPj4ARwfWjPZhTFaM"},{"address":"Meridian Ave #3085, San Jose, CA 95124, USA","latitude":37.2693173,"longitude":-121.9061497,"name":"","placeId":"ChIJixHxXe41joARUzknBVDKx3o"},{"address":"S White Rd #1070, San Jose, CA 95127, USA","latitude":37.357021499999995,"longitude":-121.81824479999999,"name":"","placeId":"ChIJzcX5V77Nj4AR1uehxdWLNVM"},{"address":"4329 El Camino Real, Palo Alto, CA 94306, USA","latitude":37.405665299999995,"longitude":-122.1187927,"name":"","placeId":"ChIJLUM2EXi6j4ARKirp57z8TjY"},{"address":"64 W El Camino Real, Mountain View, CA 94040, USA","latitude":37.381623999999995,"longitude":-122.0742279,"name":"","placeId":"ChIJa5kNRCi3j4AR6WdlfDslpP8"},{"address":"1415 Main St, Watsonville, CA 95076, USA","latitude":36.9156376,"longitude":-121.77344509999999,"name":"","placeId":"ChIJjaSkw74bjoAR4RKWNqHH3s8"},{"address":"333 S Abbott Ave, Milpitas, CA 95035, USA","latitude":37.4253595,"longitude":-121.914581,"name":"","placeId":"ChIJtabuNSbJj4AR2eau9PUcBmw"},{"address":"1 Coyote Creek Golf Dr, Morgan Hill, CA 95037, USA","latitude":37.1930231,"longitude":-121.7022799,"name":"","placeId":"ChIJCSnlqmgmjoARCnPFSt4gJg8"},{"address":"6705 Camino Arroyo Dr, Gilroy, CA 95020, USA","latitude":37.001203,"longitude":-121.55405599999997,"name":"","placeId":"ChIJm2bMxyzjkYAR2TiNoY1Fr-M"},{"address":"325 Sharon Park Dr, Menlo Park, CA 94025, USA","latitude":37.4234095,"longitude":-122.1982197,"name":"","placeId":"ChIJJ_i4Doqlj4ARqQWRfSgHFkA"},{"address":"1100 N Mathilda Ave, Sunnyvale, CA 94089, USA","latitude":37.4042664,"longitude":-122.0253975,"name":"","placeId":"ChIJ4bu1sJi3j4ARb9pwaRqPwSE"},{"address":"1029 E Capitol Expy, San Jose, CA 95121, USA","latitude":37.300278299999995,"longitude":-121.82479589999998,"name":"","placeId":"ChIJNalQUOgzjoARN0DAW3z19QM"}];
+        const circlesData = [{"center":{"latitude":37.39003,"longitude":-122.08123},"radius":5000},{"center":{"latitude":37.34807,"longitude":-122.06},"radius":5000},{"center":{"latitude":37.30619176470588,"longitude":-122.03855529411764},"radius":5000},{"center":{"latitude":37.27317,"longitude":-122.00005},"radius":5000},{"center":{"latitude":37.253887999999996,"longitude":-121.948572},"radius":5000},{"center":{"latitude":37.25092,"longitude":-121.89191},"radius":5000},{"center":{"latitude":37.24973571428571,"longitude":-121.83518428571428},"radius":5000},{"center":{"latitude":37.24054769230769,"longitude":-121.77920153846154},"radius":5000},{"center":{"latitude":37.21705,"longitude":-121.73069},"radius":5000},{"center":{"latitude":37.18661,"longitude":-121.6877},"radius":5000},{"center":{"latitude":37.146726666666666,"longitude":-121.66038333333333},"radius":5000},{"center":{"latitude":37.13048,"longitude":-121.65436},"radius":5000}];
+        
+        
+        document.getElementById('charger-count').textContent = superchargersData.length;
+        document.getElementById('circle-count').textContent = circlesData.length;
+        
+        if (pathData.length === 0) {
+            console.error("No path data to display.");
+            return;
+        }
+
+        
+        const map = L.map('map').setView([47.0, -122.4], 10); 
+
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        
+        const routePath = L.polyline(pathData, {
+            color: 'blue',
+            weight: 4,
+            opacity: 0.7
+        }).addTo(map);
+
+        
+        const circleMarkers = [];
+        circlesData.forEach((circleInfo, index) => {
+          const circle = L.circle([circleInfo.center.latitude, circleInfo.center.longitude], {
+            color: 'green',
+            fillColor: '#00FF00',
+            fillOpacity: 0.1,
+            weight: 2,
+            radius: circleInfo.radius
+          }).addTo(map).bindPopup('<b>Search Circle ' + (index + 1) + '</b><br>Radius: ' + circleInfo.radius + 'm');
+          circleMarkers.push(circle);
+        });
+
+        
+        const routeMarkers = [];
+        if (pathData.length > 0) {
+            const startMarker = L.marker(pathData[0]).addTo(map)
+                .bindPopup('<b>Start</b>')
+                .openPopup();
+            routeMarkers.push(startMarker);
+            
+            if (pathData.length > 1) {
+                const endMarker = L.marker(pathData[pathData.length - 1]).addTo(map)
+                    .bindPopup('<b>End</b>');
+                routeMarkers.push(endMarker);
+            }
+        }
+
+        
+        const superchargerMarkers = [];
+        superchargersData.forEach(charger => {
+            const marker = L.marker([charger.latitude, charger.longitude], {
+                icon: L.icon({
+                    iconUrl: 'data:image/svg+xml;base64,' + btoa(
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="red">' +
+                        '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>' +
+                        '</svg>'
+                    ),
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    popupAnchor: [0, -32]
+                })
+            }).addTo(map)
+                .bindPopup(
+                    '<div>' +
+                    '<h4>' + charger.name + '</h4>' +
+                    '<p><strong>Address:</strong> ' + charger.address + '</p>' +
+                    '<p><strong>Coordinates:</strong> ' + charger.latitude.toFixed(6) + ', ' + charger.longitude.toFixed(6) + '</p>' +
+                    '<p><strong>Place ID:</strong> ' + charger.placeId + '</p>' +
+                    '</div>'
+                );
+            superchargerMarkers.push(marker);
+        });
+
+        
+        const allLayers = [routePath, ...routeMarkers, ...superchargerMarkers, ...circleMarkers];
+        const group = new L.featureGroup(allLayers);
+        
+        if (group.getLayers().length > 0) {
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+      })();
+    </script>
+  </body>
+</html>
