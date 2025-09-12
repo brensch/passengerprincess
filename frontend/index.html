@@ -311,19 +311,19 @@
                     <thead class="sticky top-0 bg-white z-10">
                         <tr>
                             <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
-                                style="width: 12%;">
+                                style="width: 15%;">
                                 Charger
                             </th>
                             <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
-                                style="width: 35%;">
+                                style="width: 25%;">
                                 Restaurant
                             </th>
                             <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
-                                style="width: 25%;">
+                                style="width: 15%;">
                                 Walk
                             </th>
                             <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
-                                style="width: 28%;">
+                                style="width: 45%;">
                                 Cuisine
                             </th>
                         </tr>
@@ -569,11 +569,11 @@
             tbody.innerHTML = ''
             const fragment = document.createDocumentFragment()
 
-            // Sort superchargers by distance along route
+            // Sort superchargers by total distance (distance along route + distance from route)
             data.superchargers.sort( ( a, b ) => {
-                const aDistance = a.distance_along_route || 0
-                const bDistance = b.distance_along_route || 0
-                return aDistance - bDistance
+                const aTotalDistance = ( a.distance_along_route || 0 ) + ( a.distance_from_route || 0 )
+                const bTotalDistance = ( b.distance_along_route || 0 ) + ( b.distance_from_route || 0 )
+                return aTotalDistance - bTotalDistance
             } )
 
             data.superchargers.forEach( ( charger, index ) => {
@@ -628,10 +628,10 @@
                 }
 
                 const restaurantName = restaurantCell ? restaurantCell.dataset.originalName : ''
-                const originalCuisines = cuisineCell ? cuisineCell.dataset.originalCuisine.toLowerCase().split( '; ' ).map( c => c.trim() ) : []
+                const originalCuisine = cuisineCell ? cuisineCell.dataset.originalCuisine.toLowerCase() : ''
 
                 const searchMatch = !currentSearchTerm || ( restaurantName && restaurantName.toLowerCase().includes( currentSearchTerm ) )
-                const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 || currentCuisineFilter.some( fc => originalCuisines.includes( fc ) )
+                const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 || currentCuisineFilter.some( fc => fc === originalCuisine )
 
                 if ( searchMatch && cuisineMatch ) {
                     chargerVisibility.set( chargerId, true )
@@ -814,8 +814,8 @@
                 const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
                 station.restaurantMarkers.forEach( restaurantMarker => {
                     const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
-                    const restaurantCuisines = ( restaurantMarker.options.cuisine || '' ).toLowerCase().split( '; ' ).map( c => c.trim() )
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisines.includes( fc.toLowerCase() ) )
+                    const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
 
                     if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
                         if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
@@ -908,7 +908,9 @@
         function createChargerMarker ( charger, chargerId ) {
             // This function remains the same
             const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-            const distanceAlongRoute = charger.distance_along_route ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const totalDistance = ( ( charger.distance_along_route || 0 ) + ( charger.distance_from_route || 0 ) ) / 1609.34
+            const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
             const arrivalTime = charger.arrival_time || 'N/A'
             let popupContent = `
                 <div class="font-sans max-w-xs">
@@ -916,7 +918,7 @@
                     <strong>Address:</strong> ${ charger.supercharger.address }<br>
                     <strong>Arrival:</strong> ${ arrivalTime }<br>
                     <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
-                    <strong>To:</strong> ${ distanceAlongRoute }<br>
+                    <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
                     <button onclick="showChargerInResults('${ chargerId }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-2 py-1 rounded mt-2 mr-2">View in Results</button>
                     <a href="https://maps.google.com/?q=${ charger.supercharger.latitude },${ charger.supercharger.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                 `
@@ -959,13 +961,15 @@
             const rows = []
             const restaurants = charger.restaurants || []
             const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-            const distanceAlongRoute = charger.distance_along_route ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const totalDistance = ( ( charger.distance_along_route || 0 ) + ( charger.distance_from_route || 0 ) ) / 1609.34
+            const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
             const arrivalTime = charger.arrival_time || 'N/A'
 
             const chargerCell = `
                 <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
                     <div class="flex flex-col">
-                        <span class="text-xs text-pink-600"><strong>${ distanceAlongRoute }</strong></span>
+                        <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
                         <span class="font-bold">${ arrivalTime }</span>
                         <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
                         <span class="text-xs text-pink-600">From Route: ${ distanceFromOrigin }</span>
@@ -1065,7 +1069,9 @@
             const cuisines = new Set()
             stationData.forEach( station => {
                 station.restaurants.forEach( r => {
-                    ( r.cuisine_types || [] ).forEach( c => cuisines.add( c.trim() ) )
+                    if ( r.primary_type ) {
+                        cuisines.add( r.primary_type.trim() )
+                    }
                 } )
             } )
 

@@ -81,6 +81,7 @@ func (r *SuperchargerRepository) GetRestaurantsForSupercharger(superchargerID st
 		Select("restaurants.*, restaurant_supercharger_mappings.distance").
 		Joins("JOIN restaurant_supercharger_mappings ON restaurants.place_id = restaurant_supercharger_mappings.restaurant_id").
 		Where("restaurant_supercharger_mappings.supercharger_id = ?", superchargerID).
+		Order("restaurant_supercharger_mappings.distance ASC").
 		Scan(&results).Error
 
 	restaurantsWithDistance := make([]RestaurantWithDistance, len(results))
