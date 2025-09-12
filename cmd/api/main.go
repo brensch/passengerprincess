@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -18,6 +20,15 @@ import (
 
 // Global variable for the Google Maps API key.
 var googleAPIKey = os.Getenv("MAPS_API_KEY")
+
+// generateSessionToken creates a random session token for Google Places Autocomplete
+func generateSessionToken() (string, error) {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
 
 func main() {
 	// Check if the API key is set.
@@ -113,16 +124,35 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For now, we'll return a simple response since there's no autocomplete function in pkg/maps
-	// This would typically call a Google Places Autocomplete API
-	suggestions := []map[string]string{
-		{"description": partial + " - Example Suggestion 1"},
-		{"description": partial + " - Example Suggestion 2"},
+	// Get session token from query parameter, or generate a new one
+	sessionToken := strings.TrimSpace(r.URL.Query().Get("session_token"))
+	if sessionToken == "" {
+		// Generate new session token
+		newToken, err := generateSessionToken()
+		if err != nil {
+			log.Printf("Error generating session token: %v", err)
+			writeJSONError(w, "Failed to generate session token", http.StatusInternalServerError)
+			return
+		}
+		sessionToken = newToken
+	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get autocomplete suggestions with session token
+	suggestions, err := maps.GetAutocompleteSuggestions(ctx, googleAPIKey, partial, sessionToken)
+	if err != nil {
+		log.Printf("Error getting autocomplete suggestions: %v", err)
+		writeJSONError(w, "Failed to get autocomplete suggestions", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"predictions": suggestions,
+		"predictions":   suggestions,
+		"session_token": sessionToken,
 	})
 }
 
@@ -156,34 +186,8 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert route legs to traffic segments format expected by frontend
-	var trafficSegments []map[string]interface{}
-	if result.Route != nil && len(result.Route.Legs) > 0 {
-		for _, leg := range result.Route.Legs {
-			for _, step := range leg.Steps {
-				segment := map[string]interface{}{
-					"polyline": step.Polyline.EncodedPolyline,
-					"speed":    "NORMAL", // Default speed
-				}
-				trafficSegments = append(trafficSegments, segment)
-			}
-		}
-	}
-
-	// Prepare response in the format expected by frontend
-	response := map[string]interface{}{
-		"route": map[string]interface{}{
-			"polyline":        result.Route.EncodedPolyline,
-			"distance_meters": result.Route.DistanceMeters,
-			"duration":        result.Route.Duration.String(),
-		},
-		"superchargers":    result.Superchargers,
-		"search_circles":   result.SearchCircles,
-		"traffic_segments": trafficSegments,
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(result)
 }
 
 // viewportHandler handles requests for superchargers within a viewport

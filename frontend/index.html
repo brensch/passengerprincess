@@ -432,6 +432,12 @@
         let viewportSuperchargers = new Map() // Map of place_id to supercharger data
         let lastViewportBounds = null // Track last viewport bounds to avoid unnecessary API calls
 
+        // Autocomplete session tokens for each input field
+        let autocompleteSessions = {
+            origin: null,
+            destination: null
+        }
+
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
         locationBtn.addEventListener( 'click', handleLocationClick )
@@ -987,6 +993,10 @@
             currentSearchTerm = ''
             restaurantSearchInput.value = ''
             document.getElementById( 'chargers-tbody' ).innerHTML = ''
+
+            // Clear autocomplete session tokens
+            autocompleteSessions.origin = null
+            autocompleteSessions.destination = null
         }
 
         function showLoadingState ( message ) {
@@ -1131,18 +1141,41 @@
 
         let debounceTimer
         function setupAutocomplete ( inputElement, suggestionsDiv ) {
+            let lastInputValue = ''
+            const inputId = inputElement.id // 'origin' or 'destination'
+
             inputElement.addEventListener( 'input', () => {
                 clearTimeout( debounceTimer )
                 debounceTimer = setTimeout( async () => {
-                    const query = inputElement.value
+                    const query = inputElement.value.trim()
+
+                    // Clear session token if input changed significantly (less than 3 chars or completely different)
+                    if ( query.length < 3 || !lastInputValue.startsWith( query.substring( 0, Math.min( 3, query.length ) ) ) ) {
+                        autocompleteSessions[ inputId ] = null
+                    }
+
                     if ( query.length < 3 ) {
                         suggestionsDiv.classList.add( 'hidden' )
                         return
                     }
+
+                    lastInputValue = query
+
                     try {
-                        const response = await fetch( `/autocomplete?partial=${ encodeURIComponent( query ) }` )
+                        let url = `/autocomplete?partial=${ encodeURIComponent( query ) }`
+                        if ( autocompleteSessions[ inputId ] ) {
+                            url += `&session_token=${ encodeURIComponent( autocompleteSessions[ inputId ] ) }`
+                        }
+
+                        const response = await fetch( url )
                         if ( !response.ok ) throw new Error( 'Autocomplete failed' )
                         const data = await response.json()
+
+                        // Store the session token for future requests
+                        if ( data.session_token ) {
+                            autocompleteSessions[ inputId ] = data.session_token
+                        }
+
                         displaySuggestions( data.predictions, suggestionsDiv, inputElement )
                     } catch ( error ) {
                         console.error( 'Autocomplete error:', error )
@@ -1213,6 +1246,9 @@
         document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
         document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
             stopLocationTracking()
+            // Clear autocomplete session tokens
+            autocompleteSessions.origin = null
+            autocompleteSessions.destination = null
             window.location.href = window.location.pathname
         } )
 
