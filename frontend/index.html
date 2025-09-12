@@ -278,16 +278,21 @@
             border: 1px solid var(--princess-border) !important;
         }
 
-        /* Continuous marker cluster styling */
+        /* Performance optimizations */
+        .leaflet-container {
+            will-change: transform;
+        }
+
         .marker-cluster-continuous {
-            background-color: rgba(212, 197, 255, 0.8);
-            border: 2px solid var(--princess-accent-lavender);
-            border-radius: 50%;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .emoji-icon {
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
         }
 
         .marker-cluster-continuous div {
@@ -596,7 +601,10 @@
         let map = L.map( mapElement, {
             zoomControl: false,
             zoomSnap: 0.5,
-            zoomDelta: 1
+            zoomDelta: 1,
+            preferCanvas: true, // Use canvas renderer for better performance
+            updateWhenIdle: true, // Only update map when idle for better performance
+            updateWhenZooming: false // Disable updates during zoom for smoother experience
         } ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
 
         // Using CartoDB Positron for a softer, more princess-like appearance
@@ -613,10 +621,13 @@
         const userLocationLayer = L.layerGroup().addTo( map )
         const viewportSuperchargersLayer = L.markerClusterGroup( {
             chunkedLoading: true,
-            chunkInterval: 200,
-            chunkDelay: 50,
-            disableClusteringAtZoom: 12, // Disable clustering at zoom level 12 and above
-            maxClusterRadius: 50, // Maximum radius of a cluster in pixels
+            chunkInterval: 100, // Reduced for better performance
+            chunkDelay: 25, // Reduced delay
+            disableClusteringAtZoom: 14, // Enable clustering at higher zoom for better performance
+            maxClusterRadius: 40, // Slightly smaller radius for more clusters
+            spiderfyOnMaxZoom: false, // Disable spiderfy for better performance
+            showCoverageOnHover: false, // Disable coverage for better performance
+            zoomToBoundsOnClick: true,
             iconCreateFunction: function ( cluster ) {
                 const count = cluster.getChildCount()
                 // Calculate continuous size based on count (more pronounced logarithmic scaling)
@@ -624,11 +635,13 @@
                 const maxSize = 80
                 const size = Math.min( maxSize, minSize + Math.log10( count ) * 15 )
                 const fontSize = Math.max( 9, Math.min( 18, 9 + Math.log10( count ) * 3 ) )
+                const anchorSize = size / 2
 
                 return new L.DivIcon( {
                     html: '<div><span style="font-size: ' + fontSize + 'px;">' + count + '</span></div>',
                     className: 'marker-cluster-continuous',
-                    iconSize: new L.Point( size, size )
+                    iconSize: new L.Point( size, size ),
+                    iconAnchor: new L.Point( anchorSize, anchorSize )
                 } )
             }
         } ).addTo( map )
@@ -691,7 +704,14 @@
             filterListAndMap( currentSearchTerm, currentCuisineFilter )
         } )
 
-        map.on( 'moveend zoomend', updateVisibleMarkers )
+        // Debounced marker update for better performance
+        let mapUpdateTimeout = null
+        const debouncedUpdateVisibleMarkers = () => {
+            if ( mapUpdateTimeout ) clearTimeout( mapUpdateTimeout )
+            mapUpdateTimeout = setTimeout( updateVisibleMarkers, 100 ) // 100ms debounce
+        }
+
+        map.on( 'moveend zoomend', debouncedUpdateVisibleMarkers )
 
         // Initial call to load viewport superchargers
         updateVisibleMarkers();
@@ -1039,39 +1059,42 @@
         }
 
         function updateVisibleMarkers () {
-            // This function remains largely the same
+            // Optimized marker update with performance improvements
             const bounds = map.getBounds()
             const zoom = map.getZoom()
 
             // Use filtered data if filtering is active, otherwise use all data
             const dataToUse = filteredChargerIDs !== null ? filteredStationData : stationData
 
-            dataToUse.forEach( station => {
-                const chargerShouldBeVisible = filteredChargerIDs === null || filteredChargerIDs.includes( station.id )
-                const chargerMarker = station.chargerMarker
+            // Use requestAnimationFrame for smoother updates
+            requestAnimationFrame( () => {
+                dataToUse.forEach( station => {
+                    const chargerShouldBeVisible = filteredChargerIDs === null || filteredChargerIDs.includes( station.id )
+                    const chargerMarker = station.chargerMarker
 
-                if ( chargerShouldBeVisible && bounds.contains( chargerMarker.getLatLng() ) ) {
-                    if ( !chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.addLayer( chargerMarker )
-                } else {
-                    if ( chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.removeLayer( chargerMarker )
-                }
-
-                const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
-                station.restaurantMarkers.forEach( restaurantMarker => {
-                    const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
-                    const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
-
-                    if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
-                        if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
+                    if ( chargerShouldBeVisible && bounds.contains( chargerMarker.getLatLng() ) ) {
+                        if ( !chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.addLayer( chargerMarker )
                     } else {
-                        if ( restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.removeLayer( restaurantMarker )
+                        if ( chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.removeLayer( chargerMarker )
                     }
-                } )
-            } )
 
-            // Update viewport superchargers
-            updateViewportSuperchargers( bounds )
+                    const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
+                    station.restaurantMarkers.forEach( restaurantMarker => {
+                        const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                        const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
+                        const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+
+                        if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
+                            if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
+                        } else {
+                            if ( restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.removeLayer( restaurantMarker )
+                        }
+                    } )
+                } )
+
+                // Update viewport superchargers
+                updateViewportSuperchargers( bounds )
+            } )
         }
 
         /**
@@ -1097,8 +1120,12 @@
 
                 const superchargers = data.superchargers
 
+                // Performance optimization: limit the number of viewport superchargers to prevent slowdown
+                const maxViewportSuperchargers = 200
+                const limitedSuperchargers = superchargers.slice( 0, maxViewportSuperchargers )
+
                 // Create a set of current supercharger place_ids
-                const currentPlaceIds = new Set( superchargers.map( sc => sc.place_id ) )
+                const currentPlaceIds = new Set( limitedSuperchargers.map( sc => sc.place_id ) )
 
                 // Remove superchargers that are no longer in viewport
                 for ( const [ placeId, superchargerData ] of viewportSuperchargers ) {
@@ -1109,7 +1136,7 @@
                 }
 
                 // Add new superchargers
-                superchargers.forEach( supercharger => {
+                limitedSuperchargers.forEach( supercharger => {
                     if ( !viewportSuperchargers.has( supercharger.place_id ) ) {
                         // Check if there's already a route supercharger at this location
                         const locationKey = `${ supercharger.latitude },${ supercharger.longitude }`
@@ -1134,9 +1161,10 @@
                     viewportSuperchargersLayer.options.disableClusteringAtZoom = 18 // Effectively disable clustering
                 }
 
-                // Refresh the clusters to apply the new settings
-                viewportSuperchargersLayer.refreshClusters()
-
+                // Refresh the clusters only when necessary for better performance
+                if ( totalViewportSuperchargers > 50 ) {
+                    setTimeout( () => viewportSuperchargersLayer.refreshClusters(), 50 )
+                }
             } catch ( error ) {
                 console.error( 'Error fetching viewport superchargers:', error )
             }
@@ -1159,6 +1187,7 @@
                     className: 'emoji-icon',
                     html: '🔌',
                     iconSize: [ 24, 24 ],
+                    iconAnchor: [ 12, 12 ]
                 } )
             } ).bindPopup( popupContent )
         }
@@ -1193,6 +1222,7 @@
                     className: 'emoji-icon',
                     html: '🔋',
                     iconSize: [ 24, 24 ],
+                    iconAnchor: [ 12, 12 ]
                 } )
             } ).bindPopup( popupContent )
         }
@@ -1205,6 +1235,7 @@
                         className: 'emoji-icon',
                         html: '🌭',
                         iconSize: [ 24, 24 ],
+                        iconAnchor: [ 12, 12 ]
                     } ),
                     restaurantName: restaurant.name,
                     cuisine: ( restaurant.primary_type || '' )
