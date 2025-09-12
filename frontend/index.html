@@ -401,9 +401,18 @@
             font-size: 18px;
         }
 
-        #top-toolbar .princess-button#gps-btn,
-        #top-toolbar .princess-button#new-search-btn {
+        #top-toolbar .princess-button#gps-btn {
             font-size: 20px;
+        }
+
+        /* PPP Logo styling */
+        #ppp-logo:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+        }
+
+        #ppp-logo:active {
+            transform: scale(0.95);
         }
 
         /* Table header styling */
@@ -475,13 +484,12 @@
     <div id="top-toolbar"
         class="fixed top-0 left-0 right-0 z-50 border-b-2 p-3 flex justify-between items-center shadow-lg"
         style="background: linear-gradient(135deg, var(--princess-lavender) 0%, var(--princess-rose) 100%); border-color: var(--princess-border); backdrop-filter: blur(8px);">
-        <div class="text-2xl font-bold font-dancing"
+        <div class="text-2xl font-bold font-dancing cursor-pointer" id="ppp-logo"
             style="color: var(--princess-text-primary); text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.2);"> PPP </div>
         <div class="flex space-x-2">
             <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">👸</button>
             <button id="toggle-btn" class="princess-button text-sm">Show
                 Results</button>
-            <button id="new-search-btn" class="princess-button text-sm">🔃</button>
         </div>
     </div>
 
@@ -598,7 +606,7 @@
         const searchForm = document.getElementById( 'search-form' )
         const bottomResults = document.getElementById( 'bottom-results' )
         const topToolbar = document.getElementById( 'top-toolbar' )
-        const newSearchBtn = document.getElementById( 'new-search-btn' )
+        const pppLogo = document.getElementById( 'ppp-logo' )
         const restaurantSearchInput = document.getElementById( 'restaurant-search' )
         const cuisineFilterButtons = document.getElementById( 'cuisine-filter-buttons' )
 
@@ -1524,7 +1532,7 @@
             if ( userLocationMarker ) userLocationLayer.removeLayer( userLocationMarker )
 
             // Create popup content with coordinates and a button to populate address
-            let popupContent = `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }<br><button onclick="populateAddressFromLocation(${ lat }, ${ lon })" class="mt-2 px-2 py-1 bg-pink-500 text-white text-xs rounded hover:bg-pink-600">Use as Origin</button>`
+            let popupContent = `<strong>Princess Location</strong><br>You are extremely nice.`
 
             userLocationMarker = L.marker( [ lat, lon ], {
                 icon: L.divIcon( {
@@ -1802,7 +1810,7 @@
             setTimeout( () => map.invalidateSize(), 100 )
         } )
 
-        newSearchBtn.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
+        pppLogo.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
         document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
         document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
             stopLocationTracking()
