@@ -1,10 +1,12 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +22,32 @@ import (
 
 // Global variable for the Google Maps API key.
 var googleAPIKey = os.Getenv("MAPS_API_KEY")
+
+// gzipResponseWriter wraps http.ResponseWriter to enable gzip compression
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	Writer io.Writer
+}
+
+func (g *gzipResponseWriter) Write(data []byte) (int, error) {
+	return g.Writer.Write(data)
+}
+
+// withGzip is a middleware that enables gzip compression for responses
+func withGzip(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fn(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Vary", "Accept-Encoding")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		gzw := &gzipResponseWriter{ResponseWriter: w, Writer: gz}
+		fn(gzw, r)
+	}
+}
 
 // generateSessionToken creates a random session token for Google Places Autocomplete
 func generateSessionToken() (string, error) {
@@ -50,10 +78,10 @@ func main() {
 	}
 
 	// Register handlers.
-	http.HandleFunc("/", serveFrontend) // Serve the HTML file at the root
-	http.HandleFunc("/autocomplete", autocompleteHandler)
-	http.HandleFunc("/route", routeHandler)
-	http.HandleFunc("/superchargers/viewport", viewportHandler)
+	http.HandleFunc("/", withGzip(serveFrontend)) // Serve the HTML file at the root
+	http.HandleFunc("/autocomplete", withGzip(autocompleteHandler))
+	http.HandleFunc("/route", withGzip(routeHandler))
+	http.HandleFunc("/superchargers/viewport", withGzip(viewportHandler))
 
 	// Start the server.
 	port := "8080"
