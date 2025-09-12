@@ -566,8 +566,8 @@
                 const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
 
                 // Add route supercharger location to the set
-                const locationKey = `${charger.supercharger.latitude},${charger.supercharger.longitude}`
-                routeSuperchargerLocations.add(locationKey)
+                const locationKey = `${ charger.supercharger.latitude },${ charger.supercharger.longitude }`
+                routeSuperchargerLocations.add( locationKey )
 
                 stationData.push( {
                     id: chargerId,
@@ -839,8 +839,8 @@
                 superchargers.forEach( supercharger => {
                     if ( !viewportSuperchargers.has( supercharger.place_id ) ) {
                         // Check if there's already a route supercharger at this location
-                        const locationKey = `${supercharger.latitude},${supercharger.longitude}`
-                        if (!routeSuperchargerLocations.has(locationKey)) {
+                        const locationKey = `${ supercharger.latitude },${ supercharger.longitude }`
+                        if ( !routeSuperchargerLocations.has( locationKey ) ) {
                             const marker = createViewportSuperchargerMarker( supercharger )
                             viewportSuperchargers.set( supercharger.place_id, {
                                 data: supercharger,

@@ -135,6 +135,79 @@ type SuperchargersOnRouteResult struct {
 	SearchCircles []Circle              `json:"search_circles"`
 }
 
+// processSuperchargers processes supercharger results concurrently to calculate ETAs and distances
+func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []Center, cumulativePoints []CumPoint) ([]SuperchargerWithETA, error) {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var superchargersWithETA []SuperchargerWithETA
+	errChan := make(chan error, 1)
+
+	for res := range resultsChan {
+		wg.Add(1)
+		go func(res superchargerResult) {
+			defer wg.Done()
+			if res.err != nil {
+				select {
+				case errChan <- res.err:
+				default:
+				}
+				return
+			}
+
+			// skip non-superchargers
+			if !res.supercharger.IsSupercharger {
+				return
+			}
+
+			sc := res.supercharger
+			scLocation := Center{
+				Latitude:  sc.Latitude,
+				Longitude: sc.Longitude,
+			}
+
+			// Find closest point on route and calculate distances
+			distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLocation, routePoints)
+
+			var arrivalTime time.Time
+			if len(cumulativePoints) > 0 {
+				// Calculate ETA using enhanced route data
+				arrivalTime = calculateETA(cumulativePoints, distAlongRoute, distFromRoute)
+			} else {
+				// Basic ETA calculation without traffic data
+				// Assume average speed of 80 km/h for highway driving
+				avgSpeedKmh := 80.0
+				timeToReachRoutePoint := (distAlongRoute / 1000.0) / avgSpeedKmh * 3600.0 // Convert to seconds
+				timeToSupercharger := (distFromRoute / 1000.0) / 50.0 * 3600.0            // 50 km/h off-route, convert to seconds
+
+				totalTravelTime := time.Duration(timeToReachRoutePoint+timeToSupercharger) * time.Second
+				arrivalTime = time.Now().Add(totalTravelTime)
+			}
+
+			eta := SuperchargerWithETA{
+				Supercharger:        sc,
+				ArrivalTime:         arrivalTime.Format(time.Kitchen), // e.g., "3:45PM"
+				DistanceFromRoute:   distFromRoute,
+				DistanceAlongRoute:  distAlongRoute,
+				ClosestPointOnRoute: closestPoint,
+				Restaurants:         res.restaurants,
+			}
+
+			mu.Lock()
+			superchargersWithETA = append(superchargersWithETA, eta)
+			mu.Unlock()
+		}(res)
+	}
+
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
+		return nil, err
+	default:
+		return superchargersWithETA, nil
+	}
+}
+
 func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination string) (*SuperchargersOnRouteResult, error) {
 	totalStart := time.Now()
 	defer func() {
@@ -296,51 +369,9 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 
 	// Process results and calculate ETAs
 	processStart := time.Now()
-	// Prepare the final list of superchargers with ETA info
-
-	var superchargersWithETA []SuperchargerWithETA
-	for res := range resultsChan {
-		if res.err != nil {
-			return nil, res.err
-		}
-
-		// skip non-superchargers
-		if !res.supercharger.IsSupercharger {
-			continue
-		}
-
-		sc := res.supercharger
-		scLocation := Center{
-			Latitude:  sc.Latitude,
-			Longitude: sc.Longitude,
-		}
-
-		// Find closest point on route and calculate distances
-		distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLocation, routePoints)
-
-		var arrivalTime time.Time
-		if len(cumulativePoints) > 0 {
-			// Calculate ETA using enhanced route data
-			arrivalTime = calculateETA(cumulativePoints, distAlongRoute, distFromRoute)
-		} else {
-			// Basic ETA calculation without traffic data
-			// Assume average speed of 80 km/h for highway driving
-			avgSpeedKmh := 80.0
-			timeToReachRoutePoint := (distAlongRoute / 1000.0) / avgSpeedKmh * 3600.0 // Convert to seconds
-			timeToSupercharger := (distFromRoute / 1000.0) / 50.0 * 3600.0            // 50 km/h off-route, convert to seconds
-
-			totalTravelTime := time.Duration(timeToReachRoutePoint+timeToSupercharger) * time.Second
-			arrivalTime = time.Now().Add(totalTravelTime)
-		}
-
-		superchargersWithETA = append(superchargersWithETA, SuperchargerWithETA{
-			Supercharger:        sc,
-			ArrivalTime:         arrivalTime.Format(time.Kitchen), // e.g., "3:45PM"
-			DistanceFromRoute:   distFromRoute,
-			DistanceAlongRoute:  distAlongRoute,
-			ClosestPointOnRoute: closestPoint,
-			Restaurants:         res.restaurants,
-		})
+	superchargersWithETA, err := processSuperchargers(resultsChan, routePoints, cumulativePoints)
+	if err != nil {
+		return nil, err
 	}
 	log.Printf("process superchargers time: %v", time.Since(processStart))
 
