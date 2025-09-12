@@ -1185,8 +1185,8 @@
         async function updateUserLocationMarker ( lat, lon ) {
             if ( userLocationMarker ) userLocationLayer.removeLayer( userLocationMarker )
 
-            // Start with coordinates, then update with address
-            let popupContent = `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }`
+            // Create popup content with coordinates and a button to populate address
+            let popupContent = `<strong>Princess Location</strong><br>Lat: ${ lat.toFixed( 6 ) }<br>Lon: ${ lon.toFixed( 6 ) }<br><button onclick="populateAddressFromLocation(${ lat }, ${ lon })" class="mt-2 px-2 py-1 bg-pink-500 text-white text-xs rounded hover:bg-pink-600">Use as Origin</button>`
 
             userLocationMarker = L.marker( [ lat, lon ], {
                 icon: L.divIcon( {
@@ -1196,15 +1196,6 @@
                 } )
             } ).bindPopup( popupContent )
             userLocationLayer.addLayer( userLocationMarker )
-
-            // Try to get the address and update the popup
-            try {
-                const address = await reverseGeocode( lat, lon )
-                const updatedContent = `<strong>Princess Location</strong><br>${ address }<br><small>Lat: ${ lat.toFixed( 6 ) }, Lon: ${ lon.toFixed( 6 ) }</small>`
-                userLocationMarker.setPopupContent( updatedContent )
-            } catch ( error ) {
-                console.log( 'Could not reverse geocode for marker popup:', error )
-            }
         }
 
         function stopLocationTracking () {
@@ -1309,6 +1300,18 @@
                 console.error( 'Reverse geocoding error:', error )
                 // Fallback to coordinates if API call fails
                 return `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+            }
+        }
+
+        // Function to populate the origin input with the address from coordinates
+        async function populateAddressFromLocation ( lat, lon ) {
+            try {
+                const address = await reverseGeocode( lat, lon )
+                originInput.value = address
+                updateStatus( "Address populated from current location.", false )
+            } catch ( error ) {
+                console.error( 'Could not populate address:', error )
+                updateStatus( "Could not get address for current location.", true )
             }
         }
 
