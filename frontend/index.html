@@ -485,8 +485,7 @@
             <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">📍</button>
             <button id="toggle-btn" class="princess-button text-sm">Show
                 Results</button>
-            <button id="new-search-btn" class="princess-button text-sm">New
-                Search</button>
+            <button id="new-search-btn" class="princess-button text-sm">🔎</button>
         </div>
     </div>
 
@@ -580,10 +579,10 @@
         style="background: rgba(107, 77, 124, 0.6); backdrop-filter: blur(4px);">
         <div class="rounded-xl p-8 max-w-sm mx-4 shadow-2xl"
             style="background: var(--princess-surface); border: 2px solid var(--princess-border);">
-            <h3 class="text-xl font-semibold mb-4 font-dancing" style="color: var(--princess-text-primary);"> Are you
-                sure? </h3>
-            <p class="mb-6" style="color: var(--princess-text-secondary);">This will clear your current search and start
-                a new royal journey.</p>
+            <h3 class="text-xl font-semibold mb-4 font-dancing" style="color: var(--princess-text-primary);"> Start new
+                search? </h3>
+            <p class="mb-6" style="color: var(--princess-text-secondary);">It's ok to not know what you're looking for.
+            </p>
             <div class="flex space-x-3 justify-end">
                 <button id="cancel-new-search" class="px-6 py-2 font-medium rounded-lg transition-all duration-300"
                     style="color: var(--princess-text-secondary); background: var(--princess-surface-soft); border: 1px solid var(--princess-border);">Cancel</button>
@@ -1267,7 +1266,7 @@
                         map.setView( station.chargerMarker.getLatLng(), 15 )
                         station.chargerMarker.openPopup()
                         bottomResults.style.display = 'none'
-                        document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+                        document.getElementById( 'toggle-btn' ).textContent = '📖'
                     }
                 } )
 
@@ -1281,7 +1280,7 @@
                             map.setView( restaurantMarker.getLatLng(), 16 )
                             restaurantMarker.openPopup()
                             bottomResults.style.display = 'none'
-                            document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+                            document.getElementById( 'toggle-btn' ).textContent = '📖'
                         }
                     }
                 } )
@@ -1386,7 +1385,7 @@
             mapElement.style.height = 'calc(100vh - 60px)'
             bottomResults.style.top = '60px'
             bottomResults.style.height = 'calc(100vh - 60px)'
-            document.getElementById( 'toggle-btn' ).textContent = 'Show map'
+            document.getElementById( 'toggle-btn' ).textContent = '🗺️'
         }
 
         function showResultsTable () {
@@ -1397,7 +1396,7 @@
 
         function showChargerInResults ( chargerId ) {
             bottomResults.style.display = 'block'
-            document.getElementById( 'toggle-btn' ).textContent = 'Show map'
+            document.getElementById( 'toggle-btn' ).textContent = '🗺️'
             const chargerRow = document.querySelector( `tr[data-charger-id="${ chargerId }"]` )
             if ( chargerRow ) {
                 chargerRow.scrollIntoView( { behavior: 'smooth', block: 'center' } )
@@ -1719,7 +1718,7 @@
         document.getElementById( 'toggle-btn' ).addEventListener( 'click', () => {
             const isHidden = bottomResults.style.display === 'none'
             bottomResults.style.display = isHidden ? 'block' : 'none'
-            document.getElementById( 'toggle-btn' ).textContent = isHidden ? 'Show map' : 'Show Results'
+            document.getElementById( 'toggle-btn' ).textContent = isHidden ? '🗺️' : '📖'
             setTimeout( () => map.invalidateSize(), 100 )
         } )
 
@@ -1742,7 +1741,7 @@
             if ( userLocationMarker ) {
                 map.setView( userLocationMarker.getLatLng(), Math.max( map.getZoom(), 15 ) )
                 bottomResults.style.display = 'none'
-                document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+                document.getElementById( 'toggle-btn' ).textContent = '📖'
                 setTimeout( () => map.invalidateSize(), 100 )
             }
         } )
