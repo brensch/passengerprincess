@@ -491,7 +491,7 @@
             <div id="loading-container" class="loading-container hidden">
                 <div class="spinner"></div>
                 <p class="loading-text" id="loading-text"
-                    style="color: var(--princess-text-primary); font-weight: 500;">Planning your royal journey...</p>
+                    style="color: var(--princess-text-primary); font-weight: 500;">Pondering possible paths</p>
             </div>
 
             <div style="padding: 0; box-sizing: border-box;" class="table-container">
@@ -744,7 +744,7 @@
 
             updateUrlForSearch( origin, destination )
             clearPreviousResults()
-            showLoadingState( "Planning your royal journey..." )
+            showLoadingState( "Pondering possible paths" )
 
             try {
                 const response = await fetch( `/route?origin=${ encodeURIComponent( origin ) }&destination=${ encodeURIComponent( destination ) }` )
@@ -1178,7 +1178,10 @@
                 <div class="font-sans max-w-xs">
                     <strong class="text-lg">${ supercharger.name }</strong><br>
                     <strong>Address:</strong> ${ supercharger.address }<br>
-                    <a href="https://maps.google.com/?q=${ supercharger.latitude },${ supercharger.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
+                    <div class="flex flex-col gap-2 mt-3">
+                        <button onclick="openInGoogleMaps(${ supercharger.latitude }, ${ supercharger.longitude })" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="shareToTesla(${ supercharger.latitude }, ${ supercharger.longitude }, '${ supercharger.name }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                    </div>
                 </div>
             `
 
@@ -1206,16 +1209,13 @@
                     <strong>Arrival:</strong> ${ arrivalTime }<br>
                     <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
                     <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
-                    <button onclick="showChargerInResults('${ chargerId }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-2 py-1 rounded mt-2 mr-2">View in Results</button>
-                    <a href="https://maps.google.com/?q=${ charger.supercharger.latitude },${ charger.supercharger.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
-                `
-
-            if ( charger.restaurants && charger.restaurants.length > 0 ) {
-                popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
-                popupContent += charger.restaurants.slice( 0, 5 ).map( r => `<div class="text-sm mt-1">• ${ r.name } (${ Math.round( r.distance ) }m)</div>` ).join( '' )
-                if ( charger.restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-black">and ${ charger.restaurants.length - 5 } more...</div>`
-            }
-            popupContent += '</div>'
+                    <div class="flex flex-col gap-2 mt-3">
+                        <button onclick="showChargerInResults('${ chargerId }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>
+                        <button onclick="openInGoogleMaps(${ charger.supercharger.latitude }, ${ charger.supercharger.longitude })" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="shareToTesla(${ charger.supercharger.latitude }, ${ charger.supercharger.longitude }, '${ charger.supercharger.name }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                    </div>
+                </div>
+            `
 
             return L.marker( [ charger.supercharger.latitude, charger.supercharger.longitude ], {
                 icon: L.divIcon( {
@@ -1448,6 +1448,32 @@
                 setTimeout( () => { chargerRow.style.backgroundColor = '' }, 2000 )
             }
             setTimeout( () => map.invalidateSize(), 100 )
+        }
+
+        function openInGoogleMaps ( lat, lng ) {
+            const url = `https://maps.google.com/?q=${ lat },${ lng }`
+            window.open( url, '_blank' )
+        }
+
+        function shareToTesla ( lat, lng, name ) {
+            const googleMapsUrl = `https://maps.google.com/?q=${ lat },${ lng }`
+            const shareData = {
+                title: `Tesla Supercharger: ${ name }`,
+                text: `Check out this Tesla Supercharger location: ${ name }`,
+                url: googleMapsUrl
+            }
+
+            if ( navigator.share ) {
+                navigator.share( shareData ).catch( console.error )
+            } else {
+                // Fallback for browsers that don't support Web Share API
+                navigator.clipboard.writeText( googleMapsUrl ).then( () => {
+                    alert( 'Google Maps URL copied to clipboard!' )
+                } ).catch( () => {
+                    // Final fallback - open the URL
+                    window.open( googleMapsUrl, '_blank' )
+                } )
+            }
         }
 
         function showEmptyState ( message ) {
