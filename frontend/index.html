@@ -9,8 +9,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <style>
         /* Princess Color Palette - Using Color Science for Harmony */
         :root {
@@ -275,27 +278,29 @@
             border: 1px solid var(--princess-border) !important;
         }
 
-        /* Loading spinner styles */
-        .loading-container {
+        /* Continuous marker cluster styling */
+        .marker-cluster-continuous {
+            background-color: rgba(212, 197, 255, 0.8);
+            border: 2px solid var(--princess-accent-lavender);
+            border-radius: 50%;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.3);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 40px 20px;
-            text-align: center;
-            min-height: 200px;
         }
 
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid var(--princess-surface-soft);
-            border-top: 4px solid var(--princess-accent-lavender);
-            border-right: 4px solid var(--princess-accent-rose);
+        .marker-cluster-continuous div {
+            background-color: var(--princess-accent-lavender);
+            color: var(--princess-text-primary);
+            font-weight: bold;
             border-radius: 50%;
-            animation: princessSpin 2s ease-in-out infinite;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 16px rgba(107, 77, 124, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            line-height: 1;
         }
 
         @keyframes princessSpin {
@@ -419,21 +424,6 @@
             padding-left: 40px !important;
         }
 
-        /* Dotted line connecting origin and destination */
-        .route-connector {
-            position: absolute;
-            left: 19px;
-            top: 50%;
-            width: 2px;
-            height: 60px;
-            background: repeating-linear-gradient(to bottom,
-                    var(--princess-accent-lavender) 0px,
-                    var(--princess-accent-lavender) 4px,
-                    transparent 4px,
-                    transparent 8px);
-            z-index: 1;
-        }
-
         /* My Location option styling */
         .my-location-option {
             background: linear-gradient(135deg, var(--princess-lavender), var(--princess-accent-lavender)) !important;
@@ -448,15 +438,6 @@
 
         .leaflet-marker-icon {
             filter: drop-shadow(0 2px 8px rgba(107, 77, 124, 0.3));
-        }
-
-        /* Smooth transitions for interactive elements (but not map) */
-        button,
-        input,
-        .autocomplete-suggestion,
-        .city-link,
-        .restaurant-link {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* Princess-themed selection highlighting */
@@ -546,7 +527,6 @@
                 ✨ Passenger Princess Protector ✨</h1>
         </header>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end relative">
-            <div class="route-connector hidden md:block"></div>
             <div class="relative">
                 <div class="input-with-icon">
                     <div class="input-icon">👸</div>
@@ -631,7 +611,27 @@
         const chargerLayer = L.layerGroup().addTo( map )
         const restaurantLayer = L.layerGroup().addTo( map )
         const userLocationLayer = L.layerGroup().addTo( map )
-        const viewportSuperchargersLayer = L.layerGroup().addTo( map )
+        const viewportSuperchargersLayer = L.markerClusterGroup( {
+            chunkedLoading: true,
+            chunkInterval: 200,
+            chunkDelay: 50,
+            disableClusteringAtZoom: 12, // Disable clustering at zoom level 12 and above
+            maxClusterRadius: 50, // Maximum radius of a cluster in pixels
+            iconCreateFunction: function ( cluster ) {
+                const count = cluster.getChildCount()
+                // Calculate continuous size based on count (more pronounced logarithmic scaling)
+                const minSize = 25
+                const maxSize = 80
+                const size = Math.min( maxSize, minSize + Math.log10( count ) * 15 )
+                const fontSize = Math.max( 9, Math.min( 18, 9 + Math.log10( count ) * 3 ) )
+
+                return new L.DivIcon( {
+                    html: '<div><span style="font-size: ' + fontSize + 'px;">' + count + '</span></div>',
+                    className: 'marker-cluster-continuous',
+                    iconSize: new L.Point( size, size )
+                } )
+            }
+        } ).addTo( map )
 
         // --- STATE MANAGEMENT ---
         let userLocationMarker = null
@@ -1123,6 +1123,19 @@
                         }
                     }
                 } )
+
+                // Dynamically adjust clustering based on total count
+                const totalViewportSuperchargers = viewportSuperchargers.size
+                if ( totalViewportSuperchargers > 100 ) {
+                    // Enable clustering for large numbers of markers
+                    viewportSuperchargersLayer.options.disableClusteringAtZoom = 12
+                } else {
+                    // Disable clustering when there are fewer markers
+                    viewportSuperchargersLayer.options.disableClusteringAtZoom = 18 // Effectively disable clustering
+                }
+
+                // Refresh the clusters to apply the new settings
+                viewportSuperchargersLayer.refreshClusters()
 
             } catch ( error ) {
                 console.error( 'Error fetching viewport superchargers:', error )
