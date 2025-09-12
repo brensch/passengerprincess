@@ -10,6 +10,8 @@ services:
     volumes:
       - ./db:/root/db
     container_name: ppp
+    networks:
+      - home_default
 
 # note this connects to the network set up by caddy in the home assist project
 networks:
