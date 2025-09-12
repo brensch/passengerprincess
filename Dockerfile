@@ -20,7 +20,6 @@ WORKDIR /root/
 RUN mkdir -p db
 
 COPY --from=builder /app/main .
-COPY --from=builder /app/passengerprincess.db ./db/
 COPY --from=builder /app/frontend ./frontend
 
 EXPOSE 8040
