@@ -48,6 +48,213 @@ type LatLng struct {
 	Lng float64 `json:"lng"`
 }
 
+// PolylineIndex provides spatial indexing for fast distance calculations to polylines
+type PolylineIndex struct {
+	gridSize   float64 // degrees
+	minLat     float64
+	maxLat     float64
+	minLng     float64
+	maxLng     float64
+	gridWidth  int
+	gridHeight int
+	grid       [][][]PolylineSegment // [y][x][]segments
+	polyline   []Center
+}
+
+// PolylineSegment represents a segment in the polyline with its index and cumulative distance
+type PolylineSegment struct {
+	StartIdx       int
+	EndIdx         int
+	CumulativeDist float64
+}
+
+// buildPolylineIndex creates a spatial index for the given polyline
+func buildPolylineIndex(polyline []Center, gridSize float64) *PolylineIndex {
+	if len(polyline) < 2 {
+		return nil
+	}
+
+	// Find bounds
+	minLat, maxLat := polyline[0].Latitude, polyline[0].Latitude
+	minLng, maxLng := polyline[0].Longitude, polyline[0].Longitude
+
+	for _, p := range polyline {
+		if p.Latitude < minLat {
+			minLat = p.Latitude
+		}
+		if p.Latitude > maxLat {
+			maxLat = p.Latitude
+		}
+		if p.Longitude < minLng {
+			minLng = p.Longitude
+		}
+		if p.Longitude > maxLng {
+			maxLng = p.Longitude
+		}
+	}
+
+	// Add padding to bounds
+	padding := gridSize
+	minLat -= padding
+	maxLat += padding
+	minLng -= padding
+	maxLng += padding
+
+	// Calculate grid dimensions
+	latRange := maxLat - minLat
+	lngRange := maxLng - minLng
+	gridWidth := int(math.Ceil(lngRange / gridSize))
+	gridHeight := int(math.Ceil(latRange / gridSize))
+
+	if gridWidth <= 0 {
+		gridWidth = 1
+	}
+	if gridHeight <= 0 {
+		gridHeight = 1
+	}
+
+	// Initialize grid
+	grid := make([][][]PolylineSegment, gridHeight)
+	for i := range grid {
+		grid[i] = make([][]PolylineSegment, gridWidth)
+	}
+
+	// Build cumulative distances and assign segments to grid cells
+	cumulativeDist := 0.0
+	for i := 0; i < len(polyline)-1; i++ {
+		p1 := polyline[i]
+		p2 := polyline[i+1]
+
+		// Create segment
+		segment := PolylineSegment{
+			StartIdx:       i,
+			EndIdx:         i + 1,
+			CumulativeDist: cumulativeDist,
+		}
+
+		// Find grid cells this segment intersects
+		minSegLat := math.Min(p1.Latitude, p2.Latitude)
+		maxSegLat := math.Max(p1.Latitude, p2.Latitude)
+		minSegLng := math.Min(p1.Longitude, p2.Longitude)
+		maxSegLng := math.Max(p1.Longitude, p2.Longitude)
+
+		// Convert to grid coordinates
+		startY := int((minSegLat - minLat) / gridSize)
+		endY := int((maxSegLat - minLat) / gridSize)
+		startX := int((minSegLng - minLng) / gridSize)
+		endX := int((maxSegLng - minLng) / gridSize)
+
+		// Clamp to grid bounds
+		if startY < 0 {
+			startY = 0
+		}
+		if endY >= gridHeight {
+			endY = gridHeight - 1
+		}
+		if startX < 0 {
+			startX = 0
+		}
+		if endX >= gridWidth {
+			endX = gridWidth - 1
+		}
+
+		// Add segment to all intersecting grid cells
+		for y := startY; y <= endY; y++ {
+			for x := startX; x <= endX; x++ {
+				grid[y][x] = append(grid[y][x], segment)
+			}
+		}
+
+		// Update cumulative distance
+		cumulativeDist += haversineDistance(p1, p2)
+	}
+
+	return &PolylineIndex{
+		gridSize:   gridSize,
+		minLat:     minLat,
+		maxLat:     maxLat,
+		minLng:     minLng,
+		maxLng:     maxLng,
+		gridWidth:  gridWidth,
+		gridHeight: gridHeight,
+		grid:       grid,
+		polyline:   polyline,
+	}
+}
+
+// distanceToPolylineWithIndex calculates distance using spatial index for better performance
+func distanceToPolylineWithIndex(point Center, index *PolylineIndex) (float64, float64, Center) {
+	if index == nil || len(index.polyline) < 2 {
+		return distanceToPolyline(point, index.polyline)
+	}
+
+	// Find candidate segments in nearby grid cells
+	var candidateSegments []PolylineSegment
+
+	// Check point's grid cell and adjacent cells
+	pointY := int((point.Latitude - index.minLat) / index.gridSize)
+	pointX := int((point.Longitude - index.minLng) / index.gridSize)
+
+	// Check 3x3 area around the point
+	for dy := -1; dy <= 1; dy++ {
+		for dx := -1; dx <= 1; dx++ {
+			y := pointY + dy
+			x := pointX + dx
+
+			if y >= 0 && y < index.gridHeight && x >= 0 && x < index.gridWidth {
+				candidateSegments = append(candidateSegments, index.grid[y][x]...)
+			}
+		}
+	}
+
+	// If no candidates found (point outside bounds), check all segments
+	if len(candidateSegments) == 0 {
+		return distanceToPolyline(point, index.polyline)
+	}
+
+	// Remove duplicates (segments might be in multiple cells)
+	seen := make(map[int]bool)
+	var uniqueSegments []PolylineSegment
+	for _, seg := range candidateSegments {
+		if !seen[seg.StartIdx] {
+			seen[seg.StartIdx] = true
+			uniqueSegments = append(uniqueSegments, seg)
+		}
+	}
+
+	// Calculate distances only for candidate segments
+	minDist := math.MaxFloat64
+	distAlongRoute := 0.0
+	var closestPoint Center
+
+	for _, segment := range uniqueSegments {
+		p1 := index.polyline[segment.StartIdx]
+		p2 := index.polyline[segment.EndIdx]
+		dist := distanceToSegment(point, p1, p2)
+
+		if dist < minDist {
+			minDist = dist
+			// Find where on the segment the closest point lies
+			l2 := (p1.Latitude-p2.Latitude)*(p1.Latitude-p2.Latitude) + (p1.Longitude-p2.Longitude)*(p1.Longitude-p2.Longitude)
+			if l2 == 0.0 {
+				closestPoint = p1
+				distAlongRoute = segment.CumulativeDist
+			} else {
+				t := ((point.Latitude-p1.Latitude)*(p2.Latitude-p1.Latitude) + (point.Longitude-p1.Longitude)*(p2.Longitude-p1.Longitude)) / l2
+				t = math.Max(0, math.Min(1, t)) // Clamp to segment
+				segmentLength := haversineDistance(p1, p2)
+				distAlongRoute = segment.CumulativeDist + t*segmentLength
+				closestPoint = Center{
+					Latitude:  p1.Latitude + t*(p2.Latitude-p1.Latitude),
+					Longitude: p1.Longitude + t*(p2.Longitude-p1.Longitude),
+				}
+			}
+		}
+	}
+
+	return minDist, distAlongRoute, closestPoint
+}
+
 // distanceToPolyline calculates the shortest distance from a point to a polyline.
 // It returns the shortest distance in meters, the cumulative distance along the polyline to that closest point,
 // and the closest point on the polyline.
@@ -136,7 +343,7 @@ type SuperchargersOnRouteResult struct {
 }
 
 // processSuperchargers processes supercharger results concurrently to calculate ETAs and distances
-func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []Center, cumulativePoints []CumPoint) ([]SuperchargerWithETA, error) {
+func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []Center, cumulativePoints []CumPoint, polylineIndex *PolylineIndex) ([]SuperchargerWithETA, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var superchargersWithETA []SuperchargerWithETA
@@ -166,7 +373,7 @@ func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []C
 			}
 
 			// Find closest point on route and calculate distances
-			distFromRoute, distAlongRoute, closestPoint := distanceToPolyline(scLocation, routePoints)
+			distFromRoute, distAlongRoute, closestPoint := distanceToPolylineWithIndex(scLocation, polylineIndex)
 
 			var arrivalTime time.Time
 			if len(cumulativePoints) > 0 {
@@ -229,6 +436,11 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		return nil, fmt.Errorf("failed to decode polyline: %w", err)
 	}
 	log.Printf("Decode polyline time: %v", time.Since(decodeStart))
+
+	// Build spatial index for fast distance calculations
+	indexStart := time.Now()
+	polylineIndex := buildPolylineIndex(routePoints, 0.01) // 0.01 degrees ≈ 1.11km grid size
+	log.Printf("Build spatial index time: %v", time.Since(indexStart))
 
 	// Build cumulative profile for accurate ETAs if we have enhanced route data
 	cumulativeStart := time.Now()
@@ -369,7 +581,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 
 	// Process results and calculate ETAs
 	processStart := time.Now()
-	superchargersWithETA, err := processSuperchargers(resultsChan, routePoints, cumulativePoints)
+	superchargersWithETA, err := processSuperchargers(resultsChan, routePoints, cumulativePoints, polylineIndex)
 	if err != nil {
 		return nil, err
 	}
