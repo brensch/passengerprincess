@@ -561,7 +561,7 @@
             data.superchargers.forEach( ( charger, index ) => {
                 const chargerId = `charger-${ index }`
                 const chargerMarker = createChargerMarker( charger, chargerId )
-                const restaurantMarkers = createRestaurantMarkers( charger.supercharger.restaurants )
+                const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
 
                 stationData.push( {
                     id: chargerId,
@@ -881,10 +881,10 @@
                     <a href="https://maps.google.com/?q=${ charger.supercharger.latitude },${ charger.supercharger.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                 `
 
-            if ( charger.supercharger.restaurants && charger.supercharger.restaurants.length > 0 ) {
+            if ( charger.restaurants && charger.restaurants.length > 0 ) {
                 popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
-                popupContent += charger.supercharger.restaurants.slice( 0, 5 ).map( r => `<div class="text-sm mt-1">• ${ r.name } (${ r.walking_distance_meters }m)</div>` ).join( '' )
-                if ( charger.supercharger.restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-black">and ${ charger.supercharger.restaurants.length - 5 } more...</div>`
+                popupContent += charger.restaurants.slice( 0, 5 ).map( r => `<div class="text-sm mt-1">• ${ r.name } (${ Math.round( r.distance ) }m)</div>` ).join( '' )
+                if ( charger.restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-black">and ${ charger.restaurants.length - 5 } more...</div>`
             }
             popupContent += '</div>'
 
@@ -908,7 +908,7 @@
                     } ),
                     restaurantName: restaurant.name,
                     cuisine: ( restaurant.primary_type || '' )
-                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.walking_distance_meters || 'Distance unknown' }` )
+                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }` )
             } )
         }
 
@@ -917,7 +917,7 @@
         function createTableRowsForStation ( charger, chargerId ) {
             // This function remains the same
             const rows = []
-            const restaurants = charger.supercharger.restaurants || []
+            const restaurants = charger.restaurants || []
             const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
             const arrivalTime = charger.arrival_time || 'N/A'
 
@@ -952,7 +952,7 @@
                         <td class="px-1 py-0 text-sm text-pink-700">
                             <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link" data-original-name="${ restaurant.name }">${ restaurant.name }</span>
                         </td>
-                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.walking_distance_meters || 'N/A' }</td>
+                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'N/A' }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ statusHtml }</td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.rating || 'N/A' }</td>
