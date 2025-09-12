@@ -91,8 +91,7 @@
             box-shadow: 0 8px 32px rgba(107, 77, 124, 0.1);
             backdrop-filter: blur(8px);
             max-height: 100vh;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: visible;
         }
 
         /* Results area */
@@ -214,7 +213,7 @@
             border-radius: 12px;
             box-shadow: 0 16px 32px rgba(107, 77, 124, 0.15);
             backdrop-filter: blur(8px);
-            z-index: 1100;
+            z-index: 1200;
             max-height: 200px;
             overflow-y: auto;
             margin-top: 2px;
@@ -232,8 +231,9 @@
             border-bottom: none;
         }
 
-        .autocomplete-suggestion:hover {
-            background: var(--princess-lavender);
+        .autocomplete-suggestion:hover,
+        .autocomplete-suggestion.selected {
+            background: var(--princess-accent-lavender);
             color: var(--princess-text-primary);
             transform: translateY(-1px);
         }
@@ -397,7 +397,55 @@
             box-shadow: 0 0 20px rgba(230, 224, 255, 0.4);
         }
 
-        /* Custom marker styling for map */
+        /* Input with icons styling */
+        .input-with-icon {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+            pointer-events: none;
+            font-size: 16px;
+            color: var(--princess-text-secondary);
+        }
+
+        .input-with-icon input {
+            padding-left: 40px !important;
+        }
+
+        /* Dotted line connecting origin and destination */
+        .route-connector {
+            position: absolute;
+            left: 19px;
+            top: 50%;
+            width: 2px;
+            height: 60px;
+            background: repeating-linear-gradient(to bottom,
+                    var(--princess-accent-lavender) 0px,
+                    var(--princess-accent-lavender) 4px,
+                    transparent 4px,
+                    transparent 8px);
+            z-index: 1;
+        }
+
+        /* My Location option styling */
+        .my-location-option {
+            background: linear-gradient(135deg, var(--princess-lavender), var(--princess-accent-lavender)) !important;
+            border: 1px solid var(--princess-accent-lavender) !important;
+            font-weight: 600 !important;
+        }
+
+        .my-location-option::before {
+            content: "🎯";
+            margin-right: 8px;
+        }
+
         .leaflet-marker-icon {
             filter: drop-shadow(0 2px 8px rgba(107, 77, 124, 0.3));
         }
@@ -498,30 +546,24 @@
                 style="color: var(--princess-text-primary); text-shadow: 2px 2px 8px rgba(107, 77, 124, 0.3);">
                 ✨ Passenger Princess Protector ✨</h1>
         </header>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end relative">
+            <div class="route-connector hidden md:block"></div>
             <div class="relative">
-                <div class="flex items-center justify-between mb-2">
-                    <label for="origin" class="block text-sm font-medium"
-                        style="color: var(--princess-text-primary);">Origin</label>
-                    <button id="location-btn"
-                        class="princess-button text-xs whitespace-nowrap focus:outline-none disabled:opacity-50">
-                        <span id="location-text">👸 Use Current Location</span>
-                        <div id="loading-spinner"
-                            class="hidden w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block ml-2">
-                        </div>
-                    </button>
+                <div class="input-with-icon">
+                    <div class="input-icon">⭕</div>
+                    <input type="text" id="origin"
+                        class="block w-full px-4 py-3 rounded-lg shadow-sm text-sm enhanced-input"
+                        placeholder="Where are you starting from?">
                 </div>
-                <input type="text" id="origin"
-                    class="block w-full px-4 py-3 rounded-lg shadow-sm text-sm enhanced-input"
-                    placeholder="e.g., San Francisco, CA">
                 <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
             <div class="relative">
-                <label for="destination" class="block text-sm font-medium mb-2"
-                    style="color: var(--princess-text-primary);">Destination</label>
-                <input type="text" id="destination"
-                    class="block w-full px-4 py-3 rounded-lg shadow-sm text-sm enhanced-input"
-                    placeholder="e.g., Los Angeles, CA">
+                <div class="input-with-icon">
+                    <div class="input-icon">📍</div>
+                    <input type="text" id="destination"
+                        class="block w-full px-4 py-3 rounded-lg shadow-sm text-sm enhanced-input"
+                        placeholder="Where are you going?">
+                </div>
                 <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
             <div class="md:col-span-2">
@@ -563,9 +605,6 @@
         const bottomResults = document.getElementById( 'bottom-results' )
         const topToolbar = document.getElementById( 'top-toolbar' )
         const newSearchBtn = document.getElementById( 'new-search-btn' )
-        const locationBtn = document.getElementById( 'location-btn' )
-        const locationText = document.getElementById( 'location-text' )
-        const loadingSpinner = document.getElementById( 'loading-spinner' )
         const restaurantSearchInput = document.getElementById( 'restaurant-search' )
         const cuisineFilterButtons = document.getElementById( 'cuisine-filter-buttons' )
 
@@ -616,7 +655,6 @@
 
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
-        locationBtn.addEventListener( 'click', handleLocationClick )
         restaurantSearchInput.addEventListener( 'input', () => {
             clearTimeout( filterTimeout )
             filterTimeout = setTimeout( () => {
@@ -1179,7 +1217,7 @@
                         <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
                         <span class="font-bold">${ arrivalTime }</span>
                         <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
-                        <span class="text-xs text-pink-600">From Route: ${ distanceFromOrigin }</span>
+                        <span class="text-xs text-pink-600">Off Route: ${ distanceFromOrigin }</span>
                     </div>
                 </td>
             `
@@ -1388,42 +1426,6 @@
             mapElement.style.height = '100vh'
         }
 
-        async function handleLocationClick () {
-            if ( !navigator.geolocation ) {
-                updateStatus( "Geolocation is not supported by this browser.", true )
-                return
-            }
-            loadingSpinner.classList.remove( 'hidden' )
-            locationBtn.disabled = true
-            try {
-                const position = await new Promise( ( resolve, reject ) => navigator.geolocation.getCurrentPosition( resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 20000
-                } ) )
-                const { latitude: lat, longitude: lon } = position.coords
-
-                // Reverse geocode the coordinates to get an address
-                const address = await reverseGeocode( lat, lon )
-                originInput.value = address
-                updateStatus( "Location detected and set as origin.", false )
-                startLocationTracking()
-            } catch ( error ) {
-                console.log( "Geolocation error:", error )
-                let errorMessage = "Could not access your location."
-                if ( error.code === error.PERMISSION_DENIED ) {
-                    errorMessage += " Please enable location permissions in your browser."
-                } else if ( error.code === error.POSITION_UNAVAILABLE ) {
-                    errorMessage += " Location information is unavailable."
-                } else if ( error.code === error.TIMEOUT ) {
-                    errorMessage += " Location request timed out. Try again or check your GPS signal."
-                }
-                updateStatus( errorMessage, true )
-            } finally {
-                loadingSpinner.classList.add( 'hidden' )
-                locationBtn.disabled = false
-            }
-        }
-
         function startLocationTracking () {
             if ( locationTrackingInterval ) clearInterval( locationTrackingInterval )
             document.getElementById( 'gps-btn' ).classList.remove( 'hidden' )
@@ -1471,6 +1473,22 @@
         function setupAutocomplete ( inputElement, suggestionsDiv ) {
             let lastInputValue = ''
             const inputId = inputElement.id // 'origin' or 'destination'
+            let selectedIndex = -1
+            let currentSuggestions = []
+            let hasShownMyLocation = false
+
+            // Add focus event to show "My Location" option
+            inputElement.addEventListener( 'focus', () => {
+                if ( inputElement.value.trim() === '' && !hasShownMyLocation ) {
+                    const myLocationOption = [ {
+                        description: "My Location",
+                        place_id: "my_location",
+                        isMyLocation: true
+                    } ]
+                    displaySuggestions( myLocationOption, suggestionsDiv, inputElement, selectedIndex )
+                    hasShownMyLocation = true
+                }
+            } )
 
             inputElement.addEventListener( 'input', () => {
                 clearTimeout( debounceTimer )
@@ -1484,9 +1502,13 @@
 
                     if ( query.length < 3 ) {
                         suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
+                        hasShownMyLocation = false
                         return
                     }
 
+                    hasShownMyLocation = false
                     lastInputValue = query
 
                     try {
@@ -1504,35 +1526,126 @@
                             autocompleteSessions[ inputId ] = data.session_token
                         }
 
-                        displaySuggestions( data.predictions, suggestionsDiv, inputElement )
+                        currentSuggestions = data.predictions || []
+                        displaySuggestions( currentSuggestions, suggestionsDiv, inputElement, selectedIndex )
                     } catch ( error ) {
                         console.error( 'Autocomplete error:', error )
                         suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
                     }
                 }, 300 )
             } )
-            inputElement.addEventListener( 'blur', () => setTimeout( () => suggestionsDiv.classList.add( 'hidden' ), 150 ) )
+
+            // Keyboard navigation
+            inputElement.addEventListener( 'keydown', ( e ) => {
+                if ( suggestionsDiv.classList.contains( 'hidden' ) || currentSuggestions.length === 0 ) {
+                    // If no suggestions are shown, allow Enter to submit form
+                    if ( e.key === 'Enter' ) {
+                        e.preventDefault()
+                        handleRouteSearch()
+                    }
+                    return
+                }
+
+                switch ( e.key ) {
+                    case 'ArrowDown':
+                        e.preventDefault()
+                        selectedIndex = Math.min( selectedIndex + 1, currentSuggestions.length - 1 )
+                        displaySuggestions( currentSuggestions, suggestionsDiv, inputElement, selectedIndex )
+                        break
+                    case 'ArrowUp':
+                        e.preventDefault()
+                        selectedIndex = Math.max( selectedIndex - 1, -1 )
+                        displaySuggestions( currentSuggestions, suggestionsDiv, inputElement, selectedIndex )
+                        break
+                    case 'Enter':
+                        e.preventDefault()
+                        if ( selectedIndex >= 0 && selectedIndex < currentSuggestions.length ) {
+                            const selectedSuggestion = currentSuggestions[ selectedIndex ]
+                            if ( selectedSuggestion.isMyLocation ) {
+                                // Handle "My Location" selection
+                                handleMyLocationSelection( inputElement )
+                            } else {
+                                inputElement.value = selectedSuggestion.description
+                            }
+                        }
+                        suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
+                        hasShownMyLocation = false
+                        // Submit form after selecting suggestion (but not for My Location)
+                        if ( !( selectedIndex >= 0 && currentSuggestions[ selectedIndex ]?.isMyLocation ) ) {
+                            setTimeout( () => handleRouteSearch(), 100 )
+                        }
+                        break
+                    case 'Escape':
+                        suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
+                        hasShownMyLocation = false
+                        break
+                }
+            } )
+
+            inputElement.addEventListener( 'blur', () => setTimeout( () => {
+                suggestionsDiv.classList.add( 'hidden' )
+                selectedIndex = -1
+                currentSuggestions = []
+                hasShownMyLocation = false
+            }, 150 ) )
         }
 
-        function displaySuggestions ( predictions, suggestionsDiv, input ) {
+        function displaySuggestions ( predictions, suggestionsDiv, input, selectedIndex = -1 ) {
             suggestionsDiv.innerHTML = ''
             if ( !predictions || predictions.length === 0 ) {
                 suggestionsDiv.classList.add( 'hidden' )
                 return
             }
-            predictions.forEach( prediction => {
+            predictions.forEach( ( prediction, index ) => {
                 const suggestion = document.createElement( 'div' )
                 suggestion.className = 'autocomplete-suggestion'
+                if ( index === selectedIndex ) {
+                    suggestion.classList.add( 'selected' )
+                }
+                if ( prediction.isMyLocation ) {
+                    suggestion.classList.add( 'my-location-option' )
+                }
                 suggestion.textContent = prediction.description
                 suggestion.addEventListener( 'mousedown', () => { // Use mousedown to fire before blur
-                    input.value = prediction.description
+                    if ( prediction.isMyLocation ) {
+                        handleMyLocationSelection( input )
+                    } else {
+                        input.value = prediction.description
+                    }
                     suggestionsDiv.classList.add( 'hidden' )
+                } )
+                suggestion.addEventListener( 'mouseenter', () => {
+                    // Update selected index on mouse hover
+                    const allSuggestions = suggestionsDiv.querySelectorAll( '.autocomplete-suggestion' )
+                    allSuggestions.forEach( ( s, i ) => {
+                        if ( i === index ) {
+                            s.classList.add( 'selected' )
+                        } else {
+                            s.classList.remove( 'selected' )
+                        }
+                    } )
                 } )
                 suggestionsDiv.appendChild( suggestion )
             } )
             const inputRect = input.getBoundingClientRect()
+            const viewportHeight = window.innerHeight
+            const dropdownHeight = Math.min( 200, predictions.length * 44 ) // Estimate height based on items
+
+            // Position above input if there's not enough space below
+            let top = inputRect.bottom + window.scrollY + 2
+            if ( top + dropdownHeight > viewportHeight + window.scrollY ) {
+                top = inputRect.top + window.scrollY - dropdownHeight - 2
+                suggestionsDiv.style.marginTop = '0'
+            }
+
             suggestionsDiv.style.left = `${ inputRect.left }px`
-            suggestionsDiv.style.top = `${ inputRect.bottom + window.scrollY }px`
+            suggestionsDiv.style.top = `${ top }px`
             suggestionsDiv.style.width = `${ inputRect.width }px`
             suggestionsDiv.classList.remove( 'hidden' )
         }
@@ -1565,10 +1678,38 @@
             try {
                 const address = await reverseGeocode( lat, lon )
                 originInput.value = address
-                updateStatus( "Address populated from current location.", false )
             } catch ( error ) {
                 console.error( 'Could not populate address:', error )
                 updateStatus( "Could not get address for current location.", true )
+            }
+        }
+
+        // Function to handle "My Location" selection from autocomplete
+        async function handleMyLocationSelection ( inputElement ) {
+            try {
+                inputElement.value = "Getting your location..."
+                const position = await new Promise( ( resolve, reject ) => navigator.geolocation.getCurrentPosition( resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 20000
+                } ) )
+                const { latitude: lat, longitude: lon } = position.coords
+
+                // Reverse geocode the coordinates to get an address
+                const address = await reverseGeocode( lat, lon )
+                inputElement.value = address
+                startLocationTracking()
+            } catch ( error ) {
+                console.log( "Geolocation error:", error )
+                inputElement.value = ""
+                let errorMessage = "Could not access your location."
+                if ( error.code === error.PERMISSION_DENIED ) {
+                    errorMessage += " Please enable location permissions in your browser."
+                } else if ( error.code === error.POSITION_UNAVAILABLE ) {
+                    errorMessage += " Location information is unavailable."
+                } else if ( error.code === error.TIMEOUT ) {
+                    errorMessage += " Location request timed out. Try again or check your GPS signal."
+                }
+                updateStatus( errorMessage, true )
             }
         }
 
@@ -1608,7 +1749,25 @@
 
         function updateStatus ( message, isError = false ) {
             statusMessage.textContent = message
-            statusMessage.className = `text-center mt-3 text-sm font-medium ${ isError ? 'text-red-600' : 'text-pink-600' }`
+            if ( isError ) {
+                statusMessage.style.color = 'var(--princess-accent-rose)'
+                statusMessage.style.fontWeight = '600'
+                statusMessage.style.textShadow = '0 2px 4px rgba(255, 179, 198, 0.3)'
+                statusMessage.style.background = 'linear-gradient(135deg, rgba(255, 224, 230, 0.8), rgba(255, 179, 198, 0.4))'
+                statusMessage.style.padding = '8px 12px'
+                statusMessage.style.borderRadius = '8px'
+                statusMessage.style.border = '1px solid var(--princess-accent-rose)'
+                statusMessage.style.boxShadow = '0 4px 12px rgba(255, 179, 198, 0.2)'
+            } else {
+                statusMessage.style.color = 'var(--princess-text-secondary)'
+                statusMessage.style.fontWeight = '500'
+                statusMessage.style.textShadow = 'none'
+                statusMessage.style.background = 'transparent'
+                statusMessage.style.padding = '0'
+                statusMessage.style.borderRadius = '0'
+                statusMessage.style.border = 'none'
+                statusMessage.style.boxShadow = 'none'
+            }
         }
 
         function updateUrlForSearch ( origin, destination ) {
