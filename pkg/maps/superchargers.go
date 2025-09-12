@@ -383,6 +383,11 @@ func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []C
 			// Find closest point on route and calculate distances
 			distFromRoute, distAlongRoute, closestPoint := distanceToPolylineWithIndex(scLocation, polylineIndex)
 
+			// don't include superchargers that are too far from the route
+			if distFromRoute > 20000 {
+				return
+			}
+
 			arrivalTime := calculateETA(cumulativePoints, distAlongRoute, distFromRoute, float64(route.DistanceMeters), route.Duration)
 
 			eta := SuperchargerWithETA{
