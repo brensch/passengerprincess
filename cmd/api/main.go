@@ -43,7 +43,7 @@ func main() {
 	// Initialize database
 	config := &db.Config{
 		DatabasePath: "passengerprincess.db",
-		LogLevel:     logger.Info,
+		LogLevel:     logger.Warn,
 	}
 	if err := db.Initialize(config); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)

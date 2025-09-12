@@ -431,6 +431,7 @@
         let currentCuisineFilter = []
         let viewportSuperchargers = new Map() // Map of place_id to supercharger data
         let lastViewportBounds = null // Track last viewport bounds to avoid unnecessary API calls
+        let routeSuperchargerLocations = new Set() // Set of "lat,lng" strings for route superchargers
 
         // Autocomplete session tokens for each input field
         let autocompleteSessions = {
@@ -554,6 +555,7 @@
 
             // Reset state and build the new `stationData` and table UI
             stationData = []
+            routeSuperchargerLocations.clear() // Clear previous route locations
             const tbody = document.getElementById( 'chargers-tbody' )
             tbody.innerHTML = ''
             const fragment = document.createDocumentFragment()
@@ -562,6 +564,10 @@
                 const chargerId = `charger-${ index }`
                 const chargerMarker = createChargerMarker( charger, chargerId )
                 const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
+
+                // Add route supercharger location to the set
+                const locationKey = `${charger.supercharger.latitude},${charger.supercharger.longitude}`
+                routeSuperchargerLocations.add(locationKey)
 
                 stationData.push( {
                     id: chargerId,
@@ -832,12 +838,16 @@
                 // Add new superchargers
                 superchargers.forEach( supercharger => {
                     if ( !viewportSuperchargers.has( supercharger.place_id ) ) {
-                        const marker = createViewportSuperchargerMarker( supercharger )
-                        viewportSuperchargers.set( supercharger.place_id, {
-                            data: supercharger,
-                            marker: marker
-                        } )
-                        viewportSuperchargersLayer.addLayer( marker )
+                        // Check if there's already a route supercharger at this location
+                        const locationKey = `${supercharger.latitude},${supercharger.longitude}`
+                        if (!routeSuperchargerLocations.has(locationKey)) {
+                            const marker = createViewportSuperchargerMarker( supercharger )
+                            viewportSuperchargers.set( supercharger.place_id, {
+                                data: supercharger,
+                                marker: marker
+                            } )
+                            viewportSuperchargersLayer.addLayer( marker )
+                        }
                     }
                 } )
 
@@ -1057,6 +1067,7 @@
             restaurantLayer.clearLayers()
             viewportSuperchargersLayer.clearLayers()
             stationData = []
+            routeSuperchargerLocations.clear()
             viewportSuperchargers.clear()
             lastViewportBounds = null
             filteredChargerIDs = null

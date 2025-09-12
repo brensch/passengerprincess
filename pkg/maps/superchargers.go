@@ -342,7 +342,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 			Restaurants:         res.restaurants,
 		})
 	}
-	log.Printf("Fetch and process superchargers time: %v", time.Since(processStart))
+	log.Printf("process superchargers time: %v", time.Since(processStart))
 
 	return &SuperchargersOnRouteResult{
 		Route:         route,
@@ -362,11 +362,6 @@ const (
 // First checks the database, then falls back to API if not found
 func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string) (*db.Supercharger, []db.RestaurantWithDistance, error) {
 	// First try to get from database
-	start := time.Now()
-	defer func() {
-		// log the start, end, and duration
-		log.Printf("GetSuperchargerWithCache start: %v end: %v total time for %s: %v", start, time.Now(), placeID, time.Since(start))
-	}()
 	supercharger, err := broker.Supercharger.GetByID(placeID)
 	if err == nil {
 		restaurants, err := broker.Supercharger.GetRestaurantsForSupercharger(placeID)

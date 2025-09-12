@@ -65,7 +65,7 @@ func (r *SuperchargerRepository) GetByID(placeID string) (*Supercharger, error) 
 // GetByLocation retrieves superchargers within a bounding box
 func (r *SuperchargerRepository) GetByLocation(minLat, maxLat, minLng, maxLng float64) ([]Supercharger, error) {
 	var superchargers []Supercharger
-	err := r.db.Where("latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?",
+	err := r.db.Where("latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ? and is_supercharger = TRUE",
 		minLat, maxLat, minLng, maxLng).Find(&superchargers).Error
 	return superchargers, err
 }

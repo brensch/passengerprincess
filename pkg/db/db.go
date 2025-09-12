@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -23,7 +24,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		DatabasePath: "passengerprincess.db",
-		LogLevel:     logger.Info,
+		LogLevel:     logger.Warn, // Changed from logger.Info to reduce logging overhead
 	}
 }
 
@@ -76,14 +77,16 @@ func configureSQLite(config *Config) error {
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA journal_mode = WAL",
-		"PRAGMA synchronous = NORMAL",
+		"PRAGMA synchronous = NORMAL", // Changed from FULL for better performance
 		"PRAGMA cache_size = 1000000",
 		"PRAGMA temp_store = memory",
+		"PRAGMA busy_timeout = 5000", // Added busy timeout to handle locks
 	}
 
 	// Set connection pool settings for concurrent access
-	sqlDB.SetMaxOpenConns(25)
-	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetMaxOpenConns(10)  // Reduced from 25
+	sqlDB.SetMaxIdleConns(2)   // Reduced from 5
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	for _, pragma := range pragmas {
 		if _, err := sqlDB.Exec(pragma); err != nil {
