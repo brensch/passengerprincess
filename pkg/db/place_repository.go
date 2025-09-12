@@ -108,7 +108,20 @@ func (r *SuperchargerRepository) AddSuperchargerWithRestaurants(supercharger *Su
 			if err := tx.Where("place_id = ?", restaurant.PlaceID).First(&existing).Error; err != nil {
 				if err == gorm.ErrRecordNotFound {
 					// Restaurant doesn't exist, create it
-					if err := tx.Create(&restaurant).Error; err != nil {
+					newRestaurant := Restaurant{
+						PlaceID:            restaurant.PlaceID,
+						Name:               restaurant.Name,
+						Address:            restaurant.Address,
+						Latitude:           restaurant.Latitude,
+						Longitude:          restaurant.Longitude,
+						Rating:             restaurant.Rating,
+						UserRatingsTotal:   restaurant.UserRatingsTotal,
+						PrimaryType:        restaurant.PrimaryType,
+						PrimaryTypeDisplay: restaurant.PrimaryTypeDisplay,
+						DisplayName:        restaurant.DisplayName,
+						LastUpdated:        restaurant.LastUpdated,
+					}
+					if err := tx.Create(&newRestaurant).Error; err != nil {
 						return err
 					}
 				} else {
