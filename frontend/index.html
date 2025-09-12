@@ -540,7 +540,7 @@
             const trafficSegments = data.route && data.route.travelAdvisory && data.route.travelAdvisory.speedReadingIntervals
                 ? buildTrafficSegments( data.route.EncodedPolyline, data.route.travelAdvisory.speedReadingIntervals )
                 : []
-            drawTrafficSegments( trafficSegments )
+            drawTrafficSegments( trafficSegments, data.route.EncodedPolyline )
 
             // Set map bounds using the main route polyline
             const routeCoords = decodePolyline( data.route.EncodedPolyline )
@@ -742,12 +742,24 @@
         /**
          * Draws the route on the map using traffic segment data.
          */
-        function drawTrafficSegments ( trafficSegments ) {
+        function drawTrafficSegments ( trafficSegments, encodedPolyline ) {
             routeLayer.clearLayers()
+
+            // Always draw the main route
+            const routeCoords = decodePolyline( encodedPolyline )
+            if ( routeCoords.length > 0 ) {
+                L.polyline( routeCoords, {
+                    color: 'blue',
+                    weight: 5,
+                    opacity: 0.8
+                } ).addTo( routeLayer )
+            }
+
             if ( !trafficSegments || trafficSegments.length === 0 ) {
                 return
             }
 
+            // Overlay traffic segments
             trafficSegments.forEach( segment => {
                 const coords = decodePolyline( segment.polyline )
                 if ( coords.length < 2 ) return

@@ -30,7 +30,6 @@ type RouteInfo struct {
 	Duration        time.Duration
 	EncodedPolyline string
 	// Enhanced data for traffic-aware routing
-	Legs           []EnhancedRouteLeg  `json:"legs,omitempty"`
 	TravelAdvisory RouteTravelAdvisory `json:"travelAdvisory,omitempty"`
 }
 
@@ -109,7 +108,7 @@ func GetRoute(apiKey, origin, destination string) (*RouteInfo, error) {
 		return nil, fmt.Errorf("failed to get route: %w", err)
 	}
 
-	if len(enhancedRoute.Routes) == 0 || len(enhancedRoute.Routes[0].Legs) == 0 {
+	if len(enhancedRoute.Routes) == 0 {
 		return nil, fmt.Errorf("no route data returned")
 	}
 
@@ -122,7 +121,6 @@ func GetRoute(apiKey, origin, destination string) (*RouteInfo, error) {
 		DistanceMeters:  route.DistanceMeters,
 		Duration:        time.Duration(durationSeconds) * time.Second,
 		EncodedPolyline: route.Polyline.EncodedPolyline,
-		Legs:            route.Legs,
 		TravelAdvisory:  route.TravelAdvisory,
 	}, nil
 }
@@ -157,7 +155,7 @@ func getEnhancedRouteData(apiKey, origin, destination string) (*EnhancedRouteRes
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Goog-Api-Key", apiKey)
-	req.Header.Set("X-Goog-FieldMask", "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.duration,routes.legs.distanceMeters,routes.legs.steps.polyline.encodedPolyline,routes.legs.steps.staticDuration,routes.legs.steps.distanceMeters,routes.travelAdvisory.speedReadingIntervals")
+	req.Header.Set("X-Goog-FieldMask", "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.travelAdvisory.speedReadingIntervals")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

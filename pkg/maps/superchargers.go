@@ -306,21 +306,29 @@ func distanceToSegment(p, v, w Center) float64 {
 	return haversineDistance(p, Center{Latitude: closestLat, Longitude: closestLng})
 }
 
-// calculateETA computes the estimated arrival time for a supercharger
+// calculateETA calculates the estimated arrival time at a supercharger
 // based on route duration and distance from route
-func calculateETA(cumulativePoints []CumPoint, distAlongRoute, distFromRoute float64) time.Time {
+func calculateETA(cumulativePoints []CumPoint, distAlongRoute, distFromRoute float64, totalRouteDist float64, totalRouteDur time.Duration) time.Time {
 	// Find the closest cumulative point for accurate ETA
 	var selectedCumDur int
 	var foundDuration bool
-	for _, cp := range cumulativePoints {
-		if cp.CumDistKm >= distAlongRoute/1000.0 { // Convert meters to km
-			selectedCumDur = cp.CumDurSeconds
-			foundDuration = true
-			break
+	if len(cumulativePoints) > 0 {
+		for _, cp := range cumulativePoints {
+			if cp.CumDistKm >= distAlongRoute/1000.0 { // Convert meters to km
+				selectedCumDur = cp.CumDurSeconds
+				foundDuration = true
+				break
+			}
 		}
-	}
-	if !foundDuration && len(cumulativePoints) > 0 {
-		selectedCumDur = cumulativePoints[len(cumulativePoints)-1].CumDurSeconds
+		if !foundDuration {
+			selectedCumDur = cumulativePoints[len(cumulativePoints)-1].CumDurSeconds
+		}
+	} else {
+		// No detailed cumulative points, estimate based on total route
+		if totalRouteDist > 0 {
+			fraction := distAlongRoute / totalRouteDist
+			selectedCumDur = int(float64(totalRouteDur.Seconds()) * fraction)
+		}
 	}
 
 	// Calculate arrival time
@@ -343,7 +351,7 @@ type SuperchargersOnRouteResult struct {
 }
 
 // processSuperchargers processes supercharger results concurrently to calculate ETAs and distances
-func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []Center, cumulativePoints []CumPoint, polylineIndex *PolylineIndex) ([]SuperchargerWithETA, error) {
+func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []Center, cumulativePoints []CumPoint, polylineIndex *PolylineIndex, route *RouteInfo) ([]SuperchargerWithETA, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var superchargersWithETA []SuperchargerWithETA
@@ -375,20 +383,7 @@ func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []C
 			// Find closest point on route and calculate distances
 			distFromRoute, distAlongRoute, closestPoint := distanceToPolylineWithIndex(scLocation, polylineIndex)
 
-			var arrivalTime time.Time
-			if len(cumulativePoints) > 0 {
-				// Calculate ETA using enhanced route data
-				arrivalTime = calculateETA(cumulativePoints, distAlongRoute, distFromRoute)
-			} else {
-				// Basic ETA calculation without traffic data
-				// Assume average speed of 80 km/h for highway driving
-				avgSpeedKmh := 80.0
-				timeToReachRoutePoint := (distAlongRoute / 1000.0) / avgSpeedKmh * 3600.0 // Convert to seconds
-				timeToSupercharger := (distFromRoute / 1000.0) / 50.0 * 3600.0            // 50 km/h off-route, convert to seconds
-
-				totalTravelTime := time.Duration(timeToReachRoutePoint+timeToSupercharger) * time.Second
-				arrivalTime = time.Now().Add(totalTravelTime)
-			}
+			arrivalTime := calculateETA(cumulativePoints, distAlongRoute, distFromRoute, float64(route.DistanceMeters), route.Duration)
 
 			eta := SuperchargerWithETA{
 				Supercharger:        sc,
@@ -445,69 +440,8 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 	// Build cumulative profile for accurate ETAs if we have enhanced route data
 	cumulativeStart := time.Now()
 	var cumulativePoints []CumPoint
-	if len(route.Legs) > 0 && len(route.Legs[0].Steps) > 0 {
-		// We have enhanced route data with steps
-		leg := route.Legs[0]
-		cumDist := 0.0
-		cumDur := 0
-
-		// Calculate total duration with and without traffic to find a traffic multiplier
-		sumStaticDur := 0
-		for _, step := range leg.Steps {
-			sumStaticDur += parseDurationString(step.StaticDuration)
-		}
-		totalTrafficDur := int(route.Duration.Seconds())
-
-		trafficMultiplier := 1.0
-		if sumStaticDur > 0 {
-			trafficMultiplier = float64(totalTrafficDur) / float64(sumStaticDur)
-		}
-
-		// Build the point-by-point timeline for the route
-		for _, step := range leg.Steps {
-			stepPoints, err := DecodePolyline(step.Polyline.EncodedPolyline)
-			if err != nil || len(stepPoints) == 0 {
-				continue
-			}
-			totalStepDist := 0.0
-			for i := 1; i < len(stepPoints); i++ {
-				totalStepDist += haversineDistance(stepPoints[i-1], stepPoints[i])
-			}
-
-			// Apply the traffic multiplier to this step's static duration
-			staticStepDur := parseDurationString(step.StaticDuration)
-			trafficStepDur := int(float64(staticStepDur) * trafficMultiplier)
-
-			stepCumDist := 0.0
-			for i, p := range stepPoints {
-				if i > 0 {
-					dist := haversineDistance(stepPoints[i-1], p)
-					stepCumDist += dist
-					fraction := 0.0
-					if totalStepDist > 0 {
-						fraction = stepCumDist / totalStepDist
-					}
-					pointCumDur := cumDur + int(float64(trafficStepDur)*fraction)
-					cumulativePoints = append(cumulativePoints, CumPoint{
-						Lat:           p.Latitude,
-						Lng:           p.Longitude,
-						CumDistKm:     (cumDist + stepCumDist) / 1000.0, // Convert to km
-						CumDurSeconds: pointCumDur,
-					})
-				} else {
-					// First point of the step
-					cumulativePoints = append(cumulativePoints, CumPoint{
-						Lat:           p.Latitude,
-						Lng:           p.Longitude,
-						CumDistKm:     cumDist / 1000.0, // Convert to km
-						CumDurSeconds: cumDur,
-					})
-				}
-			}
-			cumDist += totalStepDist
-			cumDur += trafficStepDur
-		}
-	}
+	// Simplified: no detailed steps available, so cumulativePoints remains empty
+	// ETA will be calculated based on total duration and distance from route
 	log.Printf("Build cumulative profile time: %v", time.Since(cumulativeStart))
 
 	// Get search circles
@@ -581,7 +515,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 
 	// Process results and calculate ETAs
 	processStart := time.Now()
-	superchargersWithETA, err := processSuperchargers(resultsChan, routePoints, cumulativePoints, polylineIndex)
+	superchargersWithETA, err := processSuperchargers(resultsChan, routePoints, cumulativePoints, polylineIndex, route)
 	if err != nil {
 		return nil, err
 	}
