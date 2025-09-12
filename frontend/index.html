@@ -59,9 +59,9 @@
             background: rgba(255, 255, 255, 0.95);
             padding: 0;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
             display: none;
             height: calc(100vh - 60px);
+            overflow-x: hidden;
         }
 
         /* Compact table styling */
@@ -108,8 +108,8 @@
 
         /* Table styles */
         #chargers-table {
-            table-layout: fixed;
             width: 100%;
+            table-layout: auto;
         }
 
         #chargers-table td {
@@ -133,9 +133,24 @@
             }
 
             /* Table responsive design */
-            #chargers-table {
-                font-size: 10px;
-                min-width: 600px;
+            @media (max-width: 768px) {
+                #chargers-table {
+                    font-size: 10px;
+                    min-width: 800px;
+                }
+            }
+
+            .table-container {
+                width: 100%;
+                box-sizing: border-box;
+                overflow-x: hidden;
+            }
+
+            /* Enable horizontal scrolling on mobile */
+            @media (max-width: 768px) {
+                .table-container {
+                    overflow-x: auto;
+                }
             }
 
             #chargers-table th,
@@ -273,7 +288,8 @@
     </div>
 
     <div class="bottom-results" id="bottom-results">
-        <div id="results-list" class="custom-scrollbar px-2" style="height: 100%; overflow-y: auto;">
+        <div id="results-list" class="custom-scrollbar px-4"
+            style="height: 100%; overflow-y: auto; overflow-x: hidden;">
             <div class="flex space-x-2 mb-4 pt-4">
                 <input type="text" id="restaurant-search"
                     class="flex-grow px-4 py-3 border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm enhanced-input"
@@ -290,32 +306,25 @@
                 <p class="loading-text" id="loading-text">Planning your royal journey...</p>
             </div>
 
-            <div style="overflow-x: auto;">
-                <table id="chargers-table" class="hidden">
+            <div style="padding: 0; box-sizing: border-box;" class="table-container">
+                <table id="chargers-table" class="hidden" style="width: 100%; table-layout: auto;">
                     <thead class="sticky top-0 bg-white z-10">
                         <tr>
-                            <th
-                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-20">
+                            <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
+                                style="width: 12%;">
                                 Charger
                             </th>
-                            <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider">
+                            <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
+                                style="width: 35%;">
                                 Restaurant
                             </th>
-                            <th
-                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-16">
+                            <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
+                                style="width: 25%;">
                                 Walk
                             </th>
-                            <th
-                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-24">
+                            <th class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider"
+                                style="width: 28%;">
                                 Cuisine
-                            </th>
-                            <th
-                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-20">
-                                Status
-                            </th>
-                            <th
-                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-16">
-                                Rating
                             </th>
                         </tr>
                     </thead>
@@ -559,6 +568,13 @@
             const tbody = document.getElementById( 'chargers-tbody' )
             tbody.innerHTML = ''
             const fragment = document.createDocumentFragment()
+
+            // Sort superchargers by distance along route
+            data.superchargers.sort( ( a, b ) => {
+                const aDistance = a.distance_along_route || 0
+                const bDistance = b.distance_along_route || 0
+                return aDistance - bDistance
+            } )
 
             data.superchargers.forEach( ( charger, index ) => {
                 const chargerId = `charger-${ index }`
@@ -892,13 +908,15 @@
         function createChargerMarker ( charger, chargerId ) {
             // This function remains the same
             const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const distanceAlongRoute = charger.distance_along_route ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
             const arrivalTime = charger.arrival_time || 'N/A'
             let popupContent = `
                 <div class="font-sans max-w-xs">
                     <strong class="text-lg">${ charger.supercharger.name }</strong><br>
                     <strong>Address:</strong> ${ charger.supercharger.address }<br>
                     <strong>Arrival:</strong> ${ arrivalTime }<br>
-                    <strong>Distance:</strong> ${ distanceFromOrigin }<br>
+                    <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
+                    <strong>To:</strong> ${ distanceAlongRoute }<br>
                     <button onclick="showChargerInResults('${ chargerId }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-2 py-1 rounded mt-2 mr-2">View in Results</button>
                     <a href="https://maps.google.com/?q=${ charger.supercharger.latitude },${ charger.supercharger.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                 `
@@ -941,14 +959,16 @@
             const rows = []
             const restaurants = charger.restaurants || []
             const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const distanceAlongRoute = charger.distance_along_route ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
             const arrivalTime = charger.arrival_time || 'N/A'
 
             const chargerCell = `
                 <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
                     <div class="flex flex-col">
-                        <span>${ distanceFromOrigin }</span>
+                        <span class="text-xs text-pink-600"><strong>${ distanceAlongRoute }</strong></span>
                         <span class="font-bold">${ arrivalTime }</span>
                         <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
+                        <span class="text-xs text-pink-600">From Route: ${ distanceFromOrigin }</span>
                     </div>
                 </td>
             `
@@ -958,7 +978,7 @@
                 row.dataset.chargerId = chargerId
                 row.innerHTML = `
                     ${ chargerCell }
-                    <td class="px-1 py-0 text-sm text-pink-700" colspan="5">No restaurants found</td>
+                    <td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>
                 `
                 rows.push( row )
             } else {
@@ -968,7 +988,6 @@
                     row.dataset.restaurantId = restaurant.name // Use name as a simple ID
 
                     const cuisineStr = restaurant.primary_type || 'N/A'
-                    const statusHtml = '<span class="text-gray-600">Status unknown</span>'
 
                     const restaurantContent = `
                         <td class="px-1 py-0 text-sm text-pink-700">
@@ -976,8 +995,6 @@
                         </td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'N/A' }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
-                        <td class="px-1 py-0 text-sm text-pink-700">${ statusHtml }</td>
-                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.rating || 'N/A' }</td>
                     `
 
                     row.innerHTML = ( index === 0 ) ? `${ chargerCell }${ restaurantContent }` : restaurantContent
