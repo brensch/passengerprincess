@@ -3,6 +3,7 @@ package maps
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"sync"
 	"time"
@@ -132,19 +133,29 @@ type SuperchargersOnRouteResult struct {
 }
 
 func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination string) (*SuperchargersOnRouteResult, error) {
+	totalStart := time.Now()
+	defer func() {
+		log.Printf("GetSuperchargersOnRoute total time: %v", time.Since(totalStart))
+	}()
+
 	// Get route data (now enhanced with traffic information when available)
+	routeStart := time.Now()
 	route, err := GetRoute(apiKey, origin, destination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get route: %w", err)
 	}
+	log.Printf("Get route time: %v", time.Since(routeStart))
 
 	// Decode the polyline to get route points
+	decodeStart := time.Now()
 	routePoints, err := DecodePolyline(route.EncodedPolyline)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode polyline: %w", err)
 	}
+	log.Printf("Decode polyline time: %v", time.Since(decodeStart))
 
 	// Build cumulative profile for accurate ETAs if we have enhanced route data
+	cumulativeStart := time.Now()
 	var cumulativePoints []CumPoint
 	if len(route.Legs) > 0 && len(route.Legs[0].Steps) > 0 {
 		// We have enhanced route data with steps
@@ -209,29 +220,59 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 			cumDur += trafficStepDur
 		}
 	}
+	log.Printf("Build cumulative profile time: %v", time.Since(cumulativeStart))
 
 	// Get search circles
+	circlesStart := time.Now()
 	circles, err := PolylineToCircles(route.EncodedPolyline, SuperchargerSearchRadiusMeters)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Get search circles time: %v", time.Since(circlesStart))
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Get all the ids of superchargers along the route
+	searchStart := time.Now()
 	seenPlaceIDs := make(map[string]struct{})
+
+	// Parallel search for superchargers
+	type searchResult struct {
+		places []*PlaceDetails
+		err    error
+	}
+	searchResultsChan := make(chan searchResult, len(circles))
+	var searchWg sync.WaitGroup
+
 	for _, circle := range circles {
-		places, err := GetPlacesViaTextSearch(ctx, apiKey, "tesla supercharger", "places.id", circle)
-		if err != nil {
-			return nil, err
+		searchWg.Add(1)
+		go func(c Circle) {
+			defer searchWg.Done()
+			places, err := GetPlacesViaTextSearch(ctx, apiKey, "tesla supercharger", "places.id", c)
+			searchResultsChan <- searchResult{places: places, err: err}
+		}(circle)
+	}
+
+	go func() {
+		searchWg.Wait()
+		close(searchResultsChan)
+	}()
+
+	// Collect results
+	for res := range searchResultsChan {
+		if res.err != nil {
+			cancel()
+			return nil, res.err
 		}
-		for _, place := range places {
+		for _, place := range res.places {
 			seenPlaceIDs[place.ID] = struct{}{}
 		}
 	}
+	log.Printf("Get supercharger IDs time: %v", time.Since(searchStart))
 
 	// Fetch details concurrently
+	fetchStart := time.Now()
 	resultsChan := make(chan superchargerResult, len(seenPlaceIDs))
 	var wg sync.WaitGroup
 	for id := range seenPlaceIDs {
@@ -247,6 +288,12 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		wg.Wait()
 		close(resultsChan)
 	}()
+
+	log.Printf("Fetch supercharger details time: %v", time.Since(fetchStart))
+
+	// Process results and calculate ETAs
+	processStart := time.Now()
+	// Prepare the final list of superchargers with ETA info
 
 	var superchargersWithETA []SuperchargerWithETA
 	for res := range resultsChan {
@@ -286,6 +333,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 			ClosestPointOnRoute: closestPoint,
 		})
 	}
+	log.Printf("Fetch and process superchargers time: %v", time.Since(processStart))
 
 	return &SuperchargersOnRouteResult{
 		Route:         route,
@@ -303,6 +351,11 @@ const (
 // First checks the database, then falls back to API if not found
 func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string) (*db.Supercharger, error) {
 	// First try to get from database
+	start := time.Now()
+	defer func() {
+		// log the start, end, and duration
+		log.Printf("GetSuperchargerWithCache start: %v end: %v total time for %s: %v", start, time.Now(), placeID, time.Since(start))
+	}()
 	supercharger, err := broker.Supercharger.GetByIDWithRestaurants(placeID)
 	if err == nil {
 		// Found in database, convert to PlaceDetails format
@@ -313,6 +366,8 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 	if err != gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("failed to query supercharger from database: %w", err)
 	}
+
+	fmt.Println("Supercharger not found in DB, fetching from API:", placeID)
 
 	// Not found in database, fetch from API
 	// this field map ensure the essentials tier

@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/brensch/passengerprincess/pkg/db"
