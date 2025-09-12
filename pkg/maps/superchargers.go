@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -301,6 +302,11 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 			return nil, res.err
 		}
 
+		// skip non-superchargers
+		if !res.supercharger.IsSupercharger {
+			continue
+		}
+
 		sc := res.supercharger
 		scLocation := Center{
 			Latitude:  sc.Latitude,
@@ -344,7 +350,9 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 
 const (
 	FieldMaskRestaurantTextSearch = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName"
-	FieldMaskSuperchargerDetails  = "id,name,formattedAddress,location"
+	// this is pro because of the usage of displayName. Without it we get non superchargers returned.
+	// There is no way to force it to contain the exact text.
+	FieldMaskSuperchargerDetails = "id,name,displayName,formattedAddress,location"
 )
 
 // GetSuperchargerWithCache retrieves place details with database caching
@@ -367,13 +375,34 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		return nil, fmt.Errorf("failed to query supercharger from database: %w", err)
 	}
 
-	fmt.Println("Supercharger not found in DB, fetching from API:", placeID)
+	log.Println("Supercharger not found in DB, fetching from API:", placeID)
 
 	// Not found in database, fetch from API
 	// this field map ensure the essentials tier
 	superchargerDetails, err := GetPlaceDetails(ctx, apiKey, placeID, FieldMaskSuperchargerDetails)
 	if err != nil {
 		return nil, err
+	}
+
+	// exit early if site not a supercharger
+	if !strings.Contains(strings.ToLower(superchargerDetails.DisplayName.Text), "supercharger") {
+		log.Printf("Warning: Place ID %s does not appear to be a supercharger (name: %s). Recording without restaurants", placeID, superchargerDetails.DisplayName.Text)
+		// Store in database for future use
+		supercharger = &db.Supercharger{
+			PlaceID:        superchargerDetails.ID,
+			Name:           derefDisplayName(superchargerDetails.DisplayName),
+			Address:        derefString(superchargerDetails.FormattedAddress),
+			Latitude:       superchargerDetails.Location.Latitude,
+			Longitude:      superchargerDetails.Location.Longitude,
+			IsSupercharger: false,
+		}
+
+		err = broker.Supercharger.Create(supercharger)
+		if err != nil {
+			// Log the error but don't fail the request since we already have the data
+			fmt.Printf("Warning: failed to cache supercharger %s in database: %v\n", placeID, err)
+		}
+		return supercharger, nil
 	}
 
 	restaurants, err := GetPlacesViaTextSearch(ctx, apiKey, "restaurant", FieldMaskRestaurantTextSearch, Circle{
@@ -389,6 +418,20 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 
 	var dbRestaurants []db.Restaurant
 	for _, restaurant := range restaurants {
+		// check if restaurant is within 500m of supercharger
+		if restaurant.Location == nil {
+			continue
+		}
+		dist := haversineDistance(Center{
+			Latitude:  superchargerDetails.Location.Latitude,
+			Longitude: superchargerDetails.Location.Longitude,
+		}, Center{
+			Latitude:  restaurant.Location.Latitude,
+			Longitude: restaurant.Location.Longitude,
+		})
+		if dist > 500 {
+			continue
+		}
 		dbRestaurant := db.Restaurant{
 			PlaceID:            restaurant.ID,
 			Name:               derefDisplayName(restaurant.DisplayName),
@@ -403,12 +446,13 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 
 	// Store in database for future use
 	supercharger = &db.Supercharger{
-		PlaceID:     superchargerDetails.ID,
-		Name:        derefDisplayName(superchargerDetails.DisplayName),
-		Address:     derefString(superchargerDetails.FormattedAddress),
-		Latitude:    superchargerDetails.Location.Latitude,
-		Longitude:   superchargerDetails.Location.Longitude,
-		Restaurants: dbRestaurants,
+		PlaceID:        superchargerDetails.ID,
+		Name:           derefDisplayName(superchargerDetails.DisplayName),
+		Address:        derefString(superchargerDetails.FormattedAddress),
+		Latitude:       superchargerDetails.Location.Latitude,
+		Longitude:      superchargerDetails.Location.Longitude,
+		Restaurants:    dbRestaurants,
+		IsSupercharger: true,
 	}
 
 	err = broker.Supercharger.Create(supercharger)

@@ -359,7 +359,7 @@
             <div class="md:col-span-2">
                 <button id="find-route-btn"
                     class="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-200 text-sm hover:shadow-lg">
-                    Plan Supercharged Dinner
+                    Plan Princess Portage
                 </button>
             </div>
         </div>
@@ -541,17 +541,7 @@
                 : []
             drawTrafficSegments( trafficSegments )
 
-            // Draw search circles
-            if ( data.search_circles ) {
-                data.search_circles.forEach( circle => {
-                    L.circle( [ circle.center.latitude, circle.center.longitude ], {
-                        color: 'blue',
-                        fillColor: 'blue',
-                        fillOpacity: 0.1,
-                        radius: circle.radius
-                    } ).addTo( routeLayer )
-                } )
-            }            // Set map bounds using the main route polyline
+            // Set map bounds using the main route polyline
             const routeCoords = decodePolyline( data.route.EncodedPolyline )
             if ( routeCoords.length > 0 ) {
                 map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )

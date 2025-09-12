@@ -35,6 +35,8 @@ type Supercharger struct {
 	Latitude    float64   `gorm:"column:latitude" json:"latitude"`
 	Longitude   float64   `gorm:"column:longitude" json:"longitude"`
 	LastUpdated time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
+	// this is in order to keep track of IDs that get returned that aren't actually superchargers
+	IsSupercharger bool `gorm:"column:is_supercharger" json:"is_supercharger"`
 
 	// Many-to-many relationship with restaurants
 	Restaurants []Restaurant `gorm:"many2many:restaurant_superchargers;" json:"restaurants,omitempty"`
