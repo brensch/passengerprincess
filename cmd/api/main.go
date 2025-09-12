@@ -70,7 +70,7 @@ func main() {
 
 	// Initialize database
 	config := &db.Config{
-		DatabasePath: "passengerprincess.db",
+		DatabasePath: "db/passengerprincess.db",
 		LogLevel:     logger.Warn,
 	}
 	if err := db.Initialize(config); err != nil {

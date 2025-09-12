@@ -8,7 +8,5 @@ services:
     environment:
       - MAPS_API_KEY=${MAPS_API_KEY}
     volumes:
-      - ./passengerprincess.db:/root/passengerprincess.db
-      - ./passengerprincess.db-shm:/root/passengerprincess.db-shm
-      - ./passengerprincess.db-wal:/root/passengerprincess.db-wal
+      - ./db:/root/db
     container_name: ppp
