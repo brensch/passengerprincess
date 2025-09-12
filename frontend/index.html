@@ -535,11 +535,24 @@
          * Takes the full API response, processes it, and builds the UI.
          */
         function processAndDisplayResults ( data ) {
-            // Draw route on map using the new traffic_segments data
-            drawTrafficSegments( data.traffic_segments )
+            // Draw route on map using the traffic segments built from intervals
+            const trafficSegments = data.route && data.route.travelAdvisory && data.route.travelAdvisory.speedReadingIntervals
+                ? buildTrafficSegments( data.route.EncodedPolyline, data.route.travelAdvisory.speedReadingIntervals )
+                : []
+            drawTrafficSegments( trafficSegments )
 
-            // Set map bounds using the main route polyline
-            const routeCoords = decodePolyline( data.route.polyline )
+            // Draw search circles
+            if ( data.search_circles ) {
+                data.search_circles.forEach( circle => {
+                    L.circle( [ circle.center.latitude, circle.center.longitude ], {
+                        color: 'blue',
+                        fillColor: 'blue',
+                        fillOpacity: 0.1,
+                        radius: circle.radius
+                    } ).addTo( routeLayer )
+                } )
+            }            // Set map bounds using the main route polyline
+            const routeCoords = decodePolyline( data.route.EncodedPolyline )
             if ( routeCoords.length > 0 ) {
                 map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
             }
@@ -558,7 +571,7 @@
             data.superchargers.forEach( ( charger, index ) => {
                 const chargerId = `charger-${ index }`
                 const chargerMarker = createChargerMarker( charger, chargerId )
-                const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
+                const restaurantMarkers = createRestaurantMarkers( charger.supercharger.restaurants )
 
                 stationData.push( {
                     id: chargerId,
@@ -633,22 +646,87 @@
         // --- MAP AND MARKER FUNCTIONS ---
 
         /**
-         * Decodes Google's encoded polyline format.
+         * Builds traffic segments from the main polyline and speed reading intervals.
+         */
+        function buildTrafficSegments ( encodedPolyline, intervals ) {
+            const allCoords = decodePolyline( encodedPolyline )
+            const segments = []
+
+            intervals.forEach( interval => {
+                const start = interval.startPolylinePointIndex
+                const end = interval.endPolylinePointIndex
+                const coords = allCoords.slice( start, end + 1 )
+                if ( coords.length > 1 ) {
+                    const polyline = encodePolyline( coords ) // Need to encode back for the segment
+                    segments.push( {
+                        polyline: polyline,
+                        speed: interval.speed
+                    } )
+                }
+            } )
+
+            return segments
+        }
+
+        /**
+         * Encodes an array of coordinates back to Google polyline format.
+         */
+        function encodePolyline ( coords ) {
+            let result = ''
+            let prevLat = 0
+            let prevLng = 0
+
+            coords.forEach( coord => {
+                const lat = Math.round( coord[ 0 ] * 1e5 )
+                const lng = Math.round( coord[ 1 ] * 1e5 )
+
+                const dLat = lat - prevLat
+                const dLng = lng - prevLng
+
+                result += encodeNumber( dLat )
+                result += encodeNumber( dLng )
+
+                prevLat = lat
+                prevLng = lng
+            } )
+
+            return result
+        }
+
+        function encodeNumber ( num ) {
+            let result = ''
+            let shifted = num << 1
+            if ( num < 0 ) shifted = ~shifted
+            while ( shifted >= 0x20 ) {
+                result += String.fromCharCode( ( 0x20 | ( shifted & 0x1f ) ) + 63 )
+                shifted >>= 5
+            }
+            result += String.fromCharCode( shifted + 63 )
+            return result
+        }
+
+        /**
+         * Decodes a Google Maps encoded polyline string into an array of coordinates.
          */
         function decodePolyline ( encoded ) {
-            let points = []
-            let index = 0, len = encoded.length
-            let lat = 0, lng = 0
+            const len = encoded.length
+            const coords = []
+            let index = 0
+            let lat = 0
+            let lng = 0
 
             while ( index < len ) {
-                let b, shift = 0, result = 0
+                let b
+                let shift = 0
+                let result = 0
                 do {
                     b = encoded.charCodeAt( index++ ) - 63
                     result |= ( b & 0x1f ) << shift
                     shift += 5
                 } while ( b >= 0x20 )
-                let dlat = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
+                const dlat = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
                 lat += dlat
+
                 shift = 0
                 result = 0
                 do {
@@ -656,11 +734,13 @@
                     result |= ( b & 0x1f ) << shift
                     shift += 5
                 } while ( b >= 0x20 )
-                let dlng = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
+                const dlng = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
                 lng += dlng
-                points.push( [ lat / 1e5, lng / 1e5 ] )
+
+                coords.push( [ lat / 1e5, lng / 1e5 ] )
             }
-            return points
+
+            return coords
         }
 
         /**
@@ -799,25 +879,26 @@
 
         function createChargerMarker ( charger, chargerId ) {
             // This function remains the same
-            const distanceFromOrigin = ( charger.distance_meters / 1609.34 ).toFixed( 1 ) + ' mi'
+            const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const arrivalTime = charger.arrival_time || 'N/A'
             let popupContent = `
                 <div class="font-sans max-w-xs">
-                    <strong class="text-lg">${ charger.name }</strong><br>
-                    <strong>Address:</strong> ${ charger.address }<br>
-                    <strong>Arrival:</strong> ${ charger.arrival_time }<br>
+                    <strong class="text-lg">${ charger.supercharger.name }</strong><br>
+                    <strong>Address:</strong> ${ charger.supercharger.address }<br>
+                    <strong>Arrival:</strong> ${ arrivalTime }<br>
                     <strong>Distance:</strong> ${ distanceFromOrigin }<br>
                     <button onclick="showChargerInResults('${ chargerId }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-2 py-1 rounded mt-2 mr-2">View in Results</button>
-                    <a href="https://maps.google.com/?q=${ charger.lat },${ charger.lng }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
+                    <a href="https://maps.google.com/?q=${ charger.supercharger.latitude },${ charger.supercharger.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                 `
 
-            if ( charger.restaurants && charger.restaurants.length > 0 ) {
+            if ( charger.supercharger.restaurants && charger.supercharger.restaurants.length > 0 ) {
                 popupContent += '<br><br><strong>Nearby Restaurants:</strong><br>'
-                popupContent += charger.restaurants.slice( 0, 5 ).map( r => `<div class="text-sm mt-1">• ${ r.name } (${ r.walking_distance_meters }m)</div>` ).join( '' )
-                if ( charger.restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-black">and ${ charger.restaurants.length - 5 } more...</div>`
+                popupContent += charger.supercharger.restaurants.slice( 0, 5 ).map( r => `<div class="text-sm mt-1">• ${ r.name } (${ r.walking_distance_meters }m)</div>` ).join( '' )
+                if ( charger.supercharger.restaurants.length > 5 ) popupContent += `<div class="text-sm mt-1 text-black">and ${ charger.supercharger.restaurants.length - 5 } more...</div>`
             }
             popupContent += '</div>'
 
-            return L.marker( [ charger.lat, charger.lng ], {
+            return L.marker( [ charger.supercharger.latitude, charger.supercharger.longitude ], {
                 icon: L.divIcon( {
                     className: 'emoji-icon',
                     html: '🔋',
@@ -829,15 +910,15 @@
         function createRestaurantMarkers ( restaurants ) {
             // This function remains the same
             return ( restaurants || [] ).map( restaurant => {
-                return L.marker( [ restaurant.lat, restaurant.lng ], {
+                return L.marker( [ restaurant.latitude, restaurant.longitude ], {
                     icon: L.divIcon( {
                         className: 'emoji-icon',
                         html: '🌭',
                         iconSize: [ 24, 24 ],
                     } ),
                     restaurantName: restaurant.name,
-                    cuisine: ( restaurant.cuisine_types || [] ).join( '; ' )
-                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.walking_distance_meters }m away` )
+                    cuisine: ( restaurant.primary_type || '' )
+                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.walking_distance_meters || 'Distance unknown' }` )
             } )
         }
 
@@ -846,15 +927,16 @@
         function createTableRowsForStation ( charger, chargerId ) {
             // This function remains the same
             const rows = []
-            const restaurants = charger.restaurants || []
-            const distanceFromOrigin = ( charger.distance_meters / 1609.34 ).toFixed( 1 ) + ' mi'
+            const restaurants = charger.supercharger.restaurants || []
+            const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const arrivalTime = charger.arrival_time || 'N/A'
 
             const chargerCell = `
                 <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
                     <div class="flex flex-col">
                         <span>${ distanceFromOrigin }</span>
-                        <span class="font-bold">${ charger.arrival_time }</span>
-                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.address }</span>
+                        <span class="font-bold">${ arrivalTime }</span>
+                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
                     </div>
                 </td>
             `
@@ -873,16 +955,14 @@
                     row.dataset.chargerId = chargerId
                     row.dataset.restaurantId = restaurant.name // Use name as a simple ID
 
-                    const cuisineStr = ( restaurant.cuisine_types || [] ).join( '; ' )
-                    const statusHtml = restaurant.is_open_now ?
-                        '<span class="text-green-600 font-semibold">Open Now</span>' :
-                        '<span class="text-red-600">Closed</span>'
+                    const cuisineStr = restaurant.primary_type || 'N/A'
+                    const statusHtml = '<span class="text-gray-600">Status unknown</span>'
 
                     const restaurantContent = `
                         <td class="px-1 py-0 text-sm text-pink-700">
                             <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link" data-original-name="${ restaurant.name }">${ restaurant.name }</span>
                         </td>
-                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.walking_distance_meters }m</td>
+                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.walking_distance_meters || 'N/A' }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ statusHtml }</td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.rating || 'N/A' }</td>
