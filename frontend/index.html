@@ -396,6 +396,16 @@
             background: linear-gradient(135deg, var(--princess-accent-rose), var(--princess-accent-mint));
         }
 
+        /* Larger emojis in header buttons */
+        #top-toolbar .princess-button {
+            font-size: 18px;
+        }
+
+        #top-toolbar .princess-button#gps-btn,
+        #top-toolbar .princess-button#new-search-btn {
+            font-size: 20px;
+        }
+
         /* Table header styling */
         .princess-table-header {
             color: var(--princess-text-primary) !important;
@@ -468,10 +478,10 @@
         <div class="text-2xl font-bold font-dancing"
             style="color: var(--princess-text-primary); text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.2);"> PPP </div>
         <div class="flex space-x-2">
-            <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">📍</button>
+            <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">👸</button>
             <button id="toggle-btn" class="princess-button text-sm">Show
                 Results</button>
-            <button id="new-search-btn" class="princess-button text-sm">🔎</button>
+            <button id="new-search-btn" class="princess-button text-sm">🔃</button>
         </div>
     </div>
 
@@ -687,12 +697,12 @@
                         if ( btn !== e.target ) btn.classList.remove( 'selected' )
                     } )
                 } else {
-                    currentCuisineFilter = currentCuisineFilter.filter( c => c !== '' ) // Remove "All" if present
+                    currentCuisineFilter = currentCuisineFilter.filter( c => c.toLowerCase() !== ''.toLowerCase() ) // Remove "All" if present
                     currentCuisineFilter.push( cuisine )
                     cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )?.classList.remove( 'selected' )
                 }
             } else {
-                currentCuisineFilter = currentCuisineFilter.filter( c => c !== cuisine )
+                currentCuisineFilter = currentCuisineFilter.filter( c => c.toLowerCase() !== cuisine.toLowerCase() )
             }
 
             // If nothing is selected, default back to "All Cuisines"
@@ -859,7 +869,7 @@
                 const matchingRestaurants = station.restaurants.filter( restaurant => {
                     const nameMatch = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
                     const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 ||
-                        currentCuisineFilter.some( fc => fc === ( restaurant.primary_type || '' ).toLowerCase() )
+                        currentCuisineFilter.some( fc => fc.toLowerCase() === ( restaurant.primary_type_display || '' ).toLowerCase() )
                     return nameMatch && cuisineMatch
                 } )
 
@@ -1238,7 +1248,7 @@
                         iconAnchor: [ 12, 12 ]
                     } ),
                     restaurantName: restaurant.name,
-                    cuisine: ( restaurant.primary_type || '' )
+                    cuisine: ( restaurant.primary_type_display || '' )
                 } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }` )
             } )
         }
@@ -1279,7 +1289,7 @@
                     row.dataset.chargerId = chargerId
                     row.dataset.restaurantId = restaurant.name // Use name as a simple ID
 
-                    const cuisineStr = restaurant.primary_type || 'N/A'
+                    const cuisineStr = restaurant.primary_type_display || 'N/A'
 
                     const restaurantContent = `
                         <td class="px-1 py-0 text-sm text-pink-700">
@@ -1357,8 +1367,8 @@
             const cuisines = new Set()
             stationData.forEach( station => {
                 station.restaurants.forEach( r => {
-                    if ( r.primary_type ) {
-                        cuisines.add( r.primary_type.trim() )
+                    if ( r.primary_type_display ) {
+                        cuisines.add( r.primary_type_display.trim() )
                     }
                 } )
             } )
