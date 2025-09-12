@@ -435,9 +435,11 @@
         let userLocationMarker = null
         let locationTrackingInterval = null
         let stationData = [] // Single source of truth for all station data
+        let filteredStationData = [] // Filtered station data for display
         let filteredChargerIDs = null
         let currentSearchTerm = ''
         let currentCuisineFilter = []
+        let filterTimeout = null // For debouncing filter updates
         let viewportSuperchargers = new Map() // Map of place_id to supercharger data
         let lastViewportBounds = null // Track last viewport bounds to avoid unnecessary API calls
         let routeSuperchargerLocations = new Set() // Set of "lat,lng" strings for route superchargers
@@ -452,7 +454,10 @@
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
         locationBtn.addEventListener( 'click', handleLocationClick )
         restaurantSearchInput.addEventListener( 'input', () => {
-            filterListAndMap( restaurantSearchInput.value, currentCuisineFilter )
+            clearTimeout( filterTimeout )
+            filterTimeout = setTimeout( () => {
+                filterListAndMap( restaurantSearchInput.value, currentCuisineFilter )
+            }, 150 ) // 150ms debounce
         } )
 
         cuisineFilterButtons.addEventListener( 'click', ( e ) => {
@@ -593,66 +598,102 @@
                     restaurantMarkers: restaurantMarkers,
                 } )
 
-                const tableRows = createTableRowsForStation( charger, chargerId )
+                filteredStationData.push( {
+                    id: chargerId,
+                    chargerInfo: charger,
+                    restaurants: charger.restaurants || [],
+                    chargerMarker: chargerMarker,
+                    restaurantMarkers: restaurantMarkers,
+                } )
+
+                const tableRows = createTableRowsForStation( charger, charger.restaurants || [], chargerId )
                 tableRows.forEach( row => fragment.appendChild( row ) )
             } )
 
             tbody.appendChild( fragment )
-            populateCuisineFilter()
             showResultsTable()
-            updateVisibleMarkers() // Initial map update
+            // Ensure map recalculates size after results panel is shown and DOM is updated
+            setTimeout( () => {
+                map.invalidateSize()
+                populateCuisineFilter() // Populate cuisine filter after map is sized
+                updateVisibleMarkers() // Initial map update
+            }, 100 )
         }
 
         /**
          * Filters the list and map based on search term and cuisine.
          */
         function filterListAndMap ( searchTerm, cuisines ) {
+            // Clear any pending timeout
+            if ( filterTimeout ) {
+                clearTimeout( filterTimeout )
+                filterTimeout = null
+            }
+            
             currentSearchTerm = searchTerm.toLowerCase()
             currentCuisineFilter = Array.isArray( cuisines ) ? cuisines.map( c => c.toLowerCase() ) : ( cuisines ? [ cuisines.toLowerCase() ] : [] )
 
-            const tbody = document.getElementById( 'chargers-tbody' )
-            if ( !tbody ) return
+            // Create filtered station data
+            filteredStationData = stationData.map( station => {
+                const matchingRestaurants = station.restaurants.filter( restaurant => {
+                    const nameMatch = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
+                    const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 ||
+                        currentCuisineFilter.some( fc => fc === ( restaurant.primary_type || '' ).toLowerCase() )
+                    return nameMatch && cuisineMatch
+                } )
 
-            const rows = tbody.querySelectorAll( 'tr[data-charger-id]' )
-            const chargerVisibility = new Map()
-
-            // First pass: determine which chargers should be visible at all
-            rows.forEach( row => {
-                const chargerId = row.dataset.chargerId
-                const restaurantCell = row.querySelector( '.restaurant-link' )
-                const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
-
-                // Default to not visible unless a match is found
-                if ( !chargerVisibility.has( chargerId ) ) {
-                    chargerVisibility.set( chargerId, false )
+                if ( matchingRestaurants.length > 0 ) {
+                    return {
+                        ...station,
+                        restaurants: matchingRestaurants
+                    }
                 }
+                return null
+            } ).filter( station => station !== null )
 
-                const restaurantName = restaurantCell ? restaurantCell.dataset.originalName : ''
-                const originalCuisine = cuisineCell ? cuisineCell.dataset.originalCuisine.toLowerCase() : ''
+            // Rebuild the table with filtered data
+            rebuildTableWithFilteredData( filteredStationData )
 
-                const searchMatch = !currentSearchTerm || ( restaurantName && restaurantName.toLowerCase().includes( currentSearchTerm ) )
-                const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 || currentCuisineFilter.some( fc => fc === originalCuisine )
+            // Update filtered charger IDs for map
+            filteredChargerIDs = ( currentSearchTerm || currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) ) ?
+                filteredStationData.map( station => station.id ) : null
 
-                if ( searchMatch && cuisineMatch ) {
-                    chargerVisibility.set( chargerId, true )
-                }
-            } )
-
-            // Second pass: Show/hide rows and highlight text
-            let visibleChargerIDs = new Set()
-            rows.forEach( row => {
-                const chargerId = row.dataset.chargerId
-                const isChargerVisible = chargerVisibility.get( chargerId )
-                row.style.display = isChargerVisible ? '' : 'none'
-
-                if ( isChargerVisible ) {
-                    visibleChargerIDs.add( chargerId )
-                    highlightTextInRow( row, searchTerm, currentCuisineFilter )
-                }
-            } )
-
-            filteredChargerIDs = ( currentSearchTerm || currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) ) ? Array.from( visibleChargerIDs ) : null
             updateVisibleMarkers()
+        }
+
+        /**
+         * Rebuilds the table with filtered station data.
+         */
+        function rebuildTableWithFilteredData ( filteredStations ) {
+            const tbody = document.getElementById( 'chargers-tbody' )
+            const resultsList = document.getElementById( 'results-list' )
+            
+            // Save scroll position
+            const scrollTop = resultsList.scrollTop
+            
+            tbody.innerHTML = ''
+
+            if ( filteredStations.length === 0 ) {
+                showEmptyState( "No restaurants match your search criteria." )
+                return
+            }
+
+            const fragment = document.createDocumentFragment()
+
+            filteredStations.forEach( ( station ) => {
+                const chargerId = station.id // Use the original station ID
+                const tableRows = createTableRowsForStation( station.chargerInfo, station.restaurants, chargerId )
+                tableRows.forEach( row => fragment.appendChild( row ) )
+            } )
+
+            tbody.appendChild( fragment )
+            showResultsTable()
+            
+            // Restore scroll position
+            resultsList.scrollTop = scrollTop
+            
+            // Ensure map recalculates size after table is rebuilt
+            setTimeout( () => map.invalidateSize(), 50 )
         }
 
         // --- MAP AND MARKER FUNCTIONS ---
@@ -801,7 +842,10 @@
             const bounds = map.getBounds()
             const zoom = map.getZoom()
 
-            stationData.forEach( station => {
+            // Use filtered data if filtering is active, otherwise use all data
+            const dataToUse = filteredChargerIDs !== null ? filteredStationData : stationData
+
+            dataToUse.forEach( station => {
                 const chargerShouldBeVisible = filteredChargerIDs === null || filteredChargerIDs.includes( station.id )
                 const chargerMarker = station.chargerMarker
 
@@ -956,10 +1000,9 @@
 
         // --- UI AND DOM MANIPULATION ---
 
-        function createTableRowsForStation ( charger, chargerId ) {
+        function createTableRowsForStation ( charger, restaurants, chargerId ) {
             // This function remains the same
             const rows = []
-            const restaurants = charger.restaurants || []
             const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
             const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
             const totalDistance = ( ( charger.distance_along_route || 0 ) + ( charger.distance_from_route || 0 ) ) / 1609.34
@@ -1102,6 +1145,7 @@
             restaurantLayer.clearLayers()
             viewportSuperchargersLayer.clearLayers()
             stationData = []
+            filteredStationData = []
             routeSuperchargerLocations.clear()
             viewportSuperchargers.clear()
             lastViewportBounds = null
@@ -1109,6 +1153,12 @@
             currentSearchTerm = ''
             restaurantSearchInput.value = ''
             document.getElementById( 'chargers-tbody' ).innerHTML = ''
+
+            // Clear any pending filter timeout
+            if ( filterTimeout ) {
+                clearTimeout( filterTimeout )
+                filterTimeout = null
+            }
 
             // Clear autocomplete session tokens
             autocompleteSessions.origin = null
