@@ -412,12 +412,17 @@
                                 Walk
                             </th>
                             <th
-                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-24">
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-20">
                                 Cuisine
                             </th>
                             <th
-                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-48">
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-32">
                                 Opening Hours
+                            </th>
+                            <th
+                                class="px-1 py-0 text-left text-xs font-medium text-pink-500 uppercase tracking-wider w-24">
+                                Actions
+                            </th>
                             </th>
                         </tr>
                     </thead>
@@ -904,7 +909,7 @@
                     } ),
                     restaurantName: restaurant.name, // Store for filtering
                     cuisine: restaurant.cuisine
-                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance }m away` )
+                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance }m away<br><br><button onclick="openInGoogleMaps('')" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-2 py-1 rounded mr-2">Open in Maps</button><button onclick="shareToTesla('${ restaurant.name.replace( /'/g, "\\'" ) }', 'Restaurant', '')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-2 py-1 rounded">Send to Tesla</button>` )
             } )
         }
 
@@ -956,6 +961,10 @@
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.distance }m</td>
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ restaurant.cuisine }">${ restaurant.cuisine }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" style="white-space: pre-wrap; word-break: break-all;">${ restaurant.opening_hours }</td>
+                        <td class="px-1 py-0 text-sm">
+                            <button onclick="openInGoogleMaps('')" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded mr-1">Maps</button>
+                            <button onclick="shareToTesla('${ restaurant.name.replace( /'/g, "\\'" ) }', 'Restaurant', '')" class="bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Tesla</button>
+                        </td>
                     `
 
                     if ( index === 0 ) {
@@ -1540,6 +1549,31 @@
         window.addEventListener( 'load', () => {
             setTimeout( autoStartLocationTracking, 1000 ) // Small delay to ensure everything is loaded
         } )
+
+        function openInGoogleMaps ( placeId ) {
+            const url = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+            window.open( url, '_blank' )
+        }
+
+        function shareToTesla ( name, type = 'Restaurant', placeId = '' ) {
+            const googleMapsUrl = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+            const shareData = {
+                title: `${ type }: ${ name }`,
+                text: `Check out this ${ type.toLowerCase() }: ${ name }`,
+                url: googleMapsUrl
+            }
+
+            if ( navigator.share ) {
+                navigator.share( shareData ).catch( console.error )
+            } else {
+                // Fallback for browsers that don't support Web Share API
+                navigator.clipboard.writeText( googleMapsUrl ).then( () => {
+                    alert( 'Google Maps URL copied to clipboard!' )
+                } ).catch( () => {
+                    alert( 'Could not copy URL. Please copy manually: ' + googleMapsUrl )
+                } )
+            }
+        }
 
     </script>
 

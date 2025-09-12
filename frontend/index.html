@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passenger Princess Protector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <style>
+        /* Princess Color Palette - Using Color Science for Harmony */
+        :root {
+            /* Primary Palette - Soft Pastels */
+            --princess-lavender: #E6E0FF;
+            /* Light lavender */
+            --princess-rose: #FFE0E6;
+            /* Soft rose */
+            --princess-mint: #E0FFF0;
+            /* Gentle mint */
+            --princess-peach: #FFE6D9;
+            /* Warm peach */
+            --princess-lilac: #F0E6FF;
+            /* Pale lilac */
+            --princess-blush: #FFE6F0;
+            /* Light blush */
+
+            /* Accent Colors - Slightly More Saturated */
+            --princess-accent-lavender: #D4C5FF;
+            /* Medium lavender */
+            --princess-accent-rose: #FFB3C6;
+            /* Medium rose */
+            --princess-accent-mint: #B3FFD9;
+            /* Medium mint */
+            --princess-accent-peach: #FFD1B3;
+            /* Medium peach */
+
+            /* Text Colors - Elegant & Readable */
+            --princess-text-primary: #6B4D7C;
+            /* Rich lavender-purple */
+            --princess-text-secondary: #8B5A7A;
+            /* Muted rose-purple */
+            --princess-text-accent: #9B6B8F;
+            /* Soft purple-gray */
+
+            /* Surface Colors */
+            --princess-surface: #FDFBFF;
+            /* Almost white with lavender tint */
+            --princess-surface-soft: #F8F4FF;
+            /* Very light lavender */
+            --princess-border: #E8DCF0;
+            /* Soft lavender border */
+        }
+
+        .font-dancing {
+            font-family: 'Dancing Script', cursive;
+        }
+
+        /* Full screen map */
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: var(--princess-surface);
+        }
+
+        #map {
+            height: calc(100vh - 60px);
+            width: 100vw;
+            position: absolute;
+            top: 60px;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Overlay form at top */
+        .overlay-form {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            z-index: 1000;
+            background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-lavender) 100%);
+            border-bottom: 2px solid var(--princess-border);
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(107, 77, 124, 0.1);
+            backdrop-filter: blur(8px);
+            max-height: 100vh;
+            overflow: visible;
+        }
+
+        /* Results area */
+        .bottom-results {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            z-index: 1100;
+            background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-rose) 100%);
+            border-bottom: 2px solid var(--princess-border);
+            padding: 0;
+            box-shadow: 0 8px 32px rgba(107, 77, 124, 0.1);
+            backdrop-filter: blur(8px);
+            display: none;
+            height: calc(100vh - 60px);
+            overflow-x: hidden;
+            border-radius: 0 0 16px 16px;
+        }
+
+        /* Compact table styling */
+        #chargers-table {
+            border-collapse: collapse;
+            line-height: 1;
+            height: auto;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            width: 100%;
+        }
+
+        #chargers-table tr,
+        #chargers-table tr td,
+        #chargers-table tr th {
+            height: 18px !important;
+            line-height: 1 !important;
+        }
+
+        #chargers-table td,
+        #chargers-table th {
+            border-bottom: 1px solid var(--princess-border);
+        }
+
+        /* Custom scrollbar for the results list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: var(--princess-surface-soft);
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: var(--princess-accent-lavender);
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--princess-accent-rose);
+        }
+
+        /* Table styles */
+        #chargers-table {
+            width: 100%;
+            table-layout: auto;
+        }
+
+        #chargers-table td {
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .overlay-form {
+                padding: 10px;
+                position: fixed;
+                top: 0;
+            }
+
+            .bottom-results {
+                padding: 0;
+            }
+
+            /* Table responsive design */
+            @media (max-width: 768px) {
+                #chargers-table {
+                    font-size: 10px;
+                    min-width: 800px;
+                }
+            }
+
+            .table-container {
+                width: 100%;
+                box-sizing: border-box;
+                overflow-x: hidden;
+            }
+
+            /* Enable horizontal scrolling on mobile */
+            @media (max-width: 768px) {
+                .table-container {
+                    overflow-x: auto;
+                }
+            }
+
+            #chargers-table th,
+            #chargers-table td {
+                padding: 4px 6px;
+            }
+        }
+
+        .autocomplete-suggestions {
+            position: fixed;
+            background: var(--princess-surface);
+            border: 2px solid var(--princess-border);
+            border-radius: 12px;
+            box-shadow: 0 16px 32px rgba(107, 77, 124, 0.15);
+            backdrop-filter: blur(8px);
+            z-index: 1200;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 2px;
+        }
+
+        .autocomplete-suggestion {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--princess-border);
+            transition: all 0.3s ease;
+            color: var(--princess-text-primary);
+        }
+
+        .autocomplete-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-suggestion:hover,
+        .autocomplete-suggestion.selected {
+            background: var(--princess-accent-lavender);
+            color: var(--princess-text-primary);
+            transform: translateY(-1px);
+        }
+
+        /* Enhanced link styling for clickable results */
+        .city-link,
+        .restaurant-link {
+            text-decoration: underline;
+            text-decoration-color: var(--princess-accent-rose);
+            text-underline-offset: 2px;
+            color: var(--princess-text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .city-link:hover,
+        .restaurant-link:hover {
+            text-decoration-color: var(--princess-text-primary);
+            color: var(--princess-text-primary);
+            transform: translateY(-1px);
+        }
+
+        /* Custom emoji icons for map markers */
+        .emoji-icon {
+            font-size: 24px;
+            line-height: 1;
+            text-align: center;
+            /* Simple shadow for better visibility */
+            text-shadow: 0 0 3px white, 0 0 5px white;
+        }
+
+        /* Search highlight styling */
+        mark {
+            background: linear-gradient(45deg, var(--princess-peach), var(--princess-blush)) !important;
+            color: var(--princess-text-primary) !important;
+            padding: 2px 4px !important;
+            border-radius: 6px !important;
+            font-weight: 500 !important;
+            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.1) !important;
+            border: 1px solid var(--princess-border) !important;
+        }
+
+        /* Performance optimizations */
+        .leaflet-container {
+            will-change: transform;
+        }
+
+        .marker-cluster-continuous {
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .emoji-icon {
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        .marker-cluster-continuous div {
+            background-color: var(--princess-accent-lavender);
+            color: var(--princess-text-primary);
+            font-weight: bold;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            line-height: 1;
+        }
+
+        @keyframes princessSpin {
+            0% {
+                transform: rotate(0deg);
+                border-top-color: var(--princess-accent-lavender);
+                border-right-color: var(--princess-accent-rose);
+            }
+
+            25% {
+                transform: rotate(90deg);
+                border-top-color: var(--princess-accent-rose);
+                border-right-color: var(--princess-accent-mint);
+            }
+
+            50% {
+                transform: rotate(180deg);
+                border-top-color: var(--princess-accent-mint);
+                border-right-color: var(--princess-accent-peach);
+            }
+
+            75% {
+                transform: rotate(270deg);
+                border-top-color: var(--princess-accent-peach);
+                border-right-color: var(--princess-accent-lavender);
+            }
+
+            100% {
+                transform: rotate(360deg);
+                border-top-color: var(--princess-accent-lavender);
+                border-right-color: var(--princess-accent-rose);
+            }
+        }
+
+        #cuisine-filter-buttons button.selected {
+            background: linear-gradient(135deg, var(--princess-accent-lavender), var(--princess-accent-rose)) !important;
+            color: var(--princess-text-primary) !important;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.2) !important;
+            transform: translateY(-1px);
+            border: 1px solid var(--princess-accent-rose) !important;
+        }
+
+        #cuisine-filter-buttons button:not(.selected):hover {
+            background: var(--princess-lavender) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.15) !important;
+        }
+
+        /* Princess marker styling */
+        .princess-marker {
+            background: transparent !important;
+            border: none !important;
+            font-size: 36px !important;
+            text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.3);
+            filter: drop-shadow(0 0 8px rgba(230, 224, 255, 0.8));
+        }
+
+        /* Enhanced input styling */
+        .enhanced-input {
+            background: var(--princess-surface);
+            border: 2px solid var(--princess-border) !important;
+            color: var(--princess-text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .enhanced-input:focus {
+            border-color: var(--princess-accent-lavender) !important;
+            box-shadow: 0 0 0 3px rgba(212, 197, 255, 0.3) !important;
+            background: var(--princess-surface-soft);
+        }
+
+        /* Button styling updates */
+        .princess-button {
+            background: linear-gradient(135deg, var(--princess-accent-lavender), var(--princess-accent-rose));
+            color: var(--princess-text-primary);
+            border: 2px solid var(--princess-border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.15);
+        }
+
+        .princess-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(107, 77, 124, 0.25);
+            background: linear-gradient(135deg, var(--princess-accent-rose), var(--princess-accent-mint));
+        }
+
+        /* Larger emojis in header buttons */
+        #top-toolbar .princess-button {
+            font-size: 18px;
+        }
+
+        #top-toolbar .princess-button#gps-btn {
+            font-size: 20px;
+        }
+
+        /* PPP Logo styling */
+        #ppp-logo:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+        }
+
+        #ppp-logo:active {
+            transform: scale(0.95);
+        }
+
+        /* Table header styling */
+        .princess-table-header {
+            color: var(--princess-text-primary) !important;
+            font-weight: 600;
+        }
+
+        /* Add subtle princess glow effects */
+        .princess-glow {
+            box-shadow: 0 0 20px rgba(230, 224, 255, 0.4);
+        }
+
+        /* Input with icons styling */
+        .input-with-icon {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+            pointer-events: none;
+            font-size: 16px;
+            color: var(--princess-text-secondary);
+        }
+
+        .input-with-icon input {
+            padding-left: 40px !important;
+        }
+
+        /* My Location option styling */
+        .my-location-option {
+            background: linear-gradient(135deg, var(--princess-lavender), var(--princess-accent-lavender)) !important;
+            border: 1px solid var(--princess-accent-lavender) !important;
+            font-weight: 600 !important;
+        }
+
+        .my-location-option::before {
+            content: "🎯";
+            margin-right: 8px;
+        }
+
+        .leaflet-marker-icon {
+            filter: drop-shadow(0 2px 8px rgba(107, 77, 124, 0.3));
+        }
+
+        /* Custom popup styling for consistent rendering */
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: var(--princess-surface);
+            color: var(--princess-text-primary);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(107, 77, 124, 0.2);
+            border: 2px solid var(--princess-border);
+            font-family: inherit;
+        }
+
+        .custom-popup .leaflet-popup-content {
+            margin: 16px;
+            line-height: 1.4;
+        }
+
+        .custom-popup .leaflet-popup-tip {
+            background: var(--princess-surface);
+            border: 2px solid var(--princess-border);
+            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.1);
+        }
+
+        /* Ensure popup content renders correctly on first click */
+        .custom-popup .leaflet-popup-content * {
+            box-sizing: border-box;
+        }
+
+        .custom-popup .leaflet-popup-content button {
+            font-family: inherit;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .custom-popup .leaflet-popup-content button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(107, 77, 124, 0.2);
+        }
+    </style>
+</head>
+
+<body class="font-sans antialiased"
+    style="background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-lavender) 50%, var(--princess-rose) 100%); min-height: 100vh;">
+    <div id="map"></div>
+
+    <div id="top-toolbar"
+        class="fixed top-0 left-0 right-0 z-50 border-b-2 p-3 flex justify-between items-center shadow-lg"
+        style="background: linear-gradient(135deg, var(--princess-lavender) 0%, var(--princess-rose) 100%); border-color: var(--princess-border); backdrop-filter: blur(8px);">
+        <div class="text-2xl font-bold font-dancing cursor-pointer" id="ppp-logo"
+            style="color: var(--princess-text-primary); text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.2);"> PPP </div>
+        <div class="flex space-x-2">
+            <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">👸</button>
+            <button id="toggle-btn" class="princess-button text-sm">Show
+                Results</button>
+        </div>
+    </div>
+
+    <div class="bottom-results" id="bottom-results">
+        <div id="results-list" class="custom-scrollbar px-4"
+            style="height: 100%; overflow-y: auto; overflow-x: hidden;">
+            <div class="flex space-x-2 mb-4 pt-4">
+                <input type="text" id="restaurant-search"
+                    class="flex-grow px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 text-sm enhanced-input"
+                    placeholder="Pick places please">
+                <button id="toggle-cuisine-btn" class="px-3 py-3 rounded-md shadow-sm text-sm princess-button"
+                    title="Toggle cuisine filters">Filters</button>
+            </div>
+            <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4" style="display: none;">
+            </div>
+
+            <div id="loading-container" class="loading-container hidden">
+                <div class="spinner"></div>
+                <p class="loading-text" id="loading-text"
+                    style="color: var(--princess-text-primary); font-weight: 500;">Pondering possible paths</p>
+            </div>
+
+            <div style="padding: 0; box-sizing: border-box;" class="table-container">
+                <table id="chargers-table" class="hidden" style="width: 100%; table-layout: auto;">
+                    <thead class="sticky top-0 z-10" style="background: var(--princess-surface-soft);">
+                        <tr>
+                            <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
+                                style="width: 15%;">
+                                Charger
+                            </th>
+                            <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
+                                style="width: 25%;">
+                                Restaurant
+                            </th>
+                            <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
+                                style="width: 15%;">
+                                Walk
+                            </th>
+                            <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
+                                style="width: 35%;">
+                                Cuisine
+                            </th>
+                            <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
+                                style="width: 25%;">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="chargers-tbody">
+                    </tbody>
+                </table>
+            </div>
+            <p id="no-results" style="color: var(--princess-text-secondary);">Search for a route to see results.</p>
+        </div>
+        <hr style="border-color: var(--princess-border);">
+    </div>
+
+    <div class="overlay-form" id="search-form">
+        <header class="text-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold font-dancing"
+                style="color: var(--princess-text-primary); text-shadow: 2px 2px 8px rgba(107, 77, 124, 0.3);">
+                ✨ Passenger Princess Protector ✨</h1>
+        </header>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end relative">
+            <div class="relative">
+                <div class="input-with-icon">
+                    <div class="input-icon">👸</div>
+                    <input type="text" id="origin"
+                        class="block w-full px-4 py-3 rounded-lg shadow-sm text-sm enhanced-input"
+                        placeholder="Princess Pickup Point">
+                </div>
+                <div id="origin-suggestions" class="autocomplete-suggestions hidden"></div>
+            </div>
+            <div class="relative">
+                <div class="input-with-icon">
+                    <div class="input-icon">📍</div>
+                    <input type="text" id="destination"
+                        class="block w-full px-4 py-3 rounded-lg shadow-sm text-sm enhanced-input"
+                        placeholder="Pretty Parking Place">
+                </div>
+                <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
+            </div>
+            <div class="md:col-span-2">
+                <button id="find-route-btn" class="w-full princess-button font-bold py-3 px-4 text-sm">
+                    Plan Princess Portage
+                </button>
+            </div>
+        </div>
+        <div id="status-message" class="text-center mt-4 font-medium text-sm"
+            style="color: var(--princess-text-secondary);"></div>
+    </div>
+
+    <div id="new-search-modal" class="fixed inset-0 flex items-center justify-center z-[1200] hidden"
+        style="background: rgba(107, 77, 124, 0.6); backdrop-filter: blur(4px);">
+        <div class="rounded-xl p-8 max-w-sm mx-4 shadow-2xl"
+            style="background: var(--princess-surface); border: 2px solid var(--princess-border);">
+            <h3 class="text-xl font-semibold mb-4 font-dancing" style="color: var(--princess-text-primary);"> Start new
+                search? </h3>
+            <p class="mb-6" style="color: var(--princess-text-secondary);">It's ok to not know what you're looking for.
+            </p>
+            <div class="flex space-x-3 justify-end">
+                <button id="cancel-new-search" class="px-6 py-2 font-medium rounded-lg transition-all duration-300"
+                    style="color: var(--princess-text-secondary); background: var(--princess-surface-soft); border: 1px solid var(--princess-border);">Cancel</button>
+                <button id="confirm-new-search" class="princess-button font-medium"> Yes, New Search </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM ELEMENTS ---
+        const originInput = document.getElementById( 'origin' )
+        const destinationInput = document.getElementById( 'destination' )
+        const findRouteBtn = document.getElementById( 'find-route-btn' )
+        const statusMessage = document.getElementById( 'status-message' )
+        const mapElement = document.getElementById( 'map' )
+        const originSuggestions = document.getElementById( 'origin-suggestions' )
+        const destinationSuggestions = document.getElementById( 'destination-suggestions' )
+        const searchForm = document.getElementById( 'search-form' )
+        const bottomResults = document.getElementById( 'bottom-results' )
+        const topToolbar = document.getElementById( 'top-toolbar' )
+        const pppLogo = document.getElementById( 'ppp-logo' )
+        const restaurantSearchInput = document.getElementById( 'restaurant-search' )
+        const cuisineFilterButtons = document.getElementById( 'cuisine-filter-buttons' )
+
+        // Initially hide the top toolbar and adjust map position since search form is visible
+        topToolbar.style.display = 'none'
+        mapElement.style.top = '0'
+        mapElement.style.height = '100vh'
+
+        // --- MAP INITIALIZATION ---
+        let map = L.map( mapElement, {
+            zoomControl: false,
+            zoomSnap: 0.5,
+            zoomDelta: 1,
+            preferCanvas: true, // Use canvas renderer for better performance
+            updateWhenIdle: true, // Only update map when idle for better performance
+            updateWhenZooming: false // Disable updates during zoom for smoother experience
+        } ).setView( [ 37.7749, -122.4194 ], 6 ) // Default to SF
+
+        // Using CartoDB Positron for a softer, more princess-like appearance
+        L.tileLayer( 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        } ).addTo( map )
+
+        // Map Layers
+        const routeLayer = L.layerGroup().addTo( map )
+        const chargerLayer = L.layerGroup().addTo( map )
+        const restaurantLayer = L.layerGroup().addTo( map )
+        const userLocationLayer = L.layerGroup().addTo( map )
+        const viewportSuperchargersLayer = L.markerClusterGroup( {
+            chunkedLoading: true,
+            chunkInterval: 100, // Reduced for better performance
+            chunkDelay: 25, // Reduced delay
+            disableClusteringAtZoom: 14, // Enable clustering at higher zoom for better performance
+            maxClusterRadius: 40, // Slightly smaller radius for more clusters
+            spiderfyOnMaxZoom: false, // Disable spiderfy for better performance
+            showCoverageOnHover: false, // Disable coverage for better performance
+            zoomToBoundsOnClick: true,
+            iconCreateFunction: function ( cluster ) {
+                const count = cluster.getChildCount()
+                // Calculate continuous size based on count (more pronounced logarithmic scaling)
+                const minSize = 25
+                const maxSize = 80
+                const size = Math.min( maxSize, minSize + Math.log10( count ) * 15 )
+                const fontSize = Math.max( 9, Math.min( 18, 9 + Math.log10( count ) * 3 ) )
+                const anchorSize = size / 2
+
+                return new L.DivIcon( {
+                    html: '<div><span style="font-size: ' + fontSize + 'px;">' + count + '</span></div>',
+                    className: 'marker-cluster-continuous',
+                    iconSize: new L.Point( size, size ),
+                    iconAnchor: new L.Point( anchorSize, anchorSize )
+                } )
+            }
+        } ).addTo( map )
+
+        // --- STATE MANAGEMENT ---
+        let userLocationMarker = null
+        let locationTrackingInterval = null
+        let stationData = [] // Single source of truth for all station data
+        let filteredStationData = [] // Filtered station data for display
+        let filteredChargerIDs = null
+        let currentSearchTerm = ''
+        let currentCuisineFilter = []
+        let filterTimeout = null // For debouncing filter updates
+        let viewportSuperchargers = new Map() // Map of place_id to supercharger data
+        let lastViewportBounds = null // Track last viewport bounds to avoid unnecessary API calls
+        let routeSuperchargerLocations = new Set() // Set of "lat,lng" strings for route superchargers
+
+        // Autocomplete session tokens for each input field
+        let autocompleteSessions = {
+            origin: null,
+            destination: null
+        }
+
+        // --- EVENT LISTENERS ---
+        findRouteBtn.addEventListener( 'click', handleRouteSearch )
+        restaurantSearchInput.addEventListener( 'input', () => {
+            clearTimeout( filterTimeout )
+            filterTimeout = setTimeout( () => {
+                filterListAndMap( restaurantSearchInput.value, currentCuisineFilter )
+            }, 150 ) // 150ms debounce
+        } )
+
+        cuisineFilterButtons.addEventListener( 'click', ( e ) => {
+            if ( e.target.tagName !== 'BUTTON' ) return
+            const cuisine = e.target.dataset.cuisine
+            const isSelected = e.target.classList.toggle( 'selected' )
+
+            // Update filter array based on selection
+            if ( isSelected ) {
+                if ( cuisine === '' ) { // "All Cuisines" selected
+                    currentCuisineFilter = [ '' ]
+                    Array.from( cuisineFilterButtons.children ).forEach( btn => {
+                        if ( btn !== e.target ) btn.classList.remove( 'selected' )
+                    } )
+                } else {
+                    currentCuisineFilter = currentCuisineFilter.filter( c => c.toLowerCase() !== ''.toLowerCase() ) // Remove "All" if present
+                    currentCuisineFilter.push( cuisine )
+                    cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )?.classList.remove( 'selected' )
+                }
+            } else {
+                currentCuisineFilter = currentCuisineFilter.filter( c => c.toLowerCase() !== cuisine.toLowerCase() )
+            }
+
+            // If nothing is selected, default back to "All Cuisines"
+            if ( currentCuisineFilter.length === 0 ) {
+                currentCuisineFilter = [ '' ]
+                cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )?.classList.add( 'selected' )
+            }
+
+            filterListAndMap( currentSearchTerm, currentCuisineFilter )
+        } )
+
+        // Debounced marker update for better performance
+        let mapUpdateTimeout = null
+        const debouncedUpdateVisibleMarkers = () => {
+            if ( mapUpdateTimeout ) clearTimeout( mapUpdateTimeout )
+            mapUpdateTimeout = setTimeout( updateVisibleMarkers, 100 ) // 100ms debounce
+        }
+
+        map.on( 'moveend zoomend', debouncedUpdateVisibleMarkers )
+
+        // Initial call to load viewport superchargers
+        updateVisibleMarkers();
+
+        // --- AUTO-SEARCH FROM URL PARAMS ---
+        ( function autoSearchFromUrl () {
+            const urlParams = new URLSearchParams( window.location.search )
+            const originParam = urlParams.get( 'origin' )
+            const destinationParam = urlParams.get( 'destination' )
+            if ( originParam && destinationParam ) {
+                originInput.value = decodeURIComponent( originParam )
+                destinationInput.value = decodeURIComponent( destinationParam )
+                setTimeout( () => handleRouteSearch(), 500 )
+            }
+        } )()
+
+        // --- CORE APPLICATION LOGIC ---
+
+        /**
+         * Main function to handle the entire search process.
+         */
+        async function handleRouteSearch () {
+            const origin = originInput.value.trim()
+            const destination = destinationInput.value.trim()
+
+            if ( !origin || !destination ) {
+                updateStatus( "Please enter both an origin and a destination.", true )
+                return
+            }
+
+            updateUrlForSearch( origin, destination )
+            clearPreviousResults()
+            showLoadingState( "Pondering possible paths" )
+
+            try {
+                const response = await fetch( `/route?origin=${ encodeURIComponent( origin ) }&destination=${ encodeURIComponent( destination ) }` )
+                const data = await response.json()
+
+                if ( !response.ok ) {
+                    throw new Error( data.error || "An unknown error occurred." )
+                }
+
+                processAndDisplayResults( data )
+                updateStatus( `Found ${ data.superchargers.length } Superchargers with restaurants.`, false )
+
+            } catch ( error ) {
+                console.error( "Error during route search:", error )
+                // The error from the server is now in error.message
+                const userMessage = error.message.includes( "Could not find a route" ) ?
+                    "Could not find a route. Please try a different or more specific location." :
+                    error.message // Directly use the message from the server
+                showErrorState( `Oops! ${ userMessage }` )
+            }
+        }
+
+        /**
+         * Takes the full API response, processes it, and builds the UI.
+         */
+        function processAndDisplayResults ( data ) {
+            // Draw route on map using the traffic segments built from intervals
+            const trafficSegments = data.route && data.route.travelAdvisory && data.route.travelAdvisory.speedReadingIntervals
+                ? buildTrafficSegments( data.route.EncodedPolyline, data.route.travelAdvisory.speedReadingIntervals )
+                : []
+            drawTrafficSegments( trafficSegments, data.route.EncodedPolyline )
+
+            // Set map bounds using the main route polyline
+            const routeCoords = decodePolyline( data.route.EncodedPolyline )
+            if ( routeCoords.length > 0 ) {
+                map.fitBounds( L.polyline( routeCoords ).getBounds().pad( 0.1 ) )
+            }
+
+            if ( data.superchargers.length === 0 ) {
+                showEmptyState( "No Superchargers found near your route." )
+                return
+            }
+
+            // Reset state and build the new `stationData` and table UI
+            stationData = []
+            routeSuperchargerLocations.clear() // Clear previous route locations
+            const tbody = document.getElementById( 'chargers-tbody' )
+            tbody.innerHTML = ''
+            const fragment = document.createDocumentFragment()
+
+            // Sort superchargers by total distance (distance along route + distance from route)
+            data.superchargers.sort( ( a, b ) => {
+                const aTotalDistance = ( a.distance_along_route || 0 ) + ( a.distance_from_route || 0 )
+                const bTotalDistance = ( b.distance_along_route || 0 ) + ( b.distance_from_route || 0 )
+                return aTotalDistance - bTotalDistance
+            } )
+
+            data.superchargers.forEach( ( charger, index ) => {
+                const chargerId = `charger-${ index }`
+                const chargerMarker = createChargerMarker( charger, chargerId )
+                const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
+
+                // Add route supercharger location to the set
+                const locationKey = `${ charger.supercharger.latitude },${ charger.supercharger.longitude }`
+                routeSuperchargerLocations.add( locationKey )
+
+                stationData.push( {
+                    id: chargerId,
+                    chargerInfo: charger,
+                    restaurants: charger.restaurants || [],
+                    chargerMarker: chargerMarker,
+                    restaurantMarkers: restaurantMarkers,
+                } )
+
+                filteredStationData.push( {
+                    id: chargerId,
+                    chargerInfo: charger,
+                    restaurants: charger.restaurants || [],
+                    chargerMarker: chargerMarker,
+                    restaurantMarkers: restaurantMarkers,
+                } )
+
+                const tableRows = createTableRowsForStation( charger, charger.restaurants || [], chargerId )
+                tableRows.forEach( row => fragment.appendChild( row ) )
+            } )
+
+            tbody.appendChild( fragment )
+            showResultsTable()
+            // Ensure map recalculates size after results panel is shown and DOM is updated
+            setTimeout( () => {
+                map.invalidateSize()
+                populateCuisineFilter() // Populate cuisine filter after map is sized
+                updateVisibleMarkers() // Initial map update
+            }, 100 )
+        }
+
+        /**
+         * Filters the list and map based on search term and cuisine.
+         */
+        function filterListAndMap ( searchTerm, cuisines ) {
+            // Clear any pending timeout
+            if ( filterTimeout ) {
+                clearTimeout( filterTimeout )
+                filterTimeout = null
+            }
+
+            currentSearchTerm = searchTerm.toLowerCase()
+            currentCuisineFilter = Array.isArray( cuisines ) ? cuisines.map( c => c.toLowerCase() ) : ( cuisines ? [ cuisines.toLowerCase() ] : [] )
+
+            // Create filtered station data
+            filteredStationData = stationData.map( station => {
+                const matchingRestaurants = station.restaurants.filter( restaurant => {
+                    const nameMatch = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
+                    const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 ||
+                        currentCuisineFilter.some( fc => fc.toLowerCase() === ( restaurant.primary_type_display || '' ).toLowerCase() )
+                    return nameMatch && cuisineMatch
+                } )
+
+                if ( matchingRestaurants.length > 0 ) {
+                    return {
+                        ...station,
+                        restaurants: matchingRestaurants
+                    }
+                }
+                return null
+            } ).filter( station => station !== null )
+
+            // Rebuild the table with filtered data
+            rebuildTableWithFilteredData( filteredStationData )
+
+            // Update filtered charger IDs for map
+            filteredChargerIDs = ( currentSearchTerm || currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) ) ?
+                filteredStationData.map( station => station.id ) : null
+
+            updateVisibleMarkers()
+        }
+
+        /**
+         * Rebuilds the table with filtered station data.
+         */
+        function rebuildTableWithFilteredData ( filteredStations ) {
+            const tbody = document.getElementById( 'chargers-tbody' )
+            const resultsList = document.getElementById( 'results-list' )
+
+            // Save scroll position
+            const scrollTop = resultsList.scrollTop
+
+            tbody.innerHTML = ''
+
+            if ( filteredStations.length === 0 ) {
+                showEmptyState( "No restaurants match your search criteria." )
+                return
+            }
+
+            const fragment = document.createDocumentFragment()
+
+            filteredStations.forEach( ( station ) => {
+                const chargerId = station.id // Use the original station ID
+                const tableRows = createTableRowsForStation( station.chargerInfo, station.restaurants, chargerId )
+                tableRows.forEach( row => fragment.appendChild( row ) )
+            } )
+
+            tbody.appendChild( fragment )
+            showResultsTable()
+
+            // Restore scroll position
+            resultsList.scrollTop = scrollTop
+
+            // Ensure map recalculates size after table is rebuilt
+            setTimeout( () => map.invalidateSize(), 50 )
+        }
+
+        // --- MAP AND MARKER FUNCTIONS ---
+
+        /**
+         * Builds traffic segments from the main polyline and speed reading intervals.
+         */
+        function buildTrafficSegments ( encodedPolyline, intervals ) {
+            const allCoords = decodePolyline( encodedPolyline )
+            const segments = []
+
+            intervals.forEach( interval => {
+                const start = interval.startPolylinePointIndex
+                const end = interval.endPolylinePointIndex
+                const coords = allCoords.slice( start, end + 1 )
+                if ( coords.length > 1 ) {
+                    const polyline = encodePolyline( coords ) // Need to encode back for the segment
+                    segments.push( {
+                        polyline: polyline,
+                        speed: interval.speed
+                    } )
+                }
+            } )
+
+            return segments
+        }
+
+        /**
+         * Encodes an array of coordinates back to Google polyline format.
+         */
+        function encodePolyline ( coords ) {
+            let result = ''
+            let prevLat = 0
+            let prevLng = 0
+
+            coords.forEach( coord => {
+                const lat = Math.round( coord[ 0 ] * 1e5 )
+                const lng = Math.round( coord[ 1 ] * 1e5 )
+
+                const dLat = lat - prevLat
+                const dLng = lng - prevLng
+
+                result += encodeNumber( dLat )
+                result += encodeNumber( dLng )
+
+                prevLat = lat
+                prevLng = lng
+            } )
+
+            return result
+        }
+
+        function encodeNumber ( num ) {
+            let result = ''
+            let shifted = num << 1
+            if ( num < 0 ) shifted = ~shifted
+            while ( shifted >= 0x20 ) {
+                result += String.fromCharCode( ( 0x20 | ( shifted & 0x1f ) ) + 63 )
+                shifted >>= 5
+            }
+            result += String.fromCharCode( shifted + 63 )
+            return result
+        }
+
+        /**
+         * Decodes a Google Maps encoded polyline string into an array of coordinates.
+         */
+        function decodePolyline ( encoded ) {
+            const len = encoded.length
+            const coords = []
+            let index = 0
+            let lat = 0
+            let lng = 0
+
+            while ( index < len ) {
+                let b
+                let shift = 0
+                let result = 0
+                do {
+                    b = encoded.charCodeAt( index++ ) - 63
+                    result |= ( b & 0x1f ) << shift
+                    shift += 5
+                } while ( b >= 0x20 )
+                const dlat = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
+                lat += dlat
+
+                shift = 0
+                result = 0
+                do {
+                    b = encoded.charCodeAt( index++ ) - 63
+                    result |= ( b & 0x1f ) << shift
+                    shift += 5
+                } while ( b >= 0x20 )
+                const dlng = ( ( result & 1 ) ? ~( result >> 1 ) : ( result >> 1 ) )
+                lng += dlng
+
+                coords.push( [ lat / 1e5, lng / 1e5 ] )
+            }
+
+            return coords
+        }
+
+        /**
+         * Draws the route on the map using traffic segment data.
+         */
+        function drawTrafficSegments ( trafficSegments, encodedPolyline ) {
+            routeLayer.clearLayers()
+
+            // Always draw the main route
+            const routeCoords = decodePolyline( encodedPolyline )
+            if ( routeCoords.length > 0 ) {
+                L.polyline( routeCoords, {
+                    color: 'blue',
+                    weight: 5,
+                    opacity: 0.8
+                } ).addTo( routeLayer )
+            }
+
+            if ( !trafficSegments || trafficSegments.length === 0 ) {
+                return
+            }
+
+            // Overlay traffic segments
+            trafficSegments.forEach( segment => {
+                const coords = decodePolyline( segment.polyline )
+                if ( coords.length < 2 ) return
+
+                let color
+                switch ( segment.speed ) {
+                    case 'NORMAL': color = '#34D399'; break // Emerald 400
+                    case 'SLOW': color = '#FBBF24'; break // Amber 400
+                    case 'TRAFFIC_JAM': color = '#F87171'; break // Red 400
+                    default: color = '#60A5FA'; break // Blue 400
+                }
+
+                L.polyline( coords, {
+                    color: color,
+                    weight: 6,
+                    opacity: 0.85
+                } ).addTo( routeLayer )
+            } )
+        }
+
+        function updateVisibleMarkers () {
+            // Optimized marker update with performance improvements
+            const bounds = map.getBounds()
+            const zoom = map.getZoom()
+
+            // Use filtered data if filtering is active, otherwise use all data
+            const dataToUse = filteredChargerIDs !== null ? filteredStationData : stationData
+
+            // Use requestAnimationFrame for smoother updates
+            requestAnimationFrame( () => {
+                dataToUse.forEach( station => {
+                    const chargerShouldBeVisible = filteredChargerIDs === null || filteredChargerIDs.includes( station.id )
+                    const chargerMarker = station.chargerMarker
+
+                    if ( chargerShouldBeVisible && bounds.contains( chargerMarker.getLatLng() ) ) {
+                        if ( !chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.addLayer( chargerMarker )
+                    } else {
+                        if ( chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.removeLayer( chargerMarker )
+                    }
+
+                    const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
+                    station.restaurantMarkers.forEach( restaurantMarker => {
+                        const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                        const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
+                        const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+
+                        if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
+                            if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
+                        } else {
+                            if ( restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.removeLayer( restaurantMarker )
+                        }
+                    } )
+                } )
+
+                // Update viewport superchargers
+                updateViewportSuperchargers( bounds )
+            } )
+        }
+
+        /**
+         * Fetches and updates superchargers for the current viewport.
+         */
+        async function updateViewportSuperchargers ( bounds ) {
+            const boundsStr = bounds.toBBoxString()
+            if ( lastViewportBounds === boundsStr ) {
+                return // No change in viewport
+            }
+            lastViewportBounds = boundsStr
+
+            const [ minLng, minLat, maxLng, maxLat ] = boundsStr.split( ',' ).map( parseFloat )
+
+            try {
+                const response = await fetch( `/superchargers/viewport?min_lat=${ minLat }&max_lat=${ maxLat }&min_lng=${ minLng }&max_lng=${ maxLng }` )
+                const data = await response.json()
+
+                if ( !response.ok ) {
+                    console.error( 'Failed to fetch viewport superchargers:', data )
+                    return
+                }
+
+                const superchargers = data.superchargers
+
+                // Performance optimization: limit the number of viewport superchargers to prevent slowdown
+                const maxViewportSuperchargers = 200
+                const limitedSuperchargers = superchargers.slice( 0, maxViewportSuperchargers )
+
+                // Create a set of current supercharger place_ids
+                const currentPlaceIds = new Set( limitedSuperchargers.map( sc => sc.place_id ) )
+
+                // Remove superchargers that are no longer in viewport
+                for ( const [ placeId, superchargerData ] of viewportSuperchargers ) {
+                    if ( !currentPlaceIds.has( placeId ) ) {
+                        viewportSuperchargersLayer.removeLayer( superchargerData.marker )
+                        viewportSuperchargers.delete( placeId )
+                    }
+                }
+
+                // Add new superchargers
+                limitedSuperchargers.forEach( supercharger => {
+                    if ( !viewportSuperchargers.has( supercharger.place_id ) ) {
+                        // Check if there's already a route supercharger at this location
+                        const locationKey = `${ supercharger.latitude },${ supercharger.longitude }`
+                        if ( !routeSuperchargerLocations.has( locationKey ) ) {
+                            const marker = createViewportSuperchargerMarker( supercharger )
+                            viewportSuperchargers.set( supercharger.place_id, {
+                                data: supercharger,
+                                marker: marker
+                            } )
+                            viewportSuperchargersLayer.addLayer( marker )
+                        }
+                    }
+                } )
+
+                // Dynamically adjust clustering based on total count
+                const totalViewportSuperchargers = viewportSuperchargers.size
+                if ( totalViewportSuperchargers > 100 ) {
+                    // Enable clustering for large numbers of markers
+                    viewportSuperchargersLayer.options.disableClusteringAtZoom = 12
+                } else {
+                    // Disable clustering when there are fewer markers
+                    viewportSuperchargersLayer.options.disableClusteringAtZoom = 18 // Effectively disable clustering
+                }
+
+                // Refresh the clusters only when necessary for better performance
+                if ( totalViewportSuperchargers > 50 ) {
+                    setTimeout( () => viewportSuperchargersLayer.refreshClusters(), 50 )
+                }
+            } catch ( error ) {
+                console.error( 'Error fetching viewport superchargers:', error )
+            }
+        }
+
+        /**
+         * Creates a marker for a viewport supercharger.
+         */
+        function createViewportSuperchargerMarker ( supercharger ) {
+            const popupContent = `
+                <div class="font-sans max-w-xs">
+                    <strong class="text-lg">${ supercharger.name }</strong><br>
+                    <strong>Address:</strong> ${ supercharger.address }<br>
+                    <div class="flex flex-col gap-2 mt-3">
+                        <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                    </div>
+                </div>
+            `
+
+            return L.marker( [ supercharger.latitude, supercharger.longitude ], {
+                icon: L.divIcon( {
+                    className: 'emoji-icon',
+                    html: '🔌',
+                    iconSize: [ 24, 24 ],
+                    iconAnchor: [ 12, 12 ]
+                } )
+            } ).bindPopup( popupContent, {
+                maxWidth: 300,
+                minWidth: 200,
+                className: 'custom-popup'
+            } )
+        }
+
+        function createChargerMarker ( charger, chargerId ) {
+            // This function remains the same
+            const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const totalDistance = ( ( charger.distance_along_route || 0 ) + ( charger.distance_from_route || 0 ) ) / 1609.34
+            const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
+            const arrivalTime = charger.arrival_time || 'N/A'
+            let popupContent = `
+                <div class="font-sans max-w-xs">
+                    <strong class="text-lg">${ charger.supercharger.name }</strong><br>
+                    <strong>Address:</strong> ${ charger.supercharger.address }<br>
+                    <strong>Arrival:</strong> ${ arrivalTime }<br>
+                    <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
+                    <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
+                    <div class="flex flex-col gap-2 mt-3">
+                        <button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>
+                        <button onclick="openInGoogleMaps('${ charger.supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                    </div>
+                </div>
+            `
+
+            return L.marker( [ charger.supercharger.latitude, charger.supercharger.longitude ], {
+                icon: L.divIcon( {
+                    className: 'emoji-icon',
+                    html: '🔋',
+                    iconSize: [ 24, 24 ],
+                    iconAnchor: [ 12, 12 ]
+                } )
+            } ).bindPopup( popupContent, {
+                maxWidth: 300,
+                minWidth: 200,
+                className: 'custom-popup'
+            } )
+        }
+
+        function createRestaurantMarkers ( restaurants ) {
+            // This function remains the same
+            return ( restaurants || [] ).map( restaurant => {
+                return L.marker( [ restaurant.latitude, restaurant.longitude ], {
+                    icon: L.divIcon( {
+                        className: 'emoji-icon',
+                        html: '🌭',
+                        iconSize: [ 24, 24 ],
+                        iconAnchor: [ 12, 12 ]
+                    } ),
+                    restaurantName: restaurant.name,
+                    cuisine: ( restaurant.primary_type_display || '' )
+                } ).bindPopup( `
+                    <div class="font-sans max-w-xs">
+                        <strong class="text-lg">${ restaurant.name }</strong><br>
+                        ${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }<br>
+                        <div class="flex flex-col gap-2 mt-3">
+                            <button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Maps</button>
+                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
+                        </div>
+                    </div>
+                `, {
+                    maxWidth: 300,
+                    minWidth: 200,
+                    className: 'custom-popup'
+                } )
+            } )
+        }
+
+        // --- UI AND DOM MANIPULATION ---
+
+        function createTableRowsForStation ( charger, restaurants, chargerId ) {
+            // This function remains the same
+            const rows = []
+            const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+            const totalDistance = ( ( charger.distance_along_route || 0 ) + ( charger.distance_from_route || 0 ) ) / 1609.34
+            const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
+            const arrivalTime = charger.arrival_time || 'N/A'
+
+            const chargerCell = `
+                <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
+                    <div class="flex flex-col">
+                        <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
+                        <span class="font-bold">${ arrivalTime }</span>
+                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
+                        <span class="text-xs text-pink-600">Off Route: ${ distanceFromOrigin }</span>
+                    </div>
+                </td>
+            `
+
+            if ( restaurants.length === 0 ) {
+                const row = document.createElement( 'tr' )
+                row.dataset.chargerId = chargerId
+                row.innerHTML = `
+                    ${ chargerCell }
+                    <td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>
+                `
+                rows.push( row )
+            } else {
+                restaurants.forEach( ( restaurant, index ) => {
+                    const row = document.createElement( 'tr' )
+                    row.dataset.chargerId = chargerId
+                    row.dataset.restaurantId = restaurant.name // Use name as a simple ID
+
+                    const cuisineStr = restaurant.primary_type_display || 'N/A'
+
+                    const restaurantContent = `
+                        <td class="px-1 py-0 text-sm text-pink-700">
+                            <span class="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link" data-original-name="${ restaurant.name }">${ restaurant.name }</span>
+                        </td>
+                        <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'N/A' }</td>
+                        <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
+                        <td class="px-1 py-0 text-sm">
+                            <div class="flex gap-1">
+                                <button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded">Maps</button>
+                                <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Tesla</button>
+                            </div>
+                        </td>
+                    `
+
+                    row.innerHTML = ( index === 0 ) ? `${ chargerCell }${ restaurantContent }` : restaurantContent
+                    rows.push( row )
+                } )
+            }
+
+            addClickHandlersToRows( rows, chargerId )
+            return rows
+        }
+
+        // --- All other helper and utility functions (addClickHandlersToRows, populateCuisineFilter, showLoadingState, etc.) remain the same ---
+        // (For brevity, the remaining utility functions which do not need changes are omitted, but they are present in the original file and should be kept)
+
+        function addClickHandlersToRows ( rows, chargerId ) {
+            rows.forEach( row => {
+                row.querySelector( '.city-link' )?.addEventListener( 'click', ( e ) => {
+                    e.stopPropagation()
+                    const station = stationData.find( s => s.id === chargerId )
+                    if ( station ) {
+                        map.setView( station.chargerMarker.getLatLng(), 15 )
+                        station.chargerMarker.openPopup()
+                        bottomResults.style.display = 'none'
+                        document.getElementById( 'toggle-btn' ).textContent = '📖'
+                    }
+                } )
+
+                row.querySelector( '.restaurant-link' )?.addEventListener( 'click', ( e ) => {
+                    e.stopPropagation()
+                    const restaurantName = e.target.textContent
+                    const station = stationData.find( s => s.id === chargerId )
+                    if ( station ) {
+                        const restaurantMarker = station.restaurantMarkers.find( m => m.options.restaurantName === restaurantName )
+                        if ( restaurantMarker ) {
+                            map.setView( restaurantMarker.getLatLng(), 16 )
+                            restaurantMarker.openPopup()
+                            bottomResults.style.display = 'none'
+                            document.getElementById( 'toggle-btn' ).textContent = '📖'
+                        }
+                    }
+                } )
+            } )
+        }
+
+        function highlightTextInRow ( row, searchTerm, cuisineFilter ) {
+            const restaurantCell = row.querySelector( '.restaurant-link' )
+            if ( restaurantCell ) {
+                const originalName = restaurantCell.dataset.originalName
+                restaurantCell.innerHTML = searchTerm ?
+                    originalName.replace( new RegExp( `(${ searchTerm })`, 'gi' ), '<mark>$1</mark>' ) :
+                    originalName
+            }
+
+            const cuisineCell = row.querySelector( 'td[data-original-cuisine]' )
+            if ( cuisineCell ) {
+                const originalCuisine = cuisineCell.dataset.originalCuisine
+                let highlightedCuisine = originalCuisine
+                if ( cuisineFilter.length > 0 && !cuisineFilter.includes( '' ) ) {
+                    cuisineFilter.forEach( c => {
+                        highlightedCuisine = highlightedCuisine.replace( new RegExp( `(${ c })`, 'gi' ), '<mark>$1</mark>' )
+                    } )
+                }
+                cuisineCell.innerHTML = highlightedCuisine
+            }
+        }
+
+        function populateCuisineFilter () {
+            const cuisines = new Set()
+            stationData.forEach( station => {
+                station.restaurants.forEach( r => {
+                    if ( r.primary_type_display ) {
+                        cuisines.add( r.primary_type_display.trim() )
+                    }
+                } )
+            } )
+
+            const sortedCuisines = Array.from( cuisines ).sort()
+            cuisineFilterButtons.innerHTML = '' // Clear previous
+
+            const createButton = ( text, value ) => {
+                const button = document.createElement( 'button' )
+                button.textContent = text
+                button.dataset.cuisine = value
+                button.className = 'px-2 py-1 rounded-full text-xs font-medium transition-all duration-300'
+                button.style.cssText = `
+                    background: var(--princess-surface);
+                    border: 1px solid var(--princess-border);
+                    color: var(--princess-text-primary);
+                    box-shadow: 0 1px 4px rgba(107, 77, 124, 0.1);
+                `
+
+                return button
+            }
+
+            const allButton = createButton( 'All Cuisines', '' )
+            allButton.classList.add( 'selected' )
+            currentCuisineFilter = [ '' ]
+            cuisineFilterButtons.appendChild( allButton )
+
+            sortedCuisines.forEach( c => {
+                cuisineFilterButtons.appendChild( createButton( c, c ) )
+            } )
+        }
+
+        function clearPreviousResults () {
+            routeLayer.clearLayers()
+            chargerLayer.clearLayers()
+            restaurantLayer.clearLayers()
+            viewportSuperchargersLayer.clearLayers()
+            stationData = []
+            filteredStationData = []
+            routeSuperchargerLocations.clear()
+            viewportSuperchargers.clear()
+            lastViewportBounds = null
+            filteredChargerIDs = null
+            currentSearchTerm = ''
+            restaurantSearchInput.value = ''
+            document.getElementById( 'chargers-tbody' ).innerHTML = ''
+
+            // Clear any pending filter timeout
+            if ( filterTimeout ) {
+                clearTimeout( filterTimeout )
+                filterTimeout = null
+            }
+
+            // Clear autocomplete session tokens
+            autocompleteSessions.origin = null
+            autocompleteSessions.destination = null
+        }
+
+        function showLoadingState ( message ) {
+            document.getElementById( 'loading-container' ).classList.remove( 'hidden' )
+            document.getElementById( 'loading-text' ).textContent = message
+            document.getElementById( 'chargers-table' ).classList.add( 'hidden' )
+            document.getElementById( 'no-results' ).classList.add( 'hidden' )
+            searchForm.style.display = 'none'
+            bottomResults.style.display = 'block'
+            topToolbar.style.display = 'flex'
+            mapElement.style.top = '60px'
+            mapElement.style.height = 'calc(100vh - 60px)'
+            bottomResults.style.top = '60px'
+            bottomResults.style.height = 'calc(100vh - 60px)'
+            document.getElementById( 'toggle-btn' ).textContent = '🗺️'
+        }
+
+        function showResultsTable () {
+            document.getElementById( 'loading-container' ).classList.add( 'hidden' )
+            document.getElementById( 'chargers-table' ).classList.remove( 'hidden' )
+            document.getElementById( 'no-results' ).classList.add( 'hidden' )
+        }
+
+        function showChargerInResults ( chargerId ) {
+            bottomResults.style.display = 'block'
+            document.getElementById( 'toggle-btn' ).textContent = '🗺️'
+            const chargerRow = document.querySelector( `tr[data-charger-id="${ chargerId }"]` )
+            if ( chargerRow ) {
+                chargerRow.scrollIntoView( { behavior: 'smooth', block: 'center' } )
+                chargerRow.style.backgroundColor = '#fef2f2'
+                setTimeout( () => { chargerRow.style.backgroundColor = '' }, 2000 )
+            }
+            setTimeout( () => map.invalidateSize(), 100 )
+        }
+
+        function openInGoogleMaps ( placeId ) {
+            const url = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+            window.open( url, '_blank' )
+        }
+
+        function shareToTesla ( placeId, name = '' ) {
+            const googleMapsUrl = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+            const shareData = {
+                title: name || 'Location',
+                text: name ? `Check out this location: ${ name }` : 'Check out this location',
+                url: googleMapsUrl
+            }
+
+            if ( navigator.share ) {
+                navigator.share( shareData ).catch( console.error )
+            } else {
+                // Fallback for browsers that don't support Web Share API
+                navigator.clipboard.writeText( googleMapsUrl ).then( () => {
+                    alert( 'Google Maps URL copied to clipboard!' )
+                } ).catch( () => {
+                    // Final fallback - open the URL
+                    window.open( googleMapsUrl, '_blank' )
+                } )
+            }
+        }
+
+        function showEmptyState ( message ) {
+            document.getElementById( 'loading-container' ).classList.add( 'hidden' )
+            document.getElementById( 'chargers-table' ).classList.add( 'hidden' )
+            const noResults = document.getElementById( 'no-results' )
+            noResults.textContent = message
+            noResults.classList.remove( 'hidden' )
+        }
+
+        function showErrorState ( message ) {
+            document.getElementById( 'loading-container' ).classList.add( 'hidden' )
+            document.getElementById( 'chargers-table' ).classList.add( 'hidden' )
+            updateStatus( message, true )
+            searchForm.style.display = 'block'
+            bottomResults.style.display = 'none'
+            topToolbar.style.display = 'none'
+            mapElement.style.top = '0'
+            mapElement.style.height = '100vh'
+        }
+
+        function startLocationTracking () {
+            if ( locationTrackingInterval ) clearInterval( locationTrackingInterval )
+            document.getElementById( 'gps-btn' ).classList.remove( 'hidden' )
+
+            const updateMarker = ( position ) => {
+                const { latitude: lat, longitude: lon } = position.coords
+                updateUserLocationMarker( lat, lon )
+            }
+
+            navigator.geolocation.getCurrentPosition( updateMarker, ( err ) => console.log( "Initial location error:", err ) )
+            locationTrackingInterval = setInterval( () => {
+                navigator.geolocation.getCurrentPosition( updateMarker, ( err ) => console.log( "Tracking location error:", err ) )
+            }, 5000 )
+        }
+
+        async function updateUserLocationMarker ( lat, lon ) {
+            if ( userLocationMarker ) userLocationLayer.removeLayer( userLocationMarker )
+
+            // Create popup content with coordinates and a button to populate address
+            let popupContent = `<strong>Princess Location</strong><br>You are extremely nice.`
+
+            userLocationMarker = L.marker( [ lat, lon ], {
+                icon: L.divIcon( {
+                    className: 'princess-marker',
+                    html: '👸',
+                    iconSize: [ 36, 36 ],
+                } )
+            } ).bindPopup( popupContent, {
+                maxWidth: 300,
+                minWidth: 200,
+                className: 'custom-popup'
+            } )
+            userLocationLayer.addLayer( userLocationMarker )
+        }
+
+        function stopLocationTracking () {
+            if ( locationTrackingInterval ) {
+                clearInterval( locationTrackingInterval )
+                locationTrackingInterval = null
+            }
+            if ( userLocationMarker ) {
+                userLocationLayer.removeLayer( userLocationMarker )
+                userLocationMarker = null
+            }
+            document.getElementById( 'gps-btn' ).classList.add( 'hidden' )
+        }
+
+        let debounceTimer
+        function setupAutocomplete ( inputElement, suggestionsDiv ) {
+            let lastInputValue = ''
+            const inputId = inputElement.id // 'origin' or 'destination'
+            let selectedIndex = -1
+            let currentSuggestions = []
+            let hasShownMyLocation = false
+
+            // Add focus event to show "My Location" option
+            inputElement.addEventListener( 'focus', () => {
+                if ( inputElement.value.trim() === '' && !hasShownMyLocation ) {
+                    const myLocationOption = [ {
+                        description: "My Location",
+                        place_id: "my_location",
+                        isMyLocation: true
+                    } ]
+                    displaySuggestions( myLocationOption, suggestionsDiv, inputElement, selectedIndex )
+                    hasShownMyLocation = true
+                }
+            } )
+
+            inputElement.addEventListener( 'input', () => {
+                clearTimeout( debounceTimer )
+                debounceTimer = setTimeout( async () => {
+                    const query = inputElement.value.trim()
+
+                    // Clear session token if input changed significantly (less than 3 chars or completely different)
+                    if ( query.length < 3 || !lastInputValue.startsWith( query.substring( 0, Math.min( 3, query.length ) ) ) ) {
+                        autocompleteSessions[ inputId ] = null
+                    }
+
+                    if ( query.length < 3 ) {
+                        suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
+                        hasShownMyLocation = false
+                        return
+                    }
+
+                    hasShownMyLocation = false
+                    lastInputValue = query
+
+                    try {
+                        let url = `/autocomplete?partial=${ encodeURIComponent( query ) }`
+                        if ( autocompleteSessions[ inputId ] ) {
+                            url += `&session_token=${ encodeURIComponent( autocompleteSessions[ inputId ] ) }`
+                        }
+
+                        const response = await fetch( url )
+                        if ( !response.ok ) throw new Error( 'Autocomplete failed' )
+                        const data = await response.json()
+
+                        // Store the session token for future requests
+                        if ( data.session_token ) {
+                            autocompleteSessions[ inputId ] = data.session_token
+                        }
+
+                        currentSuggestions = data.predictions || []
+                        displaySuggestions( currentSuggestions, suggestionsDiv, inputElement, selectedIndex )
+                    } catch ( error ) {
+                        console.error( 'Autocomplete error:', error )
+                        suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
+                    }
+                }, 300 )
+            } )
+
+            // Keyboard navigation
+            inputElement.addEventListener( 'keydown', ( e ) => {
+                if ( suggestionsDiv.classList.contains( 'hidden' ) || currentSuggestions.length === 0 ) {
+                    // If no suggestions are shown, allow Enter to submit form
+                    if ( e.key === 'Enter' ) {
+                        e.preventDefault()
+                        handleRouteSearch()
+                    }
+                    return
+                }
+
+                switch ( e.key ) {
+                    case 'ArrowDown':
+                        e.preventDefault()
+                        selectedIndex = Math.min( selectedIndex + 1, currentSuggestions.length - 1 )
+                        displaySuggestions( currentSuggestions, suggestionsDiv, inputElement, selectedIndex )
+                        break
+                    case 'ArrowUp':
+                        e.preventDefault()
+                        selectedIndex = Math.max( selectedIndex - 1, -1 )
+                        displaySuggestions( currentSuggestions, suggestionsDiv, inputElement, selectedIndex )
+                        break
+                    case 'Enter':
+                        e.preventDefault()
+                        if ( selectedIndex >= 0 && selectedIndex < currentSuggestions.length ) {
+                            const selectedSuggestion = currentSuggestions[ selectedIndex ]
+                            if ( selectedSuggestion.isMyLocation ) {
+                                // Handle "My Location" selection
+                                handleMyLocationSelection( inputElement )
+                            } else {
+                                inputElement.value = selectedSuggestion.description
+                            }
+                        }
+                        suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
+                        hasShownMyLocation = false
+                        // Submit form after selecting suggestion (but not for My Location)
+                        if ( !( selectedIndex >= 0 && currentSuggestions[ selectedIndex ]?.isMyLocation ) ) {
+                            setTimeout( () => handleRouteSearch(), 100 )
+                        }
+                        break
+                    case 'Escape':
+                        suggestionsDiv.classList.add( 'hidden' )
+                        selectedIndex = -1
+                        currentSuggestions = []
+                        hasShownMyLocation = false
+                        break
+                }
+            } )
+
+            inputElement.addEventListener( 'blur', () => setTimeout( () => {
+                suggestionsDiv.classList.add( 'hidden' )
+                selectedIndex = -1
+                currentSuggestions = []
+                hasShownMyLocation = false
+            }, 150 ) )
+        }
+
+        function displaySuggestions ( predictions, suggestionsDiv, input, selectedIndex = -1 ) {
+            suggestionsDiv.innerHTML = ''
+            if ( !predictions || predictions.length === 0 ) {
+                suggestionsDiv.classList.add( 'hidden' )
+                return
+            }
+            predictions.forEach( ( prediction, index ) => {
+                const suggestion = document.createElement( 'div' )
+                suggestion.className = 'autocomplete-suggestion'
+                if ( index === selectedIndex ) {
+                    suggestion.classList.add( 'selected' )
+                }
+                if ( prediction.isMyLocation ) {
+                    suggestion.classList.add( 'my-location-option' )
+                }
+                suggestion.textContent = prediction.description
+                suggestion.addEventListener( 'mousedown', () => { // Use mousedown to fire before blur
+                    if ( prediction.isMyLocation ) {
+                        handleMyLocationSelection( input )
+                    } else {
+                        input.value = prediction.description
+                    }
+                    suggestionsDiv.classList.add( 'hidden' )
+                } )
+                suggestion.addEventListener( 'mouseenter', () => {
+                    // Update selected index on mouse hover
+                    const allSuggestions = suggestionsDiv.querySelectorAll( '.autocomplete-suggestion' )
+                    allSuggestions.forEach( ( s, i ) => {
+                        if ( i === index ) {
+                            s.classList.add( 'selected' )
+                        } else {
+                            s.classList.remove( 'selected' )
+                        }
+                    } )
+                } )
+                suggestionsDiv.appendChild( suggestion )
+            } )
+            const inputRect = input.getBoundingClientRect()
+            const viewportHeight = window.innerHeight
+            const dropdownHeight = Math.min( 200, predictions.length * 44 ) // Estimate height based on items
+
+            // Position above input if there's not enough space below
+            let top = inputRect.bottom + window.scrollY + 2
+            if ( top + dropdownHeight > viewportHeight + window.scrollY ) {
+                top = inputRect.top + window.scrollY - dropdownHeight - 2
+                suggestionsDiv.style.marginTop = '0'
+            }
+
+            suggestionsDiv.style.left = `${ inputRect.left }px`
+            suggestionsDiv.style.top = `${ top }px`
+            suggestionsDiv.style.width = `${ inputRect.width }px`
+            suggestionsDiv.classList.remove( 'hidden' )
+        }
+
+        // Reverse geocode coordinates to get an address
+        async function reverseGeocode ( lat, lon ) {
+            const apiKey = '{{.APIKey}}' // This will be replaced by the Go template
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${ lat },${ lon }&key=${ apiKey }`
+
+            try {
+                const response = await fetch( url )
+                const data = await response.json()
+
+                if ( data.status === 'OK' && data.results.length > 0 ) {
+                    return data.results[ 0 ].formatted_address
+                } else {
+                    console.warn( 'Reverse geocoding failed:', data.status )
+                    // Fallback to coordinates if reverse geocoding fails
+                    return `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+                }
+            } catch ( error ) {
+                console.error( 'Reverse geocoding error:', error )
+                // Fallback to coordinates if API call fails
+                return `${ lat.toFixed( 6 ) }, ${ lon.toFixed( 6 ) }`
+            }
+        }
+
+        // Function to populate the origin input with the address from coordinates
+        async function populateAddressFromLocation ( lat, lon ) {
+            try {
+                const address = await reverseGeocode( lat, lon )
+                originInput.value = address
+            } catch ( error ) {
+                console.error( 'Could not populate address:', error )
+                updateStatus( "Could not get address for current location.", true )
+            }
+        }
+
+        // Function to handle "My Location" selection from autocomplete
+        async function handleMyLocationSelection ( inputElement ) {
+            try {
+                inputElement.value = "Getting your location..."
+                const position = await new Promise( ( resolve, reject ) => navigator.geolocation.getCurrentPosition( resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 20000
+                } ) )
+                const { latitude: lat, longitude: lon } = position.coords
+
+                // Reverse geocode the coordinates to get an address
+                const address = await reverseGeocode( lat, lon )
+                inputElement.value = address
+                startLocationTracking()
+            } catch ( error ) {
+                console.log( "Geolocation error:", error )
+                inputElement.value = ""
+                let errorMessage = "Could not access your location."
+                if ( error.code === error.PERMISSION_DENIED ) {
+                    errorMessage += " Please enable location permissions in your browser."
+                } else if ( error.code === error.POSITION_UNAVAILABLE ) {
+                    errorMessage += " Location information is unavailable."
+                } else if ( error.code === error.TIMEOUT ) {
+                    errorMessage += " Location request timed out. Try again or check your GPS signal."
+                }
+                updateStatus( errorMessage, true )
+            }
+        }
+
+        setupAutocomplete( originInput, originSuggestions )
+        setupAutocomplete( destinationInput, destinationSuggestions )
+
+        document.getElementById( 'toggle-btn' ).addEventListener( 'click', () => {
+            const isHidden = bottomResults.style.display === 'none'
+            bottomResults.style.display = isHidden ? 'block' : 'none'
+            document.getElementById( 'toggle-btn' ).textContent = isHidden ? '🗺️' : '📖'
+            setTimeout( () => map.invalidateSize(), 100 )
+        } )
+
+        pppLogo.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
+        document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
+        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
+            stopLocationTracking()
+            // Clear autocomplete session tokens
+            autocompleteSessions.origin = null
+            autocompleteSessions.destination = null
+            window.location.href = window.location.pathname
+        } )
+
+        document.getElementById( 'toggle-cuisine-btn' ).addEventListener( 'click', () => {
+            const cuisineDiv = document.getElementById( 'cuisine-filter-buttons' )
+            cuisineDiv.style.display = cuisineDiv.style.display === 'none' ? 'flex' : 'none'
+        } )
+
+        document.getElementById( 'gps-btn' ).addEventListener( 'click', () => {
+            if ( userLocationMarker ) {
+                map.setView( userLocationMarker.getLatLng(), Math.max( map.getZoom(), 15 ) )
+                bottomResults.style.display = 'none'
+                document.getElementById( 'toggle-btn' ).textContent = '📖'
+                setTimeout( () => map.invalidateSize(), 100 )
+            }
+        } )
+
+        function updateStatus ( message, isError = false ) {
+            statusMessage.textContent = message
+            if ( isError ) {
+                statusMessage.style.color = 'var(--princess-accent-rose)'
+                statusMessage.style.fontWeight = '600'
+                statusMessage.style.textShadow = '0 2px 4px rgba(255, 179, 198, 0.3)'
+                statusMessage.style.background = 'linear-gradient(135deg, rgba(255, 224, 230, 0.8), rgba(255, 179, 198, 0.4))'
+                statusMessage.style.padding = '8px 12px'
+                statusMessage.style.borderRadius = '8px'
+                statusMessage.style.border = '1px solid var(--princess-accent-rose)'
+                statusMessage.style.boxShadow = '0 4px 12px rgba(255, 179, 198, 0.2)'
+            } else {
+                statusMessage.style.color = 'var(--princess-text-secondary)'
+                statusMessage.style.fontWeight = '500'
+                statusMessage.style.textShadow = 'none'
+                statusMessage.style.background = 'transparent'
+                statusMessage.style.padding = '0'
+                statusMessage.style.borderRadius = '0'
+                statusMessage.style.border = 'none'
+                statusMessage.style.boxShadow = 'none'
+            }
+        }
+
+        function updateUrlForSearch ( origin, destination ) {
+            const url = new URL( window.location )
+            url.searchParams.set( 'origin', encodeURIComponent( origin ) )
+            url.searchParams.set( 'destination', encodeURIComponent( destination ) )
+            window.history.pushState( {}, '', url )
+        }
+
+        if ( navigator.geolocation ) {
+            startLocationTracking()
+        }
+
+    </script>
+</body>
+
+</html>

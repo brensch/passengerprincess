@@ -73,3 +73,8 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Test databases
+test-databases/
+
+*.db*
