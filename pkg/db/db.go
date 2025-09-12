@@ -99,6 +99,7 @@ func autoMigrate() error {
 	return DB.AutoMigrate(
 		&Restaurant{},
 		&Supercharger{},
+		&RestaurantSuperchargerMapping{},
 		&MapsCallLog{},
 		&CacheHit{},
 		&RouteCallLog{},

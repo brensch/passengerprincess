@@ -17,9 +17,6 @@ type Restaurant struct {
 	PrimaryTypeDisplay string    `gorm:"column:primary_type_display" json:"primary_type_display"`
 	DisplayName        string    `gorm:"column:display_name" json:"display_name"`
 	LastUpdated        time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
-
-	// Many-to-many relationship with superchargers
-	Superchargers []Supercharger `gorm:"many2many:restaurant_superchargers;" json:"superchargers,omitempty"`
 }
 
 // TableName returns the table name for Restaurant
@@ -37,9 +34,6 @@ type Supercharger struct {
 	LastUpdated time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
 	// this is in order to keep track of IDs that get returned that aren't actually superchargers
 	IsSupercharger bool `gorm:"column:is_supercharger" json:"is_supercharger"`
-
-	// Many-to-many relationship with restaurants
-	Restaurants []Restaurant `gorm:"many2many:restaurant_superchargers;" json:"restaurants,omitempty"`
 }
 
 // TableName returns the table name for Supercharger
@@ -64,6 +58,26 @@ type CacheHit struct {
 	Hit         bool      `gorm:"column:hit" json:"hit"`
 	LastUpdated time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
 	Type        string    `gorm:"column:type" json:"type"`
+}
+
+// RestaurantWithDistance represents a restaurant with its distance to a supercharger
+type RestaurantWithDistance struct {
+	Restaurant
+	Distance float64 `json:"distance"`
+}
+
+// RestaurantSuperchargerMapping represents the mapping between restaurants and superchargers with distance
+type RestaurantSuperchargerMapping struct {
+	RestaurantID   string       `gorm:"primaryKey;column:restaurant_id;constraint:OnDelete:CASCADE" json:"restaurant_id"`
+	SuperchargerID string       `gorm:"primaryKey;column:supercharger_id;constraint:OnDelete:CASCADE" json:"supercharger_id"`
+	Distance       float64      `gorm:"column:distance" json:"distance"`
+	Restaurant     Restaurant   `gorm:"foreignKey:RestaurantID;references:PlaceID"`
+	Supercharger   Supercharger `gorm:"foreignKey:SuperchargerID;references:PlaceID"`
+}
+
+// TableName returns the table name for RestaurantSuperchargerMapping
+func (RestaurantSuperchargerMapping) TableName() string {
+	return "restaurant_supercharger_mappings"
 }
 
 // RouteCallLog represents route API call logging

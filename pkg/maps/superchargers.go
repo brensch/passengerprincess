@@ -20,16 +20,18 @@ const (
 
 type superchargerResult struct {
 	supercharger *db.Supercharger
+	restaurants  []db.RestaurantWithDistance
 	err          error
 }
 
 // SuperchargerWithETA contains supercharger information along with arrival time
 type SuperchargerWithETA struct {
-	Supercharger        *db.Supercharger `json:"supercharger"`
-	ArrivalTime         string           `json:"arrival_time"`           // Formatted arrival time
-	DistanceFromRoute   float64          `json:"distance_from_route"`    // Distance from route in meters
-	DistanceAlongRoute  float64          `json:"distance_along_route"`   // Distance along route in meters
-	ClosestPointOnRoute Center           `json:"closest_point_on_route"` // Closest point on the route
+	Supercharger        *db.Supercharger            `json:"supercharger"`
+	Restaurants         []db.RestaurantWithDistance `json:"restaurants"`
+	ArrivalTime         string                      `json:"arrival_time"`           // Formatted arrival time
+	DistanceFromRoute   float64                     `json:"distance_from_route"`    // Distance from route in meters
+	DistanceAlongRoute  float64                     `json:"distance_along_route"`   // Distance along route in meters
+	ClosestPointOnRoute Center                      `json:"closest_point_on_route"` // Closest point on the route
 }
 
 // CumPoint represents a point on the route with cumulative distance and duration
@@ -280,8 +282,8 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			superCharger, err := GetSuperchargerWithCache(ctx, broker, apiKey, id)
-			resultsChan <- superchargerResult{supercharger: superCharger, err: err}
+			superCharger, restaurants, err := GetSuperchargerWithCache(ctx, broker, apiKey, id)
+			resultsChan <- superchargerResult{supercharger: superCharger, restaurants: restaurants, err: err}
 		}(id)
 	}
 
@@ -337,6 +339,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 			DistanceFromRoute:   distFromRoute,
 			DistanceAlongRoute:  distAlongRoute,
 			ClosestPointOnRoute: closestPoint,
+			Restaurants:         res.restaurants,
 		})
 	}
 	log.Printf("Fetch and process superchargers time: %v", time.Since(processStart))
@@ -357,22 +360,22 @@ const (
 
 // GetSuperchargerWithCache retrieves place details with database caching
 // First checks the database, then falls back to API if not found
-func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string) (*db.Supercharger, error) {
+func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string) (*db.Supercharger, []db.RestaurantWithDistance, error) {
 	// First try to get from database
 	start := time.Now()
 	defer func() {
 		// log the start, end, and duration
 		log.Printf("GetSuperchargerWithCache start: %v end: %v total time for %s: %v", start, time.Now(), placeID, time.Since(start))
 	}()
-	supercharger, err := broker.Supercharger.GetByIDWithRestaurants(placeID)
+	supercharger, err := broker.Supercharger.GetByID(placeID)
 	if err == nil {
-		// Found in database, convert to PlaceDetails format
-		return supercharger, nil
+		restaurants, err := broker.Supercharger.GetRestaurantsForSupercharger(placeID)
+		return supercharger, restaurants, err
 	}
 
 	// Check if error is "not found" (expected when place doesn't exist in DB)
 	if err != gorm.ErrRecordNotFound {
-		return nil, fmt.Errorf("failed to query supercharger from database: %w", err)
+		return nil, nil, fmt.Errorf("failed to query supercharger from database: %w", err)
 	}
 
 	log.Println("Supercharger not found in DB, fetching from API:", placeID)
@@ -381,7 +384,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 	// this field map ensure the essentials tier
 	superchargerDetails, err := GetPlaceDetails(ctx, apiKey, placeID, FieldMaskSuperchargerDetails)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// exit early if site not a supercharger
@@ -402,7 +405,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			// Log the error but don't fail the request since we already have the data
 			fmt.Printf("Warning: failed to cache supercharger %s in database: %v\n", placeID, err)
 		}
-		return supercharger, nil
+		return supercharger, []db.RestaurantWithDistance{}, nil
 	}
 
 	restaurants, err := GetPlacesViaTextSearch(ctx, apiKey, "restaurant", FieldMaskRestaurantTextSearch, Circle{
@@ -413,10 +416,10 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		Radius: 500, // 500 meter radius
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	var dbRestaurants []db.Restaurant
+	var dbRestaurants []db.RestaurantWithDistance
 	for _, restaurant := range restaurants {
 		// check if restaurant is within 500m of supercharger
 		if restaurant.Location == nil {
@@ -441,7 +444,10 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			PrimaryType:        derefString(restaurant.PrimaryType),
 			PrimaryTypeDisplay: derefDisplayName(restaurant.PrimaryTypeDisplayName),
 		}
-		dbRestaurants = append(dbRestaurants, dbRestaurant)
+		dbRestaurants = append(dbRestaurants, db.RestaurantWithDistance{
+			Restaurant: dbRestaurant,
+			Distance:   dist,
+		})
 	}
 
 	// Store in database for future use
@@ -451,17 +457,16 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		Address:        derefString(superchargerDetails.FormattedAddress),
 		Latitude:       superchargerDetails.Location.Latitude,
 		Longitude:      superchargerDetails.Location.Longitude,
-		Restaurants:    dbRestaurants,
 		IsSupercharger: true,
 	}
 
-	err = broker.Supercharger.Create(supercharger)
+	err = broker.Supercharger.AddSuperchargerWithRestaurants(supercharger, dbRestaurants)
 	if err != nil {
 		// Log the error but don't fail the request since we already have the data
 		fmt.Printf("Warning: failed to cache supercharger %s in database: %v\n", placeID, err)
 	}
 
-	return supercharger, nil
+	return supercharger, dbRestaurants, nil
 }
 
 func derefString(s *string) string {
