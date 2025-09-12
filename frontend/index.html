@@ -529,8 +529,12 @@
                                 Walk
                             </th>
                             <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
-                                style="width: 45%;">
+                                style="width: 35%;">
                                 Cuisine
+                            </th>
+                            <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
+                                style="width: 25%;">
+                                Actions
                             </th>
                         </tr>
                     </thead>
@@ -1197,8 +1201,8 @@
                     <strong class="text-lg">${ supercharger.name }</strong><br>
                     <strong>Address:</strong> ${ supercharger.address }<br>
                     <div class="flex flex-col gap-2 mt-3">
-                        <button onclick="openInGoogleMaps(${ supercharger.latitude }, ${ supercharger.longitude })" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                        <button onclick="shareToTesla(${ supercharger.latitude }, ${ supercharger.longitude }, '${ supercharger.name }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                        <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                     </div>
                 </div>
             `
@@ -1229,8 +1233,8 @@
                     <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
                     <div class="flex flex-col gap-2 mt-3">
                         <button onclick="showChargerInResults('${ chargerId }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>
-                        <button onclick="openInGoogleMaps(${ charger.supercharger.latitude }, ${ charger.supercharger.longitude })" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                        <button onclick="shareToTesla(${ charger.supercharger.latitude }, ${ charger.supercharger.longitude }, '${ charger.supercharger.name }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                        <button onclick="openInGoogleMaps('${ charger.supercharger.place_id }')" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                     </div>
                 </div>
             `
@@ -1257,7 +1261,7 @@
                     } ),
                     restaurantName: restaurant.name,
                     cuisine: ( restaurant.primary_type_display || '' )
-                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }` )
+                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }<br><br><button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-2 py-1 rounded mr-2">Open in Maps</button><button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-2 py-1 rounded">Send to Tesla</button>` )
             } )
         }
 
@@ -1305,6 +1309,10 @@
                         </td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'N/A' }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
+                        <td class="px-1 py-0 text-sm">
+                            <button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded mr-1">Maps</button>
+                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Tesla</button>
+                        </td>
                     `
 
                     row.innerHTML = ( index === 0 ) ? `${ chargerCell }${ restaurantContent }` : restaurantContent
@@ -1468,16 +1476,16 @@
             setTimeout( () => map.invalidateSize(), 100 )
         }
 
-        function openInGoogleMaps ( lat, lng ) {
-            const url = `https://maps.google.com/?q=${ lat },${ lng }`
+        function openInGoogleMaps ( placeId ) {
+            const url = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
             window.open( url, '_blank' )
         }
 
-        function shareToTesla ( lat, lng, name ) {
-            const googleMapsUrl = `https://maps.google.com/?q=${ lat },${ lng }`
+        function shareToTesla ( placeId, name = '' ) {
+            const googleMapsUrl = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
             const shareData = {
-                title: `Tesla Supercharger: ${ name }`,
-                text: `Check out this Tesla Supercharger location: ${ name }`,
+                title: name || 'Location',
+                text: name ? `Check out this location: ${ name }` : 'Check out this location',
                 url: googleMapsUrl
             }
 
