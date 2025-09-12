@@ -84,7 +84,7 @@ func main() {
 	http.HandleFunc("/superchargers/viewport", withGzip(viewportHandler))
 
 	// Start the server.
-	port := "8080"
+	port := "8040"
 	log.Printf("Server starting...")
 	log.Printf("Access the web interface at http://localhost:%s/", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
