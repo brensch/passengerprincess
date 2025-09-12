@@ -629,7 +629,7 @@
                 clearTimeout( filterTimeout )
                 filterTimeout = null
             }
-            
+
             currentSearchTerm = searchTerm.toLowerCase()
             currentCuisineFilter = Array.isArray( cuisines ) ? cuisines.map( c => c.toLowerCase() ) : ( cuisines ? [ cuisines.toLowerCase() ] : [] )
 
@@ -667,10 +667,10 @@
         function rebuildTableWithFilteredData ( filteredStations ) {
             const tbody = document.getElementById( 'chargers-tbody' )
             const resultsList = document.getElementById( 'results-list' )
-            
+
             // Save scroll position
             const scrollTop = resultsList.scrollTop
-            
+
             tbody.innerHTML = ''
 
             if ( filteredStations.length === 0 ) {
@@ -688,10 +688,10 @@
 
             tbody.appendChild( fragment )
             showResultsTable()
-            
+
             // Restore scroll position
             resultsList.scrollTop = scrollTop
-            
+
             // Ensure map recalculates size after table is rebuilt
             setTimeout( () => map.invalidateSize(), 50 )
         }
