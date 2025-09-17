@@ -1218,8 +1218,67 @@
         }
 
         /**
-         * Creates a marker for a viewport supercharger.
+         * Generates popup content for a supercharger marker.
          */
+        function generateSuperchargerPopupContent ( supercharger ) {
+            const routeSupercharger = routeSuperchargers.get( supercharger.place_id )
+            let popupContent
+
+            if ( routeSupercharger ) {
+                // This supercharger is on the route, show ETA info
+                try {
+                    const distanceFromRoute = routeSupercharger.distance_from_route || 0
+                    const distanceAlongRoute = routeSupercharger.distance_along_route || 0
+                    const arrivalTime = routeSupercharger.arrival_time || 'N/A'
+
+                    const distanceFromOrigin = distanceFromRoute ? ( distanceFromRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+                    const distanceAlongRouteDisplay = distanceAlongRoute ? ( distanceAlongRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+                    const totalDistance = ( distanceAlongRoute + distanceFromRoute ) / 1609.34
+                    const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
+
+                    popupContent = `
+                        <div class="font-sans max-w-xs">
+                            <strong class="text-lg">${ supercharger.name }</strong><br>
+                            <strong>Address:</strong> ${ supercharger.address }<br>
+                            <strong>Arrival:</strong> ${ arrivalTime }<br>
+                            <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
+                            <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
+                            <div class="flex flex-col gap-2 mt-3">
+                                <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                            </div>
+                        </div>
+                    `
+                } catch ( error ) {
+                    console.error( 'Error accessing route supercharger data:', error, routeSupercharger )
+                    popupContent = `
+                        <div class="font-sans max-w-xs">
+                            <strong class="text-lg">${ supercharger.name }</strong><br>
+                            <strong>Address:</strong> ${ supercharger.address }<br>
+                            <strong>On Route</strong><br>
+                            <div class="flex flex-col gap-2 mt-3">
+                                <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                            </div>
+                        </div>
+                    `
+                }
+            } else {
+                // Regular viewport supercharger
+                popupContent = `
+                    <div class="font-sans max-w-xs">
+                        <strong class="text-lg">${ supercharger.name }</strong><br>
+                        <strong>Address:</strong> ${ supercharger.address }<br>
+                        <div class="flex flex-col gap-2 mt-3">
+                            <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                            <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                        </div>
+                    </div>
+                `
+            }
+
+            return popupContent
+        }
         function createViewportSuperchargerMarker ( supercharger ) {
             const marker = L.marker( [ supercharger.latitude, supercharger.longitude ], {
                 icon: L.divIcon( {
@@ -1232,62 +1291,7 @@
 
             // Defer route lookup until popup is opened
             marker.on( 'popupopen', function () {
-                const routeSupercharger = routeSuperchargers.get( supercharger.place_id )
-                let popupContent
-
-                if ( routeSupercharger ) {
-                    // This supercharger is on the route, show ETA info
-                    try {
-                        const distanceFromRoute = routeSupercharger.distance_from_route || 0
-                        const distanceAlongRoute = routeSupercharger.distance_along_route || 0
-                        const arrivalTime = routeSupercharger.arrival_time || 'N/A'
-
-                        const distanceFromOrigin = distanceFromRoute ? ( distanceFromRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-                        const distanceAlongRouteDisplay = distanceAlongRoute ? ( distanceAlongRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-                        const totalDistance = ( distanceAlongRoute + distanceFromRoute ) / 1609.34
-                        const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
-
-                        popupContent = `
-                            <div class="font-sans max-w-xs">
-                                <strong class="text-lg">${ supercharger.name }</strong><br>
-                                <strong>Address:</strong> ${ supercharger.address }<br>
-                                <strong>Arrival:</strong> ${ arrivalTime }<br>
-                                <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
-                                <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
-                                <div class="flex flex-col gap-2 mt-3">
-                                    <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                                    <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                                </div>
-                            </div>
-                        `
-                    } catch ( error ) {
-                        console.error( 'Error accessing route supercharger data:', error, routeSupercharger )
-                        popupContent = `
-                            <div class="font-sans max-w-xs">
-                                <strong class="text-lg">${ supercharger.name }</strong><br>
-                                <strong>Address:</strong> ${ supercharger.address }<br>
-                                <strong>On Route</strong><br>
-                                <div class="flex flex-col gap-2 mt-3">
-                                    <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                                    <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                                </div>
-                            </div>
-                        `
-                    }
-                } else {
-                    // Regular viewport supercharger
-                    popupContent = `
-                        <div class="font-sans max-w-xs">
-                            <strong class="text-lg">${ supercharger.name }</strong><br>
-                            <strong>Address:</strong> ${ supercharger.address }<br>
-                            <div class="flex flex-col gap-2 mt-3">
-                                <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                            </div>
-                        </div>
-                    `
-                }
-
+                const popupContent = generateSuperchargerPopupContent( supercharger )
                 this.setPopupContent( popupContent )
             } )
 
@@ -1561,8 +1565,46 @@
                         mapElement.style.display = 'block'
                         bottomResults.style.display = 'none'
                         document.getElementById( 'toggle-btn' ).textContent = '📖'
-                        map.setView( station.chargerMarker.getLatLng(), 15 )
-                        station.chargerMarker.openPopup()
+
+                        // Check if supercharger is already in viewport
+                        let superchargerMarker = null
+                        const viewportSupercharger = viewportSuperchargers.get( station.chargerInfo.supercharger.place_id )
+
+                        if ( viewportSupercharger && viewportSupercharger.marker ) {
+                            // Use existing viewport marker
+                            superchargerMarker = viewportSupercharger.marker
+                        } else {
+                            // Create a new marker for this supercharger
+                            const supercharger = station.chargerInfo.supercharger
+                            superchargerMarker = createViewportSuperchargerMarker( supercharger )
+
+                            // Generate popup content immediately and rebind popup
+                            const popupContent = generateSuperchargerPopupContent( supercharger )
+                            superchargerMarker.bindPopup( popupContent, {
+                                maxWidth: 300,
+                                minWidth: 200,
+                                className: 'custom-popup'
+                            } )
+
+                            // Remove the popupopen event handler since we have the content ready
+                            superchargerMarker.off( 'popupopen' )
+
+                            // Add to the map layer FIRST
+                            viewportSuperchargersLayer.addLayer( superchargerMarker )
+
+                            // Add it to the viewport superchargers for future reference
+                            viewportSuperchargers.set( supercharger.place_id, {
+                                data: supercharger,
+                                marker: superchargerMarker
+                            } )
+                        }
+
+                        // Pan to the marker and open popup
+                        map.setView( superchargerMarker.getLatLng(), 15 )
+                        // Use setTimeout to ensure marker is fully added to map before opening popup
+                        setTimeout( () => {
+                            superchargerMarker.openPopup()
+                        }, 50 )
                         map.invalidateSize()
                     }
                 } )
