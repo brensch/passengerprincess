@@ -35,22 +35,27 @@ type RouteInfo struct {
 
 // Enhanced route structures for traffic-aware routing
 type EnhancedRouteRequest struct {
-	Origin            LocationRequest `json:"origin"`
-	Destination       LocationRequest `json:"destination"`
-	TravelMode        string          `json:"travelMode"`
-	RoutingPreference string          `json:"routingPreference,omitempty"`
-	ExtraComputations []string        `json:"extraComputations,omitempty"`
-	PolylineQuality   string          `json:"polylineQuality,omitempty"`
-	PolylineEncoding  string          `json:"polylineEncoding,omitempty"`
-	DepartureTime     string          `json:"departureTime,omitempty"`
+	Origin            Waypoint `json:"origin"`
+	Destination       Waypoint `json:"destination"`
+	TravelMode        string   `json:"travelMode"`
+	RoutingPreference string   `json:"routingPreference,omitempty"`
+	ExtraComputations []string `json:"extraComputations,omitempty"`
+	PolylineQuality   string   `json:"polylineQuality,omitempty"`
+	PolylineEncoding  string   `json:"polylineEncoding,omitempty"`
+	DepartureTime     string   `json:"departureTime,omitempty"`
 }
 
-type LocationRequest struct {
-	Address string     `json:"address,omitempty"`
-	LatLng  *LatLngReq `json:"latLng,omitempty"`
+type Waypoint struct {
+	Location *RouteLocation `json:"location,omitempty"`
+	PlaceID  string         `json:"placeId,omitempty"`
+	Address  string         `json:"address,omitempty"`
 }
 
-type LatLngReq struct {
+type RouteLocation struct {
+	LatLng *RouteLatLng `json:"latLng,omitempty"`
+}
+
+type RouteLatLng struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
@@ -125,15 +130,42 @@ func GetRoute(apiKey, origin, destination string) (*RouteInfo, error) {
 	}, nil
 }
 
+// parseWaypoint parses a location string and returns a Waypoint.
+// If the string is in "lat,lng" format, it uses coordinates; otherwise, it uses the address field.
+func parseWaypoint(location string) Waypoint {
+	// Check if it's in "lat,lng" format
+	parts := strings.Split(strings.TrimSpace(location), ",")
+	if len(parts) == 2 {
+		lat, latErr := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+		lng, lngErr := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		if latErr == nil && lngErr == nil && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 {
+			// For coordinates, use the location field with latLng
+			return Waypoint{
+				Location: &RouteLocation{
+					LatLng: &RouteLatLng{
+						Latitude:  lat,
+						Longitude: lng,
+					},
+				},
+			}
+		}
+	}
+
+	// For addresses, use the address field directly
+	return Waypoint{
+		Address: location,
+	}
+}
+
 // getEnhancedRouteData fetches traffic-aware route data from Google Routes API
 func getEnhancedRouteData(apiKey, origin, destination string) (*EnhancedRouteResponse, error) {
+	// Parse origin and destination waypoints
+	originWaypoint := parseWaypoint(origin)
+	destinationWaypoint := parseWaypoint(destination)
+
 	routesRequest := EnhancedRouteRequest{
-		Origin: LocationRequest{
-			Address: origin,
-		},
-		Destination: LocationRequest{
-			Address: destination,
-		},
+		Origin:            originWaypoint,
+		Destination:       destinationWaypoint,
 		TravelMode:        "DRIVE",
 		RoutingPreference: "TRAFFIC_AWARE_OPTIMAL",
 		ExtraComputations: []string{"TRAFFIC_ON_POLYLINE"},
