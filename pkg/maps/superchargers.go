@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -574,7 +575,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Address:        derefString(superchargerDetails.FormattedAddress),
 			Latitude:       superchargerDetails.Location.Latitude,
 			Longitude:      superchargerDetails.Location.Longitude,
-			GoogleMapsUri:  derefString(superchargerDetails.GoogleMapsUri),
+			GoogleMapsUri:  derefGoogleMapsUri(superchargerDetails.GoogleMapsUri),
 			IsSupercharger: false,
 		}
 
@@ -621,7 +622,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Longitude:          restaurant.Location.Longitude,
 			PrimaryType:        derefString(restaurant.PrimaryType),
 			PrimaryTypeDisplay: derefDisplayName(restaurant.PrimaryTypeDisplayName),
-			GoogleMapsUri:      derefString(restaurant.GoogleMapsUri),
+			GoogleMapsUri:      derefGoogleMapsUri(restaurant.GoogleMapsUri),
 		}
 		dbRestaurants = append(dbRestaurants, db.RestaurantWithDistance{
 			Restaurant: dbRestaurant,
@@ -636,7 +637,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		Address:        derefString(superchargerDetails.FormattedAddress),
 		Latitude:       superchargerDetails.Location.Latitude,
 		Longitude:      superchargerDetails.Location.Longitude,
-		GoogleMapsUri:  derefString(superchargerDetails.GoogleMapsUri),
+		GoogleMapsUri:  derefGoogleMapsUri(superchargerDetails.GoogleMapsUri),
 		IsSupercharger: true,
 	}
 
@@ -654,6 +655,27 @@ func derefString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func derefGoogleMapsUri(s *string) string {
+	if s == nil {
+		return ""
+	}
+	uri := *s
+	// Replace common Unicode escape sequences that might appear in Google Maps URIs
+	uri = strings.ReplaceAll(uri, "\\u0026", "&")
+	uri = strings.ReplaceAll(uri, "\\u003d", "=")
+	uri = strings.ReplaceAll(uri, "\\u002b", "+")
+	uri = strings.ReplaceAll(uri, "\\u002f", "/")
+	uri = strings.ReplaceAll(uri, "\\u003f", "?")
+	uri = strings.ReplaceAll(uri, "\\u0023", "#")
+	uri = strings.ReplaceAll(uri, "\\u0025", "%")
+
+	// Then URL decode if needed
+	if decoded, err := url.QueryUnescape(uri); err == nil {
+		return decoded
+	}
+	return uri
 }
 
 func derefDisplayName(dn *DisplayNameObj) string {

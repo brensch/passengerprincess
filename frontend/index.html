@@ -1320,7 +1320,7 @@
                             <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
                             <div class="flex flex-col gap-2 mt-3">
                                 ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
-                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                             </div>
                         </div>
                     `
@@ -1333,7 +1333,7 @@
                             <strong>On Route</strong><br>
                             <div class="flex flex-col gap-2 mt-3">
                                 ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
-                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                             </div>
                         </div>
                     `
@@ -1345,7 +1345,7 @@
                         <strong class="text-lg">${ supercharger.name }</strong><br>
                         <strong>Address:</strong> ${ supercharger.address }<br>
                         <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                            <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                         </div>
                     </div>
                 `
@@ -1503,7 +1503,7 @@
                         <strong class="text-lg">${ restaurant.name }</strong><br>
                         <strong>Distance to nearest supercharger:</strong> ${ distanceDisplay }<br>
                         <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
+                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
                         </div>
                     </div>
                 `
@@ -1553,8 +1553,8 @@
                     <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
                     <div class="flex flex-col gap-2 mt-3">
                         <button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>
-                        <button onclick="openInGoogleMaps('${ charger.supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                        <button onclick="openInGoogleMaps('${ charger.supercharger.place_id }', '${ charger.supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                     </div>
                 </div>
             `
@@ -1590,7 +1590,7 @@
                         <strong class="text-lg">${ restaurant.name }</strong><br>
                         ${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }<br>
                         <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
+                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
                         </div>
                     </div>
                 `, {
@@ -1621,7 +1621,7 @@
                             <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
                             <span class="text-xs text-pink-600">Off Route: ${ distanceFromOrigin }</span>
                         </div>
-                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }')" class="mt-2 bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">Send to Tesla</button>
+                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="mt-2 bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">Send to Tesla</button>
                     </div>
                 </td>
             `
@@ -1636,7 +1636,7 @@
                                 <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
                                 <span class="text-xs text-pink-600">Off Route: ${ distanceFromOrigin }</span>
                             </div>
-                            <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }')" class="mt-2 bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">Send to Tesla</button>
+                            <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="mt-2 bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">Send to Tesla</button>
                         </div>
                     </td>
                 `
@@ -1892,28 +1892,31 @@
             setTimeout( () => map.invalidateSize(), 100 )
         }
 
-        function openInGoogleMaps ( placeId ) {
-            const url = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+        function openInGoogleMaps ( placeId, googleMapsUri = null ) {
+            const url = googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${ placeId }`
             window.open( url, '_blank' )
         }
 
-        function shareToTesla ( placeId, name = '' ) {
-            const googleMapsUrl = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+        function shareToTesla ( placeId, name = '', googleMapsUri = null ) {
+            let url = googleMapsUri
+            if ( !url ) {
+                url = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+            }
             const shareData = {
                 title: name || 'Location',
                 text: name ? `Check out this location: ${ name }` : 'Check out this location',
-                url: googleMapsUrl
+                url: url
             }
 
             if ( navigator.share ) {
                 navigator.share( shareData ).catch( console.error )
             } else {
                 // Fallback for browsers that don't support Web Share API
-                navigator.clipboard.writeText( googleMapsUrl ).then( () => {
+                navigator.clipboard.writeText( url ).then( () => {
                     alert( 'Google Maps URL copied to clipboard!' )
                 } ).catch( () => {
                     // Final fallback - open the URL
-                    window.open( googleMapsUrl, '_blank' )
+                    window.open( url, '_blank' )
                 } )
             }
         }

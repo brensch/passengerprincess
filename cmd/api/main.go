@@ -96,7 +96,9 @@ func main() {
 func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	encoder.Encode(map[string]string{"error": message})
 }
 
 // serveFrontend serves the frontend HTML file with API key templating
@@ -178,7 +180,9 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	encoder.Encode(map[string]interface{}{
 		"predictions":   suggestions,
 		"session_token": sessionToken,
 	})
@@ -215,7 +219,9 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	encoder.Encode(result)
 }
 
 // viewportHandler handles requests for superchargers within a viewport
@@ -280,7 +286,9 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	encoder.Encode(map[string]interface{}{
 		"superchargers": superchargers,
 		"restaurants":   restaurants,
 	})
