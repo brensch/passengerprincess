@@ -121,6 +121,7 @@ func (r *SuperchargerRepository) AddSuperchargerWithRestaurants(supercharger *Su
 						PrimaryTypeDisplay: restaurant.PrimaryTypeDisplay,
 						DisplayName:        restaurant.DisplayName,
 						LastUpdated:        restaurant.LastUpdated,
+						GoogleMapsUri:      restaurant.GoogleMapsUri,
 					}
 					if err := tx.Create(&newRestaurant).Error; err != nil {
 						return err

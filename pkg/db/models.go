@@ -16,6 +16,7 @@ type Restaurant struct {
 	PrimaryType        string    `gorm:"column:primary_type" json:"primary_type"`
 	PrimaryTypeDisplay string    `gorm:"column:primary_type_display" json:"primary_type_display"`
 	DisplayName        string    `gorm:"column:display_name" json:"display_name"`
+	GoogleMapsUri      string    `gorm:"column:google_maps_uri" json:"google_maps_uri"`
 	LastUpdated        time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
 }
 
@@ -26,12 +27,13 @@ func (Restaurant) TableName() string {
 
 // Supercharger represents a Tesla supercharger location
 type Supercharger struct {
-	PlaceID     string    `gorm:"primaryKey;column:place_id" json:"place_id"`
-	Name        string    `gorm:"column:name" json:"name"`
-	Address     string    `gorm:"column:address" json:"address"`
-	Latitude    float64   `gorm:"column:latitude" json:"latitude"`
-	Longitude   float64   `gorm:"column:longitude" json:"longitude"`
-	LastUpdated time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
+	PlaceID       string    `gorm:"primaryKey;column:place_id" json:"place_id"`
+	Name          string    `gorm:"column:name" json:"name"`
+	Address       string    `gorm:"column:address" json:"address"`
+	Latitude      float64   `gorm:"column:latitude" json:"latitude"`
+	Longitude     float64   `gorm:"column:longitude" json:"longitude"`
+	GoogleMapsUri string    `gorm:"column:google_maps_uri" json:"google_maps_uri"`
+	LastUpdated   time.Time `gorm:"column:last_updated;default:CURRENT_TIMESTAMP" json:"last_updated"`
 	// this is in order to keep track of IDs that get returned that aren't actually superchargers
 	IsSupercharger bool `gorm:"column:is_supercharger" json:"is_supercharger"`
 }

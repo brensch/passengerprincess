@@ -57,6 +57,7 @@ type PlaceDetails struct {
 	Location               *Location       `json:"location,omitempty"`
 	PrimaryType            *string         `json:"primaryType,omitempty"`
 	PrimaryTypeDisplayName *DisplayNameObj `json:"primaryTypeDisplayName,omitempty"`
+	GoogleMapsUri          *string         `json:"googleMapsUri,omitempty"`
 }
 
 type Location struct {

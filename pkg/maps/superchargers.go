@@ -534,10 +534,10 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 }
 
 const (
-	FieldMaskRestaurantTextSearch = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName"
+	FieldMaskRestaurantTextSearch = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName,places.googleMapsUri"
 	// this is pro because of the usage of displayName. Without it we get non superchargers returned.
 	// There is no way to force it to contain the exact text.
-	FieldMaskSuperchargerDetails = "id,name,displayName,formattedAddress,location"
+	FieldMaskSuperchargerDetails = "id,name,displayName,formattedAddress,location,googleMapsUri"
 )
 
 // GetSuperchargerWithCache retrieves place details with database caching
@@ -574,6 +574,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Address:        derefString(superchargerDetails.FormattedAddress),
 			Latitude:       superchargerDetails.Location.Latitude,
 			Longitude:      superchargerDetails.Location.Longitude,
+			GoogleMapsUri:  derefString(superchargerDetails.GoogleMapsUri),
 			IsSupercharger: false,
 		}
 
@@ -620,6 +621,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Longitude:          restaurant.Location.Longitude,
 			PrimaryType:        derefString(restaurant.PrimaryType),
 			PrimaryTypeDisplay: derefDisplayName(restaurant.PrimaryTypeDisplayName),
+			GoogleMapsUri:      derefString(restaurant.GoogleMapsUri),
 		}
 		dbRestaurants = append(dbRestaurants, db.RestaurantWithDistance{
 			Restaurant: dbRestaurant,
@@ -634,6 +636,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		Address:        derefString(superchargerDetails.FormattedAddress),
 		Latitude:       superchargerDetails.Location.Latitude,
 		Longitude:      superchargerDetails.Location.Longitude,
+		GoogleMapsUri:  derefString(superchargerDetails.GoogleMapsUri),
 		IsSupercharger: true,
 	}
 
