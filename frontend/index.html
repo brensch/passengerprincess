@@ -547,12 +547,8 @@
         <div class="text-2xl font-bold font-dancing cursor-pointer" id="ppp-logo"
             style="color: var(--princess-text-primary); text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.2);"> PPP </div>
         <div class="flex space-x-2">
-            <button id="refresh-location-btn" class="princess-button text-sm" title="Use current location as origin">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M4 4V9H4.582M4.582 9C5.15037 7.48075 6.31359 6.18827 7.81812 5.39617C9.32265 4.60407 11.061 4.37082 12.717 4.73647C14.373 5.10212 15.8266 6.04139 16.7781 7.35025C17.7296 8.65911 18.115 10.2442 17.858 11.801C17.601 13.3578 16.7194 14.781 15.3845 15.743C14.0496 16.705 12.359 17.134 10.686 16.948C9.013 16.762 7.47744 16.974 6.184 17.542M4.582 9H9"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+            <button id="refresh-location-btn" class="princess-button text-sm" title="Refresh options">
+                🔃
             </button>
             <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">👸</button>
             <button id="toggle-btn" class="princess-button text-sm">Show
@@ -658,14 +654,14 @@
         style="background: rgba(107, 77, 124, 0.6); backdrop-filter: blur(4px);">
         <div class="rounded-xl p-8 max-w-sm mx-4 shadow-2xl"
             style="background: var(--princess-surface); border: 2px solid var(--princess-border);">
-            <h3 class="text-xl font-semibold mb-4 font-dancing" style="color: var(--princess-text-primary);"> Start new
-                search? </h3>
-            <p class="mb-6" style="color: var(--princess-text-secondary);">It's ok to not know what you're looking for.
-            </p>
-            <div class="flex space-x-3 justify-end">
+            <h3 class="text-xl font-semibold mb-4 font-dancing" style="color: var(--princess-text-primary);"> Please
+                pick precisely </h3>
+            <div class="flex flex-col space-y-3">
+                <button id="completely-new-search" class="princess-button font-medium">Completely New Places</button>
+                <button id="reload-from-here" class="princess-button font-medium">Same destination, from current
+                    location</button>
                 <button id="cancel-new-search" class="px-6 py-2 font-medium rounded-lg transition-all duration-300"
                     style="color: var(--princess-text-secondary); background: var(--princess-surface-soft); border: 1px solid var(--princess-border);">Cancel</button>
-                <button id="confirm-new-search" class="princess-button font-medium"> Yes, New Search </button>
             </div>
         </div>
     </div>
@@ -770,20 +766,7 @@
         // --- EVENT LISTENERS ---
         findRouteBtn.addEventListener( 'click', handleRouteSearch )
         refreshLocationBtn.addEventListener( 'click', () => {
-            if ( navigator.geolocation ) {
-                updateStatus( "Getting your current location...", false )
-                navigator.geolocation.getCurrentPosition( ( position ) => {
-                    const lat = position.coords.latitude
-                    const lng = position.coords.longitude
-                    originInput.value = `${ lat },${ lng }`
-                    handleRouteSearch()
-                }, ( error ) => {
-                    console.error( "Geolocation error:", error )
-                    updateStatus( "Unable to get current location. Please check your browser permissions.", true )
-                } )
-            } else {
-                updateStatus( "Geolocation is not supported by this browser.", true )
-            }
+            document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' )
         } )
         restaurantSearchInput.addEventListener( 'input', () => {
             clearTimeout( filterTimeout )
@@ -2291,14 +2274,34 @@
             }
         } )
 
-        pppLogo.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
+        pppLogo.addEventListener( 'click', () => {
+            // PPP logo no longer opens modal
+            // Could add some other functionality here if needed
+        } )
         document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
-        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
+        document.getElementById( 'completely-new-search' ).addEventListener( 'click', () => {
             stopLocationTracking()
             // Clear autocomplete session tokens
             autocompleteSessions.origin = null
             autocompleteSessions.destination = null
             window.location.href = window.location.pathname
+        } )
+        document.getElementById( 'reload-from-here' ).addEventListener( 'click', () => {
+            document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
+            if ( navigator.geolocation ) {
+                updateStatus( "Getting your current location...", false )
+                navigator.geolocation.getCurrentPosition( ( position ) => {
+                    const lat = position.coords.latitude
+                    const lng = position.coords.longitude
+                    originInput.value = `${ lat },${ lng }`
+                    handleRouteSearch()
+                }, ( error ) => {
+                    console.error( "Geolocation error:", error )
+                    updateStatus( "Unable to get current location. Please check your browser permissions.", true )
+                } )
+            } else {
+                updateStatus( "Geolocation is not supported by this browser.", true )
+            }
         } )
 
         document.getElementById( 'toggle-cuisine-btn' ).addEventListener( 'click', () => {
