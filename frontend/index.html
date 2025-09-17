@@ -684,6 +684,9 @@
         mapElement.style.top = '0'
         mapElement.style.height = '100vh'
 
+        // Hide search form header bar
+        document.querySelector( '#search-form .flex.justify-between.items-center' ).style.display = 'none'
+
         // --- MAP INITIALIZATION ---
         let map = L.map( mapElement, {
             zoomControl: false,
@@ -1864,6 +1867,7 @@
             mapElement.style.height = 'calc(100vh - 66px)'
             bottomResults.style.top = '66px'
             bottomResults.style.height = 'calc(100vh - 66px)'
+            document.querySelector( '#search-form .flex.justify-between.items-center' ).style.display = 'flex'
             document.getElementById( 'toggle-btn' ).textContent = '🗺️'
         }
 
@@ -1877,6 +1881,7 @@
             const mapElement = document.getElementById( 'map' )
             mapElement.style.display = 'none'
             bottomResults.style.display = 'block'
+            topToolbar.style.display = 'flex'
             document.getElementById( 'toggle-btn' ).textContent = '🗺️'
             const chargerRow = document.querySelector( `tr[data-charger-id="${ chargerId }"]` )
             if ( chargerRow ) {
@@ -1931,6 +1936,7 @@
             topToolbar.style.display = 'none'
             mapElement.style.top = '0'
             mapElement.style.height = '100vh'
+            document.querySelector( '#search-form .flex.justify-between.items-center' ).style.display = 'none'
             map.invalidateSize()
             applyPendingRouteBounds()
         }
