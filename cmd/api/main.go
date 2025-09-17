@@ -271,8 +271,17 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get restaurants within the viewport bounds
+	restaurants, err := service.Restaurant.GetByLocation(minLat, maxLat, minLng, maxLng)
+	if err != nil {
+		log.Printf("Error getting restaurants by location: %v", err)
+		writeJSONError(w, "Failed to get restaurants", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"superchargers": superchargers,
+		"restaurants":   restaurants,
 	})
 }
