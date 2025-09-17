@@ -594,7 +594,7 @@
                     <div class="input-icon">📍</div>
                     <input type="text" id="destination"
                         class="block w-full px-4 py-3 rounded-lg shadow-sm text-sm enhanced-input"
-                        placeholder="Pretty Parking Place">
+                        placeholder="Preferred Place of Passage">
                 </div>
                 <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
@@ -1878,7 +1878,7 @@
         document.getElementById( 'toggle-btn' ).addEventListener( 'click', () => {
             const isHidden = bottomResults.style.display === 'none'
             const mapElement = document.getElementById( 'map' )
-            
+
             if ( isHidden ) {
                 // Show results, hide map
                 bottomResults.style.display = 'block'
@@ -1913,12 +1913,12 @@
             if ( userLocationMarker ) {
                 const mapElement = document.getElementById( 'map' )
                 const bottomResults = document.getElementById( 'bottom-results' )
-                
+
                 // Show map, hide results
                 mapElement.style.display = 'block'
                 bottomResults.style.display = 'none'
                 document.getElementById( 'toggle-btn' ).textContent = '📖'
-                
+
                 map.setView( userLocationMarker.getLatLng(), Math.max( map.getZoom(), 15 ) )
                 map.invalidateSize()
             }
