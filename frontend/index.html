@@ -1344,6 +1344,7 @@
                             <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
                             <div class="flex flex-col gap-2 mt-3">
                                 ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
+                                <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
                                 <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                             </div>
                         </div>
@@ -1357,6 +1358,7 @@
                             <strong>On Route</strong><br>
                             <div class="flex flex-col gap-2 mt-3">
                                 ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
+                                <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
                                 <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                             </div>
                         </div>
@@ -1369,6 +1371,7 @@
                         <strong class="text-lg">${ supercharger.name }</strong><br>
                         <strong>Address:</strong> ${ supercharger.address }<br>
                         <div class="flex flex-col gap-2 mt-3">
+                            <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
                             <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                         </div>
                     </div>
@@ -1527,6 +1530,7 @@
                         <strong class="text-lg">${ restaurant.name }</strong><br>
                         <strong>Distance to nearest supercharger:</strong> ${ distanceDisplay }<br>
                         <div class="flex flex-col gap-2 mt-3">
+                            <button onclick="openInGoogleMaps('${ restaurant.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Google Maps</button>
                             <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
                         </div>
                     </div>
@@ -1577,7 +1581,7 @@
                     <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
                     <div class="flex flex-col gap-2 mt-3">
                         <button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>
-                        <button onclick="openInGoogleMaps('${ charger.supercharger.place_id }', '${ charger.supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                        <button onclick="openInGoogleMaps('${ charger.supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
                         <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                     </div>
                 </div>
@@ -1614,6 +1618,7 @@
                         <strong class="text-lg">${ restaurant.name }</strong><br>
                         ${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }<br>
                         <div class="flex flex-col gap-2 mt-3">
+                            <button onclick="openInGoogleMaps('${ restaurant.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Google Maps</button>
                             <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
                         </div>
                     </div>
@@ -1916,9 +1921,12 @@
             setTimeout( () => map.invalidateSize(), 100 )
         }
 
-        function openInGoogleMaps ( placeId, googleMapsUri = null ) {
-            const url = googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${ placeId }`
-            window.open( url, '_blank' )
+        function openInGoogleMaps ( googleMapsUri ) {
+            if ( !googleMapsUri ) {
+                console.error( 'No Google Maps URI provided' )
+                return
+            }
+            window.open( googleMapsUri, '_blank' )
         }
 
         function shareToTesla ( placeId, name = '', googleMapsUri = null ) {
