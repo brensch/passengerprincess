@@ -266,6 +266,15 @@
             text-shadow: 0 0 3px white, 0 0 5px white;
         }
 
+        /* Ensure charger icons are on top using z-index */
+        .charger-icon {
+            z-index: 1000 !important;
+        }
+
+        .restaurant-icon {
+            z-index: 900 !important;
+        }
+
         /* Search highlight styling */
         mark {
             background: linear-gradient(45deg, var(--princess-peach), var(--princess-blush)) !important;
@@ -1118,13 +1127,41 @@
             // Use filtered data if filtering is active, otherwise use all data
             const dataToUse = filteredChargerIDs !== null ? filteredStationData : stationData
 
+            // Count filtered restaurants for dynamic zoom threshold
+            let filteredRestaurantCount = 0
+
+            // Count route restaurants
+            dataToUse.forEach( station => {
+                station.restaurantMarkers.forEach( restaurantMarker => {
+                    const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                    const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                    if ( nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
+                        filteredRestaurantCount++
+                    }
+                } )
+            } )
+
+            // Count viewport restaurants
+            for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
+                const marker = restaurantData.marker
+                const nameMatches = !currentSearchTerm || marker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                const restaurantCuisine = ( marker.options.cuisine || '' ).toLowerCase()
+                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                if ( nameMatches && cuisineMatches && bounds.contains( marker.getLatLng() ) ) {
+                    filteredRestaurantCount++
+                }
+            }
+
             // Use requestAnimationFrame for smoother updates
             requestAnimationFrame( () => {
                 dataToUse.forEach( station => {
                     // Skip charger markers since we only use viewport superchargers now
                     // Only handle restaurant markers from route data
                     const chargerShouldBeVisible = filteredChargerIDs === null || filteredChargerIDs.includes( station.id )
-                    const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
+                    // Show restaurants if total filtered count is between 1 and 50 (inclusive)
+                    // Don't show if 0 restaurants or more than 50
+                    const restaurantsShouldBeVisible = chargerShouldBeVisible && ( filteredRestaurantCount > 0 && filteredRestaurantCount <= 50 )
                     station.restaurantMarkers.forEach( restaurantMarker => {
                         const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
                         const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
@@ -1284,7 +1321,7 @@
         function createViewportSuperchargerMarker ( supercharger ) {
             const marker = L.marker( [ supercharger.latitude, supercharger.longitude ], {
                 icon: L.divIcon( {
-                    className: 'emoji-icon',
+                    className: 'emoji-icon charger-icon',
                     html: '🔌',
                     iconSize: [ 24, 24 ],
                     iconAnchor: [ 12, 12 ]
@@ -1311,7 +1348,37 @@
          */
         function updateViewportRestaurants ( restaurants, bounds ) {
             const zoom = map.getZoom()
-            const restaurantsShouldBeVisible = zoom >= 14
+
+            // Count filtered restaurants for dynamic zoom threshold (both route and viewport)
+            let filteredRestaurantCount = 0
+
+            // Count route restaurants
+            const dataToUse = filteredChargerIDs !== null ? filteredStationData : stationData
+            dataToUse.forEach( station => {
+                station.restaurantMarkers.forEach( restaurantMarker => {
+                    const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                    const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                    if ( nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
+                        filteredRestaurantCount++
+                    }
+                } )
+            } )
+
+            // Count viewport restaurants
+            for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
+                const marker = restaurantData.marker
+                const nameMatches = !currentSearchTerm || marker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                const restaurantCuisine = ( marker.options.cuisine || '' ).toLowerCase()
+                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                if ( nameMatches && cuisineMatches && bounds.contains( marker.getLatLng() ) ) {
+                    filteredRestaurantCount++
+                }
+            }
+
+            // Show restaurants if total filtered count is between 1 and 50 (inclusive)
+            // Don't show if 0 restaurants or more than 50
+            const restaurantsShouldBeVisible = ( filteredRestaurantCount > 0 && filteredRestaurantCount <= 50 )
 
             // Create a set of current restaurant place_ids
             const currentPlaceIds = new Set( restaurants.map( r => r.place_id ) )
@@ -1339,7 +1406,7 @@
                 }
             } )
 
-            // Update visibility of existing restaurants based on zoom
+            // Update visibility of existing restaurants based on zoom and filters
             for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
                 const marker = restaurantData.marker
                 const nameMatches = !currentSearchTerm || marker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
@@ -1358,55 +1425,63 @@
          * Creates a marker for a viewport restaurant.
          */
         function createViewportRestaurantMarker ( restaurant ) {
-            // Find distance to nearest supercharger
-            let nearestDistance = null
-            let nearestSupercharger = null
-
-            // Check route superchargers first
-            for ( const [ , charger ] of routeSuperchargers ) {
-                const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.supercharger.latitude, charger.supercharger.longitude )
-                if ( nearestDistance === null || distance < nearestDistance ) {
-                    nearestDistance = distance
-                    nearestSupercharger = charger.supercharger
-                }
-            }
-
-            // Also check viewport superchargers
-            for ( const [ , scData ] of viewportSuperchargers ) {
-                const charger = scData.data
-                const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.latitude, charger.longitude )
-                if ( nearestDistance === null || distance < nearestDistance ) {
-                    nearestDistance = distance
-                    nearestSupercharger = charger
-                }
-            }
-
-            const distanceDisplay = nearestDistance ? Math.round( nearestDistance ) + 'm' : 'Distance unknown'
-
-            const popupContent = `
-                <div class="font-sans max-w-xs">
-                    <strong class="text-lg">${ restaurant.name }</strong><br>
-                    <strong>Distance to nearest supercharger:</strong> ${ distanceDisplay }<br>
-                    <div class="flex flex-col gap-2 mt-3">
-                        <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
-                    </div>
-                </div>
-            `
-
-            return L.marker( [ restaurant.latitude, restaurant.longitude ], {
+            const marker = L.marker( [ restaurant.latitude, restaurant.longitude ], {
                 icon: L.divIcon( {
-                    className: 'emoji-icon',
+                    className: 'emoji-icon restaurant-icon',
                     html: '🌭',
                     iconSize: [ 24, 24 ],
                     iconAnchor: [ 12, 12 ]
                 } ),
                 restaurantName: restaurant.name,
                 cuisine: ( restaurant.primary_type_display || '' )
-            } ).bindPopup( popupContent, {
+            } )
+
+            // Generate popup content dynamically when popup is opened to ensure fresh data
+            marker.on( 'popupopen', function () {
+                // Find distance to nearest supercharger
+                let nearestDistance = null
+                let nearestSupercharger = null
+
+                // Check route superchargers first
+                for ( const [ , charger ] of routeSuperchargers ) {
+                    const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.supercharger.latitude, charger.supercharger.longitude )
+                    if ( nearestDistance === null || distance < nearestDistance ) {
+                        nearestDistance = distance
+                        nearestSupercharger = charger.supercharger
+                    }
+                }
+
+                // Also check viewport superchargers
+                for ( const [ , scData ] of viewportSuperchargers ) {
+                    const charger = scData.data
+                    const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.latitude, charger.longitude )
+                    if ( nearestDistance === null || distance < nearestDistance ) {
+                        nearestDistance = distance
+                        nearestSupercharger = charger
+                    }
+                }
+
+                const distanceDisplay = nearestDistance ? Math.round( nearestDistance ) + 'm' : 'Distance unknown'
+
+                const popupContent = `
+                    <div class="font-sans max-w-xs">
+                        <strong class="text-lg">${ restaurant.name }</strong><br>
+                        <strong>Distance to nearest supercharger:</strong> ${ distanceDisplay }<br>
+                        <div class="flex flex-col gap-2 mt-3">
+                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
+                        </div>
+                    </div>
+                `
+                this.setPopupContent( popupContent )
+            } )
+
+            marker.bindPopup( 'Loading...', {
                 maxWidth: 300,
                 minWidth: 200,
                 className: 'custom-popup'
             } )
+
+            return marker
         }
 
         /**
@@ -1630,11 +1705,15 @@
                             mapElement.style.display = 'block'
                             bottomResults.style.display = 'none'
                             document.getElementById( 'toggle-btn' ).textContent = '📖'
+                            // Ensure the restaurant marker is added to the layer before zooming
+                            if ( !restaurantLayer.hasLayer( restaurantMarker ) ) {
+                                restaurantLayer.addLayer( restaurantMarker )
+                            }
                             map.setView( restaurantMarker.getLatLng(), 16 )
                             // Use setTimeout to ensure marker is fully added to map before opening popup
                             setTimeout( () => {
                                 restaurantMarker.openPopup()
-                            }, 50 )
+                            }, 100 ) // Increased delay to 100ms for filtered restaurants
                             map.invalidateSize()
                         }
                     }
