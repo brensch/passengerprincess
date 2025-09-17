@@ -2287,20 +2287,50 @@
             window.location.href = window.location.pathname
         } )
         document.getElementById( 'reload-from-here' ).addEventListener( 'click', () => {
-            document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
+            // Get modal button references
+            const reloadBtn = document.getElementById( 'reload-from-here' )
+            const newSearchBtn = document.getElementById( 'completely-new-search' )
+            const cancelBtn = document.getElementById( 'cancel-new-search' )
+
+            // Disable all buttons and show loading state
+            reloadBtn.disabled = true
+            newSearchBtn.disabled = true
+            cancelBtn.disabled = true
+            reloadBtn.textContent = 'Obtaining location...'
+
             if ( navigator.geolocation ) {
                 updateStatus( "Getting your current location...", false )
                 navigator.geolocation.getCurrentPosition( ( position ) => {
                     const lat = position.coords.latitude
                     const lng = position.coords.longitude
                     originInput.value = `${ lat },${ lng }`
+
+                    // Hide modal and re-enable buttons
+                    document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
+                    reloadBtn.disabled = false
+                    newSearchBtn.disabled = false
+                    cancelBtn.disabled = false
+                    reloadBtn.textContent = 'Same destination, from current location'
+
                     handleRouteSearch()
                 }, ( error ) => {
                     console.error( "Geolocation error:", error )
                     updateStatus( "Unable to get current location. Please check your browser permissions.", true )
+
+                    // Re-enable buttons on error
+                    reloadBtn.disabled = false
+                    newSearchBtn.disabled = false
+                    cancelBtn.disabled = false
+                    reloadBtn.textContent = 'Same destination, from current location'
                 } )
             } else {
                 updateStatus( "Geolocation is not supported by this browser.", true )
+
+                // Re-enable buttons if geolocation not supported
+                reloadBtn.disabled = false
+                newSearchBtn.disabled = false
+                cancelBtn.disabled = false
+                reloadBtn.textContent = 'Same destination, from current location'
             }
         } )
 
