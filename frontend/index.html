@@ -72,10 +72,10 @@
         }
 
         #map {
-            height: calc(100vh - 60px);
+            height: calc(100vh - 66px);
             width: 100vw;
             position: absolute;
-            top: 60px;
+            top: 66px;
             margin: 0;
             padding: 0;
         }
@@ -91,7 +91,6 @@
             background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-lavender) 100%);
             border-bottom: 2px solid var(--princess-border);
             padding: 15px;
-            box-shadow: 0 8px 32px rgba(107, 77, 124, 0.1);
             backdrop-filter: blur(8px);
             max-height: 100vh;
             overflow: visible;
@@ -100,7 +99,7 @@
         /* Results area */
         .bottom-results {
             position: absolute;
-            top: 60px;
+            top: 66px;
             left: 0;
             right: 0;
             z-index: 1100;
@@ -110,7 +109,7 @@
             box-shadow: 0 8px 32px rgba(107, 77, 124, 0.1);
             backdrop-filter: blur(8px);
             display: none;
-            height: calc(100vh - 60px);
+            height: calc(100vh - 66px);
             overflow-x: hidden;
             border-radius: 0 0 16px 16px;
         }
@@ -507,9 +506,8 @@
     style="background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-lavender) 50%, var(--princess-rose) 100%); min-height: 100vh;">
     <div id="map"></div>
 
-    <div id="top-toolbar"
-        class="fixed top-0 left-0 right-0 z-50 border-b-2 p-3 flex justify-between items-center shadow-lg"
-        style="background: linear-gradient(135deg, var(--princess-lavender) 0%, var(--princess-rose) 100%); border-color: var(--princess-border); backdrop-filter: blur(8px);">
+    <div id="top-toolbar" class="fixed top-0 left-0 right-0 z-50 border-b-2 flex justify-between items-center"
+        style="background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-lavender) 100%); border-color: var(--princess-border); backdrop-filter: blur(8px); padding: 15px; height: 66px;">
         <div class="text-2xl font-bold font-dancing cursor-pointer" id="ppp-logo"
             style="color: var(--princess-text-primary); text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.2);"> PPP </div>
         <div class="flex space-x-2">
@@ -570,6 +568,15 @@
     </div>
 
     <div class="overlay-form" id="search-form">
+        <!-- Consistent header bar -->
+        <div class="flex justify-between items-center mb-6" style="height: 36px;">
+            <div class="text-2xl font-bold font-dancing cursor-pointer" id="ppp-logo-search"
+                style="color: var(--princess-text-primary); text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.2);"> PPP
+            </div>
+            <div class="flex space-x-2">
+                <!-- Empty space to match button area -->
+            </div>
+        </div>
         <header class="text-center mb-6">
             <h1 class="text-2xl md:text-3xl font-bold font-dancing"
                 style="color: var(--princess-text-primary); text-shadow: 2px 2px 8px rgba(107, 77, 124, 0.3);">
@@ -1732,10 +1739,10 @@
             bottomResults.style.display = 'block'
             mapElement.style.display = 'none'
             topToolbar.style.display = 'flex'
-            mapElement.style.top = '60px'
-            mapElement.style.height = 'calc(100vh - 60px)'
-            bottomResults.style.top = '60px'
-            bottomResults.style.height = 'calc(100vh - 60px)'
+            mapElement.style.top = '66px'
+            mapElement.style.height = 'calc(100vh - 66px)'
+            bottomResults.style.top = '66px'
+            bottomResults.style.height = 'calc(100vh - 66px)'
             document.getElementById( 'toggle-btn' ).textContent = '🗺️'
         }
 
