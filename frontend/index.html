@@ -518,16 +518,15 @@
     </div>
 
     <div class="bottom-results" id="bottom-results">
-        <div id="results-list" class="custom-scrollbar px-4"
-            style="height: 100%; overflow-y: auto; overflow-x: hidden;">
-            <div class="flex space-x-2 mb-4 pt-4">
+        <div id="results-list" class="custom-scrollbar" style="height: 100%; overflow-y: auto; overflow-x: hidden;">
+            <div class="flex space-x-2 mb-4 pt-4 px-4">
                 <input type="text" id="restaurant-search"
                     class="flex-grow px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 text-sm enhanced-input"
                     placeholder="Pick places please">
                 <button id="toggle-cuisine-btn" class="px-3 py-3 rounded-md shadow-sm text-sm princess-button"
                     title="Toggle cuisine filters">Filters</button>
             </div>
-            <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4" style="display: none;">
+            <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4 px-4" style="display: none;">
             </div>
 
             <div id="loading-container" class="loading-container hidden">
@@ -562,7 +561,8 @@
                     </tbody>
                 </table>
             </div>
-            <p id="no-results" style="color: var(--princess-text-secondary);">Search for a route to see results.</p>
+            <p id="no-results" class="px-4" style="color: var(--princess-text-secondary);">Search for a route to see
+                results.</p>
         </div>
         <hr style="border-color: var(--princess-border);">
     </div>
@@ -1504,7 +1504,7 @@
 
             const chargerCell = `
                 <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
-                    <div class="flex flex-col justify-between h-full">
+                    <div class="flex flex-col">
                         <div>
                             <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
                             <span class="font-bold">${ arrivalTime }</span>
@@ -1519,7 +1519,7 @@
             if ( restaurants.length === 0 ) {
                 const chargerCellWithButton = `
                     <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200">
-                        <div class="flex flex-col justify-between h-full">
+                        <div class="flex flex-col">
                             <div>
                                 <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
                                 <span class="font-bold">${ arrivalTime }</span>
