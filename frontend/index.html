@@ -694,6 +694,8 @@
             }
         } ).addTo( map )
 
+        const viewportRestaurantsLayer = L.layerGroup().addTo( map )
+
         // --- STATE MANAGEMENT ---
         let userLocationMarker = null
         let locationTrackingInterval = null
@@ -705,7 +707,8 @@
         let filterTimeout = null // For debouncing filter updates
         let viewportSuperchargers = new Map() // Map of place_id to supercharger data
         let lastViewportBounds = null // Track last viewport bounds to avoid unnecessary API calls
-        let routeSuperchargerLocations = new Set() // Set of "lat,lng" strings for route superchargers
+        let routeSuperchargers = new Map() // Map of place_id to route supercharger data
+        let viewportRestaurants = new Map() // Map of place_id to restaurant data
 
         // Autocomplete session tokens for each input field
         let autocompleteSessions = {
@@ -838,7 +841,7 @@
 
             // Reset state and build the new `stationData` and table UI
             stationData = []
-            routeSuperchargerLocations.clear() // Clear previous route locations
+            routeSuperchargers.clear() // Clear previous route data
             const tbody = document.getElementById( 'chargers-tbody' )
             tbody.innerHTML = ''
             const fragment = document.createDocumentFragment()
@@ -852,18 +855,16 @@
 
             data.superchargers.forEach( ( charger, index ) => {
                 const chargerId = `charger-${ index }`
-                const chargerMarker = createChargerMarker( charger, chargerId )
                 const restaurantMarkers = createRestaurantMarkers( charger.restaurants )
 
-                // Add route supercharger location to the set
-                const locationKey = `${ charger.supercharger.latitude },${ charger.supercharger.longitude }`
-                routeSuperchargerLocations.add( locationKey )
+                // Store route supercharger data for lookup
+                routeSuperchargers.set( charger.supercharger.place_id, charger )
 
                 stationData.push( {
                     id: chargerId,
                     chargerInfo: charger,
                     restaurants: charger.restaurants || [],
-                    chargerMarker: chargerMarker,
+                    chargerMarker: null, // No marker for route superchargers anymore
                     restaurantMarkers: restaurantMarkers,
                 } )
 
@@ -871,7 +872,7 @@
                     id: chargerId,
                     chargerInfo: charger,
                     restaurants: charger.restaurants || [],
-                    chargerMarker: chargerMarker,
+                    chargerMarker: null, // No marker for route superchargers anymore
                     restaurantMarkers: restaurantMarkers,
                 } )
 
@@ -1117,15 +1118,9 @@
             // Use requestAnimationFrame for smoother updates
             requestAnimationFrame( () => {
                 dataToUse.forEach( station => {
+                    // Skip charger markers since we only use viewport superchargers now
+                    // Only handle restaurant markers from route data
                     const chargerShouldBeVisible = filteredChargerIDs === null || filteredChargerIDs.includes( station.id )
-                    const chargerMarker = station.chargerMarker
-
-                    if ( chargerShouldBeVisible && bounds.contains( chargerMarker.getLatLng() ) ) {
-                        if ( !chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.addLayer( chargerMarker )
-                    } else {
-                        if ( chargerLayer.hasLayer( chargerMarker ) ) chargerLayer.removeLayer( chargerMarker )
-                    }
-
                     const restaurantsShouldBeVisible = chargerShouldBeVisible && zoom >= 14
                     station.restaurantMarkers.forEach( restaurantMarker => {
                         const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
@@ -1140,13 +1135,13 @@
                     } )
                 } )
 
-                // Update viewport superchargers
+                // Update viewport superchargers and restaurants
                 updateViewportSuperchargers( bounds )
             } )
         }
 
         /**
-         * Fetches and updates superchargers for the current viewport.
+         * Fetches and updates superchargers and restaurants for the current viewport.
          */
         async function updateViewportSuperchargers ( bounds ) {
             const boundsStr = bounds.toBBoxString()
@@ -1162,59 +1157,63 @@
                 const data = await response.json()
 
                 if ( !response.ok ) {
-                    console.error( 'Failed to fetch viewport superchargers:', data )
+                    console.error( 'Failed to fetch viewport data:', data )
                     return
                 }
 
-                const superchargers = data.superchargers
+                const superchargers = data.superchargers || []
+                const restaurants = data.restaurants || []
 
                 // Performance optimization: limit the number of viewport superchargers to prevent slowdown
-                const maxViewportSuperchargers = 200
+                const maxViewportSuperchargers = 500 // Increased limit
                 const limitedSuperchargers = superchargers.slice( 0, maxViewportSuperchargers )
 
-                // Create a set of current supercharger place_ids
-                const currentPlaceIds = new Set( limitedSuperchargers.map( sc => sc.place_id ) )
-
-                // Remove superchargers that are no longer in viewport
+                // Remove superchargers that are no longer in viewport bounds
                 for ( const [ placeId, superchargerData ] of viewportSuperchargers ) {
-                    if ( !currentPlaceIds.has( placeId ) ) {
+                    if ( !bounds.contains( superchargerData.marker.getLatLng() ) ) {
                         viewportSuperchargersLayer.removeLayer( superchargerData.marker )
                         viewportSuperchargers.delete( placeId )
                     }
                 }
 
-                // Add new superchargers
-                limitedSuperchargers.forEach( supercharger => {
-                    if ( !viewportSuperchargers.has( supercharger.place_id ) ) {
-                        // Check if there's already a route supercharger at this location
-                        const locationKey = `${ supercharger.latitude },${ supercharger.longitude }`
-                        if ( !routeSuperchargerLocations.has( locationKey ) ) {
-                            const marker = createViewportSuperchargerMarker( supercharger )
-                            viewportSuperchargers.set( supercharger.place_id, {
-                                data: supercharger,
-                                marker: marker
-                            } )
-                            viewportSuperchargersLayer.addLayer( marker )
-                        }
-                    }
+                // Add new superchargers (limited to prevent performance issues)
+                const superchargersToAdd = limitedSuperchargers.filter( supercharger =>
+                    !viewportSuperchargers.has( supercharger.place_id ) &&
+                    bounds.contains( L.latLng( supercharger.latitude, supercharger.longitude ) )
+                )
+
+                superchargersToAdd.forEach( supercharger => {
+                    const marker = createViewportSuperchargerMarker( supercharger )
+                    viewportSuperchargers.set( supercharger.place_id, {
+                        data: supercharger,
+                        marker: marker
+                    } )
+                    viewportSuperchargersLayer.addLayer( marker )
                 } )
 
-                // Dynamically adjust clustering based on total count
+                // Handle viewport restaurants
+                updateViewportRestaurants( restaurants, bounds )
+
+                // Better clustering logic: adjust based on zoom and count to keep visible markers reasonable
+                const zoom = map.getZoom()
                 const totalViewportSuperchargers = viewportSuperchargers.size
+
+                // Dynamic clustering based on zoom and count
                 if ( totalViewportSuperchargers > 100 ) {
-                    // Enable clustering for large numbers of markers
-                    viewportSuperchargersLayer.options.disableClusteringAtZoom = 12
+                    // At high counts, cluster earlier
+                    viewportSuperchargersLayer.options.disableClusteringAtZoom = Math.max( 10, zoom - 2 )
+                } else if ( totalViewportSuperchargers > 50 ) {
+                    // Moderate clustering
+                    viewportSuperchargersLayer.options.disableClusteringAtZoom = Math.max( 12, zoom - 1 )
                 } else {
-                    // Disable clustering when there are fewer markers
-                    viewportSuperchargersLayer.options.disableClusteringAtZoom = 18 // Effectively disable clustering
+                    // Light clustering or no clustering for small numbers
+                    viewportSuperchargersLayer.options.disableClusteringAtZoom = Math.max( 15, zoom + 1 )
                 }
 
-                // Refresh the clusters only when necessary for better performance
-                if ( totalViewportSuperchargers > 50 ) {
-                    setTimeout( () => viewportSuperchargersLayer.refreshClusters(), 50 )
-                }
+                // Refresh the clusters
+                setTimeout( () => viewportSuperchargersLayer.refreshClusters(), 50 )
             } catch ( error ) {
-                console.error( 'Error fetching viewport superchargers:', error )
+                console.error( 'Error fetching viewport data:', error )
             }
         }
 
@@ -1222,29 +1221,205 @@
          * Creates a marker for a viewport supercharger.
          */
         function createViewportSuperchargerMarker ( supercharger ) {
-            const popupContent = `
-                <div class="font-sans max-w-xs">
-                    <strong class="text-lg">${ supercharger.name }</strong><br>
-                    <strong>Address:</strong> ${ supercharger.address }<br>
-                    <div class="flex flex-col gap-2 mt-3">
-                        <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                        <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                    </div>
-                </div>
-            `
-
-            return L.marker( [ supercharger.latitude, supercharger.longitude ], {
+            const marker = L.marker( [ supercharger.latitude, supercharger.longitude ], {
                 icon: L.divIcon( {
                     className: 'emoji-icon',
                     html: '🔌',
                     iconSize: [ 24, 24 ],
                     iconAnchor: [ 12, 12 ]
                 } )
+            } )
+
+            // Defer route lookup until popup is opened
+            marker.on( 'popupopen', function () {
+                const routeSupercharger = routeSuperchargers.get( supercharger.place_id )
+                let popupContent
+
+                if ( routeSupercharger ) {
+                    // This supercharger is on the route, show ETA info
+                    try {
+                        const distanceFromRoute = routeSupercharger.distance_from_route || 0
+                        const distanceAlongRoute = routeSupercharger.distance_along_route || 0
+                        const arrivalTime = routeSupercharger.arrival_time || 'N/A'
+
+                        const distanceFromOrigin = distanceFromRoute ? ( distanceFromRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+                        const distanceAlongRouteDisplay = distanceAlongRoute ? ( distanceAlongRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
+                        const totalDistance = ( distanceAlongRoute + distanceFromRoute ) / 1609.34
+                        const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
+
+                        popupContent = `
+                            <div class="font-sans max-w-xs">
+                                <strong class="text-lg">${ supercharger.name }</strong><br>
+                                <strong>Address:</strong> ${ supercharger.address }<br>
+                                <strong>Arrival:</strong> ${ arrivalTime }<br>
+                                <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
+                                <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
+                                <div class="flex flex-col gap-2 mt-3">
+                                    <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                                    <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                                </div>
+                            </div>
+                        `
+                    } catch ( error ) {
+                        console.error( 'Error accessing route supercharger data:', error, routeSupercharger )
+                        popupContent = `
+                            <div class="font-sans max-w-xs">
+                                <strong class="text-lg">${ supercharger.name }</strong><br>
+                                <strong>Address:</strong> ${ supercharger.address }<br>
+                                <strong>On Route</strong><br>
+                                <div class="flex flex-col gap-2 mt-3">
+                                    <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                                    <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                                </div>
+                            </div>
+                        `
+                    }
+                } else {
+                    // Regular viewport supercharger
+                    popupContent = `
+                        <div class="font-sans max-w-xs">
+                            <strong class="text-lg">${ supercharger.name }</strong><br>
+                            <strong>Address:</strong> ${ supercharger.address }<br>
+                            <div class="flex flex-col gap-2 mt-3">
+                                <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
+                            </div>
+                        </div>
+                    `
+                }
+
+                this.setPopupContent( popupContent )
+            } )
+
+            marker.bindPopup( 'Loading...', {
+                maxWidth: 300,
+                minWidth: 200,
+                className: 'custom-popup'
+            } )
+
+            return marker
+        }
+
+        /**
+         * Updates restaurants for the current viewport.
+         */
+        function updateViewportRestaurants ( restaurants, bounds ) {
+            const zoom = map.getZoom()
+            const restaurantsShouldBeVisible = zoom >= 14
+
+            // Create a set of current restaurant place_ids
+            const currentPlaceIds = new Set( restaurants.map( r => r.place_id ) )
+
+            // Remove restaurants that are no longer in viewport
+            for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
+                if ( !currentPlaceIds.has( placeId ) ) {
+                    viewportRestaurantsLayer.removeLayer( restaurantData.marker )
+                    viewportRestaurants.delete( placeId )
+                }
+            }
+
+            // Add new restaurants
+            restaurants.forEach( restaurant => {
+                if ( !viewportRestaurants.has( restaurant.place_id ) ) {
+                    const marker = createViewportRestaurantMarker( restaurant )
+                    viewportRestaurants.set( restaurant.place_id, {
+                        data: restaurant,
+                        marker: marker
+                    } )
+                    // Only add to layer if restaurants should be visible at current zoom
+                    if ( restaurantsShouldBeVisible && bounds.contains( marker.getLatLng() ) ) {
+                        viewportRestaurantsLayer.addLayer( marker )
+                    }
+                }
+            } )
+
+            // Update visibility of existing restaurants based on zoom
+            for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
+                const marker = restaurantData.marker
+                const nameMatches = !currentSearchTerm || marker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
+                const restaurantCuisine = ( marker.options.cuisine || '' ).toLowerCase()
+                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+
+                if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( marker.getLatLng() ) ) {
+                    if ( !viewportRestaurantsLayer.hasLayer( marker ) ) viewportRestaurantsLayer.addLayer( marker )
+                } else {
+                    if ( viewportRestaurantsLayer.hasLayer( marker ) ) viewportRestaurantsLayer.removeLayer( marker )
+                }
+            }
+        }
+
+        /**
+         * Creates a marker for a viewport restaurant.
+         */
+        function createViewportRestaurantMarker ( restaurant ) {
+            // Find distance to nearest supercharger
+            let nearestDistance = null
+            let nearestSupercharger = null
+
+            // Check route superchargers first
+            for ( const [ , charger ] of routeSuperchargers ) {
+                const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.supercharger.latitude, charger.supercharger.longitude )
+                if ( nearestDistance === null || distance < nearestDistance ) {
+                    nearestDistance = distance
+                    nearestSupercharger = charger.supercharger
+                }
+            }
+
+            // Also check viewport superchargers
+            for ( const [ , scData ] of viewportSuperchargers ) {
+                const charger = scData.data
+                const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.latitude, charger.longitude )
+                if ( nearestDistance === null || distance < nearestDistance ) {
+                    nearestDistance = distance
+                    nearestSupercharger = charger
+                }
+            }
+
+            const distanceDisplay = nearestDistance ? Math.round( nearestDistance ) + 'm' : 'Distance unknown'
+
+            const popupContent = `
+                <div class="font-sans max-w-xs">
+                    <strong class="text-lg">${ restaurant.name }</strong><br>
+                    <strong>Distance to nearest supercharger:</strong> ${ distanceDisplay }<br>
+                    <div class="flex flex-col gap-2 mt-3">
+                        <button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Maps</button>
+                        <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
+                    </div>
+                </div>
+            `
+
+            return L.marker( [ restaurant.latitude, restaurant.longitude ], {
+                icon: L.divIcon( {
+                    className: 'emoji-icon',
+                    html: '🌭',
+                    iconSize: [ 24, 24 ],
+                    iconAnchor: [ 12, 12 ]
+                } ),
+                restaurantName: restaurant.name,
+                cuisine: ( restaurant.primary_type_display || '' )
             } ).bindPopup( popupContent, {
                 maxWidth: 300,
                 minWidth: 200,
                 className: 'custom-popup'
             } )
+        }
+
+        /**
+         * Calculate distance between two points using Haversine formula.
+         */
+        function getDistance ( lat1, lng1, lat2, lng2 ) {
+            const R = 6371e3 // Earth's radius in meters
+            const φ1 = lat1 * Math.PI / 180
+            const φ2 = lat2 * Math.PI / 180
+            const Δφ = ( lat2 - lat1 ) * Math.PI / 180
+            const Δλ = ( lng2 - lng1 ) * Math.PI / 180
+
+            const a = Math.sin( Δφ / 2 ) * Math.sin( Δφ / 2 ) +
+                Math.cos( φ1 ) * Math.cos( φ2 ) *
+                Math.sin( Δλ / 2 ) * Math.sin( Δλ / 2 )
+            const c = 2 * Math.atan2( Math.sqrt( a ), Math.sqrt( 1 - a ) )
+
+            return R * c
         }
 
         function createChargerMarker ( charger, chargerId ) {
@@ -1477,10 +1652,12 @@
             chargerLayer.clearLayers()
             restaurantLayer.clearLayers()
             viewportSuperchargersLayer.clearLayers()
+            viewportRestaurantsLayer.clearLayers()
             stationData = []
             filteredStationData = []
-            routeSuperchargerLocations.clear()
+            routeSuperchargers.clear()
             viewportSuperchargers.clear()
+            viewportRestaurants.clear()
             lastViewportBounds = null
             filteredChargerIDs = null
             currentSearchTerm = ''
