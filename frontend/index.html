@@ -1382,10 +1382,13 @@
                     e.stopPropagation()
                     const station = stationData.find( s => s.id === chargerId )
                     if ( station ) {
-                        map.setView( station.chargerMarker.getLatLng(), 15 )
-                        station.chargerMarker.openPopup()
+                        const mapElement = document.getElementById( 'map' )
+                        mapElement.style.display = 'block'
                         bottomResults.style.display = 'none'
                         document.getElementById( 'toggle-btn' ).textContent = '📖'
+                        map.setView( station.chargerMarker.getLatLng(), 15 )
+                        station.chargerMarker.openPopup()
+                        map.invalidateSize()
                     }
                 } )
 
@@ -1396,10 +1399,13 @@
                     if ( station ) {
                         const restaurantMarker = station.restaurantMarkers.find( m => m.options.restaurantName === restaurantName )
                         if ( restaurantMarker ) {
-                            map.setView( restaurantMarker.getLatLng(), 16 )
-                            restaurantMarker.openPopup()
+                            const mapElement = document.getElementById( 'map' )
+                            mapElement.style.display = 'block'
                             bottomResults.style.display = 'none'
                             document.getElementById( 'toggle-btn' ).textContent = '📖'
+                            map.setView( restaurantMarker.getLatLng(), 16 )
+                            restaurantMarker.openPopup()
+                            map.invalidateSize()
                         }
                     }
                 } )
@@ -1499,6 +1505,7 @@
             document.getElementById( 'no-results' ).classList.add( 'hidden' )
             searchForm.style.display = 'none'
             bottomResults.style.display = 'block'
+            mapElement.style.display = 'none'
             topToolbar.style.display = 'flex'
             mapElement.style.top = '60px'
             mapElement.style.height = 'calc(100vh - 60px)'
@@ -1514,6 +1521,8 @@
         }
 
         function showChargerInResults ( chargerId ) {
+            const mapElement = document.getElementById( 'map' )
+            mapElement.style.display = 'none'
             bottomResults.style.display = 'block'
             document.getElementById( 'toggle-btn' ).textContent = '🗺️'
             const chargerRow = document.querySelector( `tr[data-charger-id="${ chargerId }"]` )
@@ -1565,9 +1574,11 @@
             updateStatus( message, true )
             searchForm.style.display = 'block'
             bottomResults.style.display = 'none'
+            mapElement.style.display = 'block'
             topToolbar.style.display = 'none'
             mapElement.style.top = '0'
             mapElement.style.height = '100vh'
+            map.invalidateSize()
         }
 
         function startLocationTracking () {
@@ -1866,9 +1877,21 @@
 
         document.getElementById( 'toggle-btn' ).addEventListener( 'click', () => {
             const isHidden = bottomResults.style.display === 'none'
-            bottomResults.style.display = isHidden ? 'block' : 'none'
-            document.getElementById( 'toggle-btn' ).textContent = isHidden ? '🗺️' : '📖'
-            setTimeout( () => map.invalidateSize(), 100 )
+            const mapElement = document.getElementById( 'map' )
+            
+            if ( isHidden ) {
+                // Show results, hide map
+                bottomResults.style.display = 'block'
+                mapElement.style.display = 'none'
+                document.getElementById( 'toggle-btn' ).textContent = '🗺️'
+            } else {
+                // Show map, hide results
+                bottomResults.style.display = 'none'
+                mapElement.style.display = 'block'
+                document.getElementById( 'toggle-btn' ).textContent = '📖'
+                // Immediately invalidate size when showing map
+                map.invalidateSize()
+            }
         } )
 
         pppLogo.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
@@ -1888,10 +1911,16 @@
 
         document.getElementById( 'gps-btn' ).addEventListener( 'click', () => {
             if ( userLocationMarker ) {
-                map.setView( userLocationMarker.getLatLng(), Math.max( map.getZoom(), 15 ) )
+                const mapElement = document.getElementById( 'map' )
+                const bottomResults = document.getElementById( 'bottom-results' )
+                
+                // Show map, hide results
+                mapElement.style.display = 'block'
                 bottomResults.style.display = 'none'
                 document.getElementById( 'toggle-btn' ).textContent = '📖'
-                setTimeout( () => map.invalidateSize(), 100 )
+                
+                map.setView( userLocationMarker.getLatLng(), Math.max( map.getZoom(), 15 ) )
+                map.invalidateSize()
             }
         } )
 
