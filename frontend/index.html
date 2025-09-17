@@ -543,11 +543,11 @@
                     <thead class="sticky top-0 z-10" style="background: var(--princess-surface-soft);">
                         <tr>
                             <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
-                                style="width: 15%;">
+                                style="width: 20%;">
                                 Charger
                             </th>
                             <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
-                                style="width: 25%;">
+                                style="width: 30%;">
                                 Restaurant
                             </th>
                             <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
@@ -557,10 +557,6 @@
                             <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
                                 style="width: 35%;">
                                 Cuisine
-                            </th>
-                            <th class="px-1 py-0 text-left text-xs font-medium uppercase tracking-wider princess-table-header"
-                                style="width: 25%;">
-                                Actions
                             </th>
                         </tr>
                     </thead>
@@ -1220,7 +1216,7 @@
         /**
          * Generates popup content for a supercharger marker.
          */
-        function generateSuperchargerPopupContent ( supercharger ) {
+        function generateSuperchargerPopupContent ( supercharger, chargerId = null ) {
             const routeSupercharger = routeSuperchargers.get( supercharger.place_id )
             let popupContent
 
@@ -1244,7 +1240,7 @@
                             <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
                             <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
                             <div class="flex flex-col gap-2 mt-3">
-                                <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                                ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
                                 <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                             </div>
                         </div>
@@ -1257,7 +1253,7 @@
                             <strong>Address:</strong> ${ supercharger.address }<br>
                             <strong>On Route</strong><br>
                             <div class="flex flex-col gap-2 mt-3">
-                                <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
+                                ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
                                 <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                             </div>
                         </div>
@@ -1270,7 +1266,6 @@
                         <strong class="text-lg">${ supercharger.name }</strong><br>
                         <strong>Address:</strong> ${ supercharger.address }<br>
                         <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="openInGoogleMaps('${ supercharger.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
                             <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
                         </div>
                     </div>
@@ -1386,7 +1381,6 @@
                     <strong class="text-lg">${ restaurant.name }</strong><br>
                     <strong>Distance to nearest supercharger:</strong> ${ distanceDisplay }<br>
                     <div class="flex flex-col gap-2 mt-3">
-                        <button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Maps</button>
                         <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
                     </div>
                 </div>
@@ -1479,7 +1473,6 @@
                         <strong class="text-lg">${ restaurant.name }</strong><br>
                         ${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }<br>
                         <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Maps</button>
                             <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
                         </div>
                     </div>
@@ -1504,21 +1497,37 @@
 
             const chargerCell = `
                 <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">
-                    <div class="flex flex-col">
-                        <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
-                        <span class="font-bold">${ arrivalTime }</span>
-                        <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
-                        <span class="text-xs text-pink-600">Off Route: ${ distanceFromOrigin }</span>
+                    <div class="flex flex-col justify-between h-full">
+                        <div>
+                            <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
+                            <span class="font-bold">${ arrivalTime }</span>
+                            <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
+                            <span class="text-xs text-pink-600">Off Route: ${ distanceFromOrigin }</span>
+                        </div>
+                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }')" class="mt-2 bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">Send to Tesla</button>
                     </div>
                 </td>
             `
 
             if ( restaurants.length === 0 ) {
+                const chargerCellWithButton = `
+                    <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200">
+                        <div class="flex flex-col justify-between h-full">
+                            <div>
+                                <span class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></span>
+                                <span class="font-bold">${ arrivalTime }</span>
+                                <span class="text-xs text-pink-600 hover:text-pink-800 cursor-pointer city-link">${ charger.supercharger.address }</span>
+                                <span class="text-xs text-pink-600">Off Route: ${ distanceFromOrigin }</span>
+                            </div>
+                            <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }')" class="mt-2 bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">Send to Tesla</button>
+                        </div>
+                    </td>
+                `
                 const row = document.createElement( 'tr' )
                 row.dataset.chargerId = chargerId
                 row.innerHTML = `
-                    ${ chargerCell }
-                    <td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>
+                    ${ chargerCellWithButton }
+                    <td class="px-1 py-0 text-sm text-pink-700" colspan="3">No restaurants found</td>
                 `
                 rows.push( row )
             } else {
@@ -1535,12 +1544,6 @@
                         </td>
                         <td class="px-1 py-0 text-sm text-pink-700">${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'N/A' }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ cuisineStr }">${ cuisineStr }</td>
-                        <td class="px-1 py-0 text-sm">
-                            <div class="flex gap-1">
-                                <button onclick="openInGoogleMaps('${ restaurant.place_id }')" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded">Maps</button>
-                                <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }')" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Tesla</button>
-                            </div>
-                        </td>
                     `
 
                     row.innerHTML = ( index === 0 ) ? `${ chargerCell }${ restaurantContent }` : restaurantContent
@@ -1579,7 +1582,7 @@
                             superchargerMarker = createViewportSuperchargerMarker( supercharger )
 
                             // Generate popup content immediately and rebind popup
-                            const popupContent = generateSuperchargerPopupContent( supercharger )
+                            const popupContent = generateSuperchargerPopupContent( supercharger, chargerId )
                             superchargerMarker.bindPopup( popupContent, {
                                 maxWidth: 300,
                                 minWidth: 200,
@@ -1621,7 +1624,10 @@
                             bottomResults.style.display = 'none'
                             document.getElementById( 'toggle-btn' ).textContent = '📖'
                             map.setView( restaurantMarker.getLatLng(), 16 )
-                            restaurantMarker.openPopup()
+                            // Use setTimeout to ensure marker is fully added to map before opening popup
+                            setTimeout( () => {
+                                restaurantMarker.openPopup()
+                            }, 50 )
                             map.invalidateSize()
                         }
                     }
