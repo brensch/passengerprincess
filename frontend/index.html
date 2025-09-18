@@ -675,9 +675,14 @@
                 </div>
                 <div id="destination-suggestions" class="autocomplete-suggestions hidden"></div>
             </div>
-            <div class="md:col-span-2">
-                <button id="find-route-btn" class="w-full princess-button font-bold py-3 px-4 text-sm">
+            <div class="md:col-span-2 flex space-x-2">
+                <button id="find-route-btn" class="flex-1 princess-button font-bold py-3 px-4 text-sm">
                     Plan Princess Portage
+                </button>
+                <button id="help-btn"
+                    class="princess-button font-bold py-3 px-4 text-sm w-12 flex items-center justify-center"
+                    title="What does this app do?">
+                    ?
                 </button>
             </div>
         </div>
@@ -701,6 +706,28 @@
         </div>
     </div>
 
+    <div id="help-modal" class="fixed inset-0 flex items-center justify-center z-[1200] hidden"
+        style="background: rgba(107, 77, 124, 0.6); backdrop-filter: blur(4px);">
+        <div class="rounded-xl p-8 max-w-md mx-4 shadow-2xl"
+            style="background: var(--princess-surface); border: 2px solid var(--princess-border);">
+            <h3 class="text-2xl font-semibold mb-4 font-dancing" style="color: var(--princess-text-primary);">✨ PPP's
+                Purported Purpose ✨</h3>
+            <div class="text-sm space-y-3" style="color: var(--princess-text-secondary);">
+                <p>⚡ Get Superchargers on your route</p>
+                <p>🗺️ ETAs and traffic according to google maps</p>
+                <p>🌭 See restaurants within walking distance</p>
+                <p>🔎 Filter restaurants by cuisine type or name</p>
+                <p>👸 Pick your pitstop perfectly</p>
+
+            </div>
+            <div class="flex justify-end mt-6">
+                <button id="close-help-modal" class="px-6 py-2 font-medium rounded-lg transition-all duration-300"
+                    style="color: var(--princess-text-secondary); background: var(--princess-surface-soft); border: 1px solid var(--princess-border);">Got
+                    it!</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- DOM ELEMENTS ---
         const originInput = document.getElementById( 'origin' )
@@ -717,6 +744,7 @@
         const pppLogo = document.getElementById( 'ppp-logo' )
         const restaurantSearchInput = document.getElementById( 'restaurant-search' )
         const cuisineFilterButtons = document.getElementById( 'cuisine-filter-buttons' )
+        const helpBtn = document.getElementById( 'help-btn' )
 
         // Initially hide the top toolbar and adjust map position since search form is visible
         topToolbar.style.display = 'none'
@@ -2260,6 +2288,13 @@
             // Could add some other functionality here if needed
         } )
         document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
+        document.getElementById( 'help-btn' ).addEventListener( 'click', () => document.getElementById( 'help-modal' ).classList.remove( 'hidden' ) )
+        document.getElementById( 'close-help-modal' ).addEventListener( 'click', () => document.getElementById( 'help-modal' ).classList.add( 'hidden' ) )
+        document.getElementById( 'help-modal' ).addEventListener( 'click', ( e ) => {
+            if ( e.target.id === 'help-modal' ) {
+                document.getElementById( 'help-modal' ).classList.add( 'hidden' )
+            }
+        } )
         document.getElementById( 'completely-new-search' ).addEventListener( 'click', () => {
             stopLocationTracking()
             // Clear autocomplete session tokens
