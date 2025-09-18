@@ -588,7 +588,10 @@
                 🔃
             </button>
             <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">👸</button>
-            <button id="open-filter-modal-btn" class="princess-button text-sm">🔎</button>
+            <button id="open-filter-modal-btn" class="princess-button text-sm relative" title="Filter restaurants">
+                🔎<span id="filter-count"
+                    class="absolute bottom-0.5 right-1 text-purple-600 text-xs font-bold hidden"></span>
+            </button>
             <button id="toggle-btn" class="princess-button text-sm">Show
                 Results</button>
         </div>
@@ -731,9 +734,13 @@
                 <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2">
                 </div>
             </div>
-            <div class="p-4 border-t border-gray-200">
+            <div class="p-4 border-t border-gray-200 flex gap-3">
+                <button id="clear-filters-btn"
+                    class="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300"
+                    style="background: transparent; color: var(--princess-text-primary); border: 2px solid var(--princess-border);">Clear
+                    All</button>
                 <button id="close-filter-modal-btn"
-                    class="w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 princess-button"
+                    class="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 princess-button"
                     style="background: var(--princess-accent-lavender); color: var(--princess-text-primary); border: none;">Perfect!</button>
             </div>
         </div>
@@ -759,6 +766,31 @@
         const openFilterModalBtn = document.getElementById( 'open-filter-modal-btn' )
         const filterModal = document.getElementById( 'filter-modal' )
         const closeFilterModalBtn = document.getElementById( 'close-filter-modal-btn' )
+        const clearFiltersBtn = document.getElementById( 'clear-filters-btn' )
+        const filterCount = document.getElementById( 'filter-count' )
+
+        // Function to update the filter count badge
+        function updateFilterCount () {
+            let count = 0
+
+            // Count selected cuisine filters (excluding "All Cuisines")
+            if ( currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) ) {
+                count += currentCuisineFilter.length
+            }
+
+            // Add 1 if there's search text
+            if ( restaurantSearchInput.value.trim() !== '' ) {
+                count += 1
+            }
+
+            // Update the badge
+            if ( count > 0 ) {
+                filterCount.textContent = count
+                filterCount.classList.remove( 'hidden' )
+            } else {
+                filterCount.classList.add( 'hidden' )
+            }
+        }
 
         // Initially hide the top toolbar and adjust map position since search form is visible
         topToolbar.style.display = 'none'
@@ -1070,6 +1102,9 @@
 
             // Apply filters to viewport data without making API calls
             applyViewportFilters()
+
+            // Update the filter count badge
+            updateFilterCount()
         }
 
         /**
@@ -2483,10 +2518,29 @@
         // Event listeners for the new filter modal
         openFilterModalBtn.addEventListener( 'click', () => {
             filterModal.classList.remove( 'hidden' )
+            updateFilterCount()
         } )
 
         closeFilterModalBtn.addEventListener( 'click', () => {
             filterModal.classList.add( 'hidden' )
+        } )
+
+        clearFiltersBtn.addEventListener( 'click', () => {
+            // Clear search input
+            restaurantSearchInput.value = ''
+
+            // Clear cuisine filter selection (select "All Cuisines")
+            const allCuisinesBtn = cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )
+            if ( allCuisinesBtn ) {
+                allCuisinesBtn.click()
+            }
+
+            // Update current filter state
+            currentSearchTerm = ''
+            currentCuisineFilter = [ '' ]
+
+            // Apply the cleared filters
+            filterListAndMap( '', [ '' ] )
         } )
 
         filterModal.addEventListener( 'click', ( e ) => {
@@ -2544,6 +2598,9 @@
         if ( navigator.geolocation ) {
             startLocationTracking()
         }
+
+        // Initialize filter count
+        updateFilterCount()
 
     </script>
 </body>
