@@ -1373,7 +1373,7 @@
                 content += `<button onclick="showChargerInResults('${ finalChargerId }')" class="princess-button text-sm w-full" style="background: var(--princess-accent-rose);">View in List</button>`
             }
             content += `
-                    <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="princess-button text-sm w-full">Open in Google Maps</button>
+                    <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="princess-button text-sm w-full">Google Maps</button>
                     <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="princess-button text-sm w-full" style="background: var(--princess-accent-mint);">Send to Tesla</button>
                 </div>
             </div>`
@@ -1514,7 +1514,7 @@
                         ${ restaurant.primary_type_display || '' } ${ distanceDisplay }
                     </p>
                     <div class="flex flex-col gap-2 mt-3">
-                        <button onclick="openInGoogleMaps('${ restaurant.google_maps_uri || '' }')" class="princess-button text-sm w-full">Open in Google Maps</button>
+                        <button onclick="openInGoogleMaps('${ restaurant.google_maps_uri || '' }')" class="princess-button text-sm w-full">Google Maps</button>
                         <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="princess-button text-sm w-full" style="background: var(--princess-accent-mint);">Send to Tesla</button>
                     </div>
                 </div>`
@@ -1583,8 +1583,8 @@
                             <div class="text-xs text-pink-600">${ charger.supercharger.address }</div>
                         </div>
                         <div class="flex gap-1">
-                            <button onclick="showAndOpenSuperchargerPopup('${ chargerId }')" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded">Map</button>
-                            <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Send to Tesla</button>
+                            <button onclick="showAndOpenSuperchargerPopup('${ chargerId }')" class="princess-button text-xs px-1 py-0.5 rounded">Map</button>
+                            <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="princess-button text-xs px-1 py-0.5 rounded" style="background: var(--princess-accent-mint);">Send to Tesla</button>
                         </div>
                     </div>
                 </td>
@@ -1609,8 +1609,8 @@
                                 <div class="text-xs text-pink-600">${ charger.supercharger.address }</div>
                             </div>
                             <div class="flex gap-1">
-                                <button onclick="showAndOpenSuperchargerPopup('${ chargerId }')" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded">Map</button>
-                                <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Send to Tesla</button>
+                                <button onclick="showAndOpenSuperchargerPopup('${ chargerId }')" class="princess-button text-xs px-1 py-0.5 rounded">Map</button>
+                                <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="princess-button text-xs px-1 py-0.5 rounded" style="background: var(--princess-accent-mint);">Send to Tesla</button>
                             </div>
                         </div>
                         </div>
