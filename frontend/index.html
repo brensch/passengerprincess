@@ -1862,8 +1862,8 @@
             // Find ALL rows with the matching charger ID (supercharger + all its restaurants)
             const chargerRows = document.querySelectorAll( `tr[data-charger-id="${ chargerId }"]` )
             if ( chargerRows.length > 0 ) {
-                // Scroll to the first row (supercharger row)
-                chargerRows[ 0 ].scrollIntoView( { behavior: 'smooth', block: 'center' } )
+                // Scroll to the first row (supercharger row) instantly
+                chargerRows[ 0 ].scrollIntoView( { behavior: 'auto', block: 'center' } )
 
                 // Add fade in/out animation to ALL rows
                 chargerRows.forEach( row => {
