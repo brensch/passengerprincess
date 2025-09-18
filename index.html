@@ -389,7 +389,6 @@
                     title="Toggle cuisine filters">Filters</button>
             </div>
             <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4" style="display: none;">
-                <!-- Cuisine buttons will be dynamically inserted here -->
             </div>
 
             <div id="loading-container" class="loading-container hidden">
@@ -880,7 +879,7 @@
                     <strong>Stalls:</strong> ${ charger.stallCount }<br>
                     <strong>Distance:</strong> ${ distanceFromOrigin }<br>
                     <button onclick="showChargerInResults('${ charger.id }')" class="bg-pink-500 hover:bg-pink-600 text-white text-sm px-2 py-1 rounded mt-2 mr-2">View in Results</button>
-                    <a href="https://maps.google.com/?q=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
+                    <a href="https://www.google.com/maps?q=${ charger.gps.latitude },${ charger.gps.longitude }" target="_blank" class="text-pink-500 hover:underline text-sm">Open in Google Maps</a>
                 `
 
             if ( restaurants.length > 0 ) {
@@ -909,7 +908,7 @@
                     } ),
                     restaurantName: restaurant.name, // Store for filtering
                     cuisine: restaurant.cuisine
-                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance }m away<br><br><button onclick="openInGoogleMaps('')" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-2 py-1 rounded mr-2">Open in Maps</button><button onclick="shareToTesla('${ restaurant.name.replace( /'/g, "\\'" ) }', 'Restaurant', '')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-2 py-1 rounded">Send to Tesla</button>` )
+                } ).bindPopup( `<strong>${ restaurant.name }</strong><br>${ restaurant.distance }m away<br><br><button onclick="openInGoogleMaps('${ restaurant.gps.latitude },${ restaurant.gps.longitude }')" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-2 py-1 rounded mr-2">Open in Maps</button><button onclick="shareToTesla('${ restaurant.name.replace( /'/g, "\\'" ) }', 'Restaurant', '${ restaurant.gps.latitude },${ restaurant.gps.longitude }')" class="bg-green-500 hover:bg-green-600 text-white text-sm px-2 py-1 rounded">Send to Tesla</button>` )
             } )
         }
 
@@ -945,7 +944,7 @@
                 row.dataset.chargerId = charger.id.toString()
                 row.innerHTML = `
                     ${ chargerCell }
-                    <td class="px-1 py-0 text-sm text-pink-700" colspan="4">No restaurants found</td>
+                    <td class="px-1 py-0 text-sm text-pink-700" colspan="5">No restaurants found</td>
                 `
                 rows.push( row )
             } else {
@@ -962,8 +961,8 @@
                         <td class="px-1 py-0 text-sm text-pink-700" data-original-cuisine="${ restaurant.cuisine }">${ restaurant.cuisine }</td>
                         <td class="px-1 py-0 text-sm text-pink-700" style="white-space: pre-wrap; word-break: break-all;">${ restaurant.opening_hours }</td>
                         <td class="px-1 py-0 text-sm">
-                            <button onclick="openInGoogleMaps('')" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded mr-1">Maps</button>
-                            <button onclick="shareToTesla('${ restaurant.name.replace( /'/g, "\\'" ) }', 'Restaurant', '')" class="bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Tesla</button>
+                            <button onclick="openInGoogleMaps('${ restaurant.gps.latitude },${ restaurant.gps.longitude }')" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-1 py-0.5 rounded mr-1">Maps</button>
+                            <button onclick="shareToTesla('${ restaurant.name.replace( /'/g, "\\'" ) }', 'Restaurant', '${ restaurant.gps.latitude },${ restaurant.gps.longitude }')" class="bg-green-500 hover:bg-green-600 text-white text-xs px-1 py-0.5 rounded">Tesla</button>
                         </td>
                     `
 
@@ -1058,11 +1057,8 @@
             stationData = []
             filteredChargerIDs = null
             currentSearchTerm = ''
-            currentCuisineFilter = []
             restaurantSearchInput.value = ''
             document.getElementById( 'chargers-tbody' ).innerHTML = ''
-            cuisineFilterButtons.innerHTML = ''
-            cuisineFilterButtons.parentElement.style.display = 'none'
             // Stop location tracking when clearing results
             stopLocationTracking()
         }
@@ -1473,36 +1469,66 @@
             setTimeout( () => map.invalidateSize(), 100 )
         } )
 
-        newSearchBtn.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
-        document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
-        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
-            // Clear URL parameters to avoid state hangover
-            window.history.replaceState( {}, '', window.location.pathname )
-
-            // Clear input fields
-            originInput.value = ''
-            destinationInput.value = ''
-
-            // Clear previous results and state
+        /**
+         * Resets the entire application to its initial state without a page reload.
+         * Clears all data, resets the UI, and prepares for a new search.
+         */
+        function resetToInitialState () {
+            // 1. Clear all previous search data, map layers, and stop location tracking.
             clearPreviousResults()
 
-            // Reset UI to initial state
-            searchForm.style.display = 'block'
+            // 2. Reset the UI layout to the initial search screen.
+            const searchForm = document.getElementById( 'search-form' )
+            const bottomResults = document.getElementById( 'bottom-results' )
+            const topToolbar = document.getElementById( 'top-toolbar' )
+            const mapElement = document.getElementById( 'map' )
+            const newSearchModal = document.getElementById( 'new-search-modal' )
+            const toggleBtn = document.getElementById( 'toggle-btn' )
+            const cuisineFilterContainer = document.getElementById( 'cuisine-filter-buttons' )
+            const noResultsP = document.getElementById( 'no-results' )
+            const loadingContainer = document.getElementById( 'loading-container' )
+            const chargersTable = document.getElementById( 'chargers-table' )
+
+            // Hide results panel, toolbar, loading spinner, and the results table.
             bottomResults.style.display = 'none'
             topToolbar.style.display = 'none'
+            loadingContainer.classList.add( 'hidden' )
+            chargersTable.classList.add( 'hidden' )
+
+            // Show the main search form.
+            searchForm.style.display = 'block'
+
+            // Reset map to be full screen.
             mapElement.style.top = '0'
             mapElement.style.height = '100vh'
-            document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+            setTimeout( () => map.invalidateSize(), 100 ) // Ensure map re-renders correctly.
 
-            // Reset map to default view
-            map.setView( [ 37.7749, -122.4194 ], 6 )
+            // Clear input fields and reset status messages.
+            originInput.value = ''
+            destinationInput.value = ''
+            statusMessage.textContent = ''
+            noResultsP.textContent = 'Search for a route to see results.' // Reset default text.
 
-            // Clear status message
-            updateStatus( '', false )
+            // Clear and hide the dynamic cuisine filters.
+            cuisineFilterContainer.innerHTML = ''
+            cuisineFilterContainer.style.display = 'none'
 
-            // Hide the modal
-            document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
-        } )
+            // Reset the "Show/Hide" button text to its default.
+            toggleBtn.textContent = 'Show Results'
+
+            // Close the confirmation modal.
+            newSearchModal.classList.add( 'hidden' )
+
+            // 3. Clean up the URL by removing search parameters.
+            window.history.pushState( {}, '', window.location.pathname )
+
+            // 4. Re-run the initial location detection for a better UX on the new search.
+            setTimeout( autoStartLocationTracking, 500 )
+        }
+
+        newSearchBtn.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
+        document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
+        document.getElementById( 'confirm-new-search' ).addEventListener( 'click', resetToInitialState )
 
         // Toggle cuisine filter buttons
         document.getElementById( 'toggle-cuisine-btn' ).addEventListener( 'click', () => {
@@ -1577,13 +1603,13 @@
             setTimeout( autoStartLocationTracking, 1000 ) // Small delay to ensure everything is loaded
         } )
 
-        function openInGoogleMaps ( placeId ) {
-            const url = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+        function openInGoogleMaps ( coords ) {
+            const url = `https://www.google.com/maps?q=${ coords }`
             window.open( url, '_blank' )
         }
 
-        function shareToTesla ( name, type = 'Restaurant', placeId = '' ) {
-            const googleMapsUrl = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+        function shareToTesla ( name, type = 'Restaurant', coords = '' ) {
+            const googleMapsUrl = `https://www.google.com/maps?q=${ coords }`
             const shareData = {
                 title: `${ type }: ${ name }`,
                 text: `Check out this ${ type.toLowerCase() }: ${ name }`,
