@@ -229,8 +229,8 @@ func parseDurationString(durationStr string) int {
 }
 
 // interpolatePoints takes a list of points and inserts additional points at regular intervals along the path.
-func interpolatePoints(points []Center, intervalMeters float64) []Center {
-	var densePoints []Center
+func interpolatePoints(points []Point, intervalMeters float64) []Point {
+	var densePoints []Point
 	if len(points) == 0 {
 		return densePoints
 	}
@@ -248,7 +248,7 @@ func interpolatePoints(points []Center, intervalMeters float64) []Center {
 			fraction := float64(j) / float64(numSegments)
 			lat := p1.Latitude + fraction*(p2.Latitude-p1.Latitude)
 			lng := p1.Longitude + fraction*(p2.Longitude-p1.Longitude)
-			densePoints = append(densePoints, Center{Latitude: lat, Longitude: lng})
+			densePoints = append(densePoints, Point{Latitude: lat, Longitude: lng})
 		}
 		densePoints = append(densePoints, p2)
 	}
@@ -304,8 +304,8 @@ func PolylineToCircles(encodedPolyline string, radius float64) ([]Circle, error)
 }
 
 // DecodePolyline converts an encoded polyline string into a slice of geographic points.
-func DecodePolyline(encoded string) ([]Center, error) {
-	var points []Center
+func DecodePolyline(encoded string) ([]Point, error) {
+	var points []Point
 	var lat, lng, index int
 
 	for index < len(encoded) {
@@ -353,7 +353,7 @@ func DecodePolyline(encoded string) ([]Center, error) {
 		}
 		lng += lngChange
 
-		points = append(points, Center{
+		points = append(points, Point{
 			Latitude:  float64(lat) / 1e5,
 			Longitude: float64(lng) / 1e5,
 		})
@@ -364,7 +364,7 @@ func DecodePolyline(encoded string) ([]Center, error) {
 
 // haversineDistance calculates the shortest distance over the earth's surface
 // between two geographic points in meters.
-func haversineDistance(p1, p2 Center) float64 {
+func haversineDistance(p1, p2 Point) float64 {
 	lat1 := p1.Latitude * math.Pi / 180
 	lon1 := p1.Longitude * math.Pi / 180
 	lat2 := p2.Latitude * math.Pi / 180

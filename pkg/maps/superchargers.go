@@ -31,7 +31,7 @@ type SuperchargerWithETA struct {
 	ArrivalTime         int64                       `json:"arrival_time"`           // Arrival time as epoch milliseconds
 	DistanceFromRoute   float64                     `json:"distance_from_route"`    // Distance from route in meters
 	DistanceAlongRoute  float64                     `json:"distance_along_route"`   // Distance along route in meters
-	ClosestPointOnRoute Center                      `json:"closest_point_on_route"` // Closest point on the route
+	ClosestPointOnRoute Point                       `json:"closest_point_on_route"` // Closest point on the route
 }
 
 // CumPoint represents a point on the route with cumulative distance and duration
@@ -58,7 +58,7 @@ type PolylineIndex struct {
 	gridWidth  int
 	gridHeight int
 	grid       [][][]PolylineSegment // [y][x][]segments
-	polyline   []Center
+	polyline   []Point
 }
 
 // PolylineSegment represents a segment in the polyline with its index and cumulative distance
@@ -69,7 +69,7 @@ type PolylineSegment struct {
 }
 
 // buildPolylineIndex creates a spatial index for the given polyline
-func buildPolylineIndex(polyline []Center, gridSize float64) *PolylineIndex {
+func buildPolylineIndex(polyline []Point, gridSize float64) *PolylineIndex {
 	if len(polyline) < 2 {
 		return nil
 	}
@@ -183,7 +183,7 @@ func buildPolylineIndex(polyline []Center, gridSize float64) *PolylineIndex {
 }
 
 // distanceToPolylineWithIndex calculates distance using spatial index for better performance
-func distanceToPolylineWithIndex(point Center, index *PolylineIndex) (float64, float64, Center) {
+func distanceToPolylineWithIndex(point Point, index *PolylineIndex) (float64, float64, Point) {
 	if index == nil || len(index.polyline) < 2 {
 		return distanceToPolyline(point, index.polyline)
 	}
@@ -225,7 +225,7 @@ func distanceToPolylineWithIndex(point Center, index *PolylineIndex) (float64, f
 	// Calculate distances only for candidate segments
 	minDist := math.MaxFloat64
 	distAlongRoute := 0.0
-	var closestPoint Center
+	var closestPoint Point
 
 	for _, segment := range uniqueSegments {
 		p1 := index.polyline[segment.StartIdx]
@@ -244,7 +244,7 @@ func distanceToPolylineWithIndex(point Center, index *PolylineIndex) (float64, f
 				t = math.Max(0, math.Min(1, t)) // Clamp to segment
 				segmentLength := haversineDistance(p1, p2)
 				distAlongRoute = segment.CumulativeDist + t*segmentLength
-				closestPoint = Center{
+				closestPoint = Point{
 					Latitude:  p1.Latitude + t*(p2.Latitude-p1.Latitude),
 					Longitude: p1.Longitude + t*(p2.Longitude-p1.Longitude),
 				}
@@ -258,11 +258,11 @@ func distanceToPolylineWithIndex(point Center, index *PolylineIndex) (float64, f
 // distanceToPolyline calculates the shortest distance from a point to a polyline.
 // It returns the shortest distance in meters, the cumulative distance along the polyline to that closest point,
 // and the closest point on the polyline.
-func distanceToPolyline(point Center, polyline []Center) (float64, float64, Center) {
+func distanceToPolyline(point Point, polyline []Point) (float64, float64, Point) {
 	minDist := math.MaxFloat64
 	distAlongRoute := 0.0
 	cumulativeDist := 0.0
-	var closestPoint Center
+	var closestPoint Point
 
 	for i := 0; i < len(polyline)-1; i++ {
 		p1 := polyline[i]
@@ -281,7 +281,7 @@ func distanceToPolyline(point Center, polyline []Center) (float64, float64, Cent
 				t = math.Max(0, math.Min(1, t)) // Clamp to segment
 				segmentLength := haversineDistance(p1, p2)
 				distAlongRoute = cumulativeDist + t*segmentLength
-				closestPoint = Center{
+				closestPoint = Point{
 					Latitude:  p1.Latitude + t*(p2.Latitude-p1.Latitude),
 					Longitude: p1.Longitude + t*(p2.Longitude-p1.Longitude),
 				}
@@ -293,7 +293,7 @@ func distanceToPolyline(point Center, polyline []Center) (float64, float64, Cent
 }
 
 // distanceToSegment calculates the shortest distance from a point to a line segment.
-func distanceToSegment(p, v, w Center) float64 {
+func distanceToSegment(p, v, w Point) float64 {
 	l2 := (v.Latitude-w.Latitude)*(v.Latitude-w.Latitude) + (v.Longitude-w.Longitude)*(v.Longitude-w.Longitude)
 	if l2 == 0.0 {
 		return haversineDistance(p, v)
@@ -303,7 +303,7 @@ func distanceToSegment(p, v, w Center) float64 {
 
 	closestLat := v.Latitude + t*(w.Latitude-v.Latitude)
 	closestLng := v.Longitude + t*(w.Longitude-v.Longitude)
-	return haversineDistance(p, Center{Latitude: closestLat, Longitude: closestLng})
+	return haversineDistance(p, Point{Latitude: closestLat, Longitude: closestLng})
 }
 
 // calculateETA calculates the estimated arrival time at a supercharger
@@ -351,7 +351,7 @@ type SuperchargersOnRouteResult struct {
 }
 
 // processSuperchargers processes supercharger results concurrently to calculate ETAs and distances
-func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []Center, cumulativePoints []CumPoint, polylineIndex *PolylineIndex, route *RouteInfo) ([]SuperchargerWithETA, error) {
+func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []Point, cumulativePoints []CumPoint, polylineIndex *PolylineIndex, route *RouteInfo) ([]SuperchargerWithETA, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var superchargersWithETA []SuperchargerWithETA
@@ -375,7 +375,7 @@ func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []C
 			}
 
 			sc := res.supercharger
-			scLocation := Center{
+			scLocation := Point{
 				Latitude:  sc.Latitude,
 				Longitude: sc.Longitude,
 			}
@@ -476,7 +476,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		searchWg.Add(1)
 		go func(c Circle) {
 			defer searchWg.Done()
-			places, err := GetPlacesViaTextSearch(ctx, apiKey, "tesla supercharger", "places.id", c)
+			places, err := GetPlacesViaTextSearch(ctx, apiKey, "tesla supercharger", "places.id", c, false)
 			searchResultsChan <- searchResult{places: places, err: err}
 		}(circle)
 	}
@@ -587,12 +587,12 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 	}
 
 	restaurants, err := GetPlacesViaTextSearch(ctx, apiKey, "restaurant", FieldMaskRestaurantTextSearch, Circle{
-		Center: Center{
+		Center: Point{
 			Latitude:  superchargerDetails.Location.Latitude,
 			Longitude: superchargerDetails.Location.Longitude,
 		},
 		Radius: 500, // 500 meter radius
-	})
+	}, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -603,10 +603,10 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		if restaurant.Location == nil {
 			continue
 		}
-		dist := haversineDistance(Center{
+		dist := haversineDistance(Point{
 			Latitude:  superchargerDetails.Location.Latitude,
 			Longitude: superchargerDetails.Location.Longitude,
-		}, Center{
+		}, Point{
 			Latitude:  restaurant.Location.Latitude,
 			Longitude: restaurant.Location.Longitude,
 		})

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 )
 
@@ -19,20 +20,30 @@ var (
 
 // requestBody represents the JSON structure for the Google Places API searchText request.
 type requestBody struct {
-	TextQuery    string       `json:"textQuery"`
-	LocationBias LocationBias `json:"locationBias"`
+	TextQuery           string               `json:"textQuery"`
+	LocationBias        *LocationBias        `json:"locationBias,omitempty"`
+	LocationRestriction *LocationRestriction `json:"locationRestriction,omitempty"`
 }
 
 type LocationBias struct {
 	Circle Circle `json:"circle"`
 }
 
+type LocationRestriction struct {
+	Rectangle Rectangle `json:"rectangle"`
+}
+
+type Rectangle struct {
+	Low  Point `json:"low"`
+	High Point `json:"high"`
+}
+
 type Circle struct {
-	Center Center  `json:"center"`
+	Center Point   `json:"center"`
 	Radius float64 `json:"radius"`
 }
 
-type Center struct {
+type Point struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
@@ -65,12 +76,45 @@ type Location struct {
 	Longitude float64 `json:"longitude"`
 }
 
+// circleToRectangle converts a circle to a rectangle that fully encompasses the circle
+func circleToRectangle(circle Circle) Rectangle {
+	// Convert radius from meters to degrees (approximate)
+	// 1 degree of latitude ≈ 111,320 meters
+	// 1 degree of longitude varies by latitude, but we'll use an approximation
+	latDegreeInMeters := 111320.0
+	lonDegreeInMeters := 111320.0 * math.Cos(circle.Center.Latitude*math.Pi/180)
+
+	// Calculate the latitude and longitude offsets
+	latOffset := circle.Radius / latDegreeInMeters
+	lonOffset := circle.Radius / lonDegreeInMeters
+
+	// Create the rectangle that encompasses the circle
+	return Rectangle{
+		Low: Point{
+			Latitude:  circle.Center.Latitude - latOffset,
+			Longitude: circle.Center.Longitude - lonOffset,
+		},
+		High: Point{
+			Latitude:  circle.Center.Latitude + latOffset,
+			Longitude: circle.Center.Longitude + lonOffset,
+		},
+	}
+}
+
 // GetPlacesViaTextSearch queries the Google Places API (Text Search - New) to find all places
 // matching a query within a specified circular search area. It now takes a 'circle' struct directly.
-func GetPlacesViaTextSearch(ctx context.Context, apiKey, query, fieldMask string, targetCircle Circle) ([]*PlaceDetails, error) {
+func GetPlacesViaTextSearch(ctx context.Context, apiKey, query, fieldMask string, targetCircle Circle, strict bool) ([]*PlaceDetails, error) {
 	reqBody := requestBody{
-		TextQuery:    query,
-		LocationBias: LocationBias{Circle: targetCircle},
+		TextQuery: query,
+	}
+
+	if strict {
+		// Use rectangle restriction when strict is true
+		rectangle := circleToRectangle(targetCircle)
+		reqBody.LocationRestriction = &LocationRestriction{Rectangle: rectangle}
+	} else {
+		// Use circle bias when strict is false
+		reqBody.LocationBias = &LocationBias{Circle: targetCircle}
 	}
 
 	jsonData, err := json.Marshal(reqBody)

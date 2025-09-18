@@ -78,7 +78,7 @@ func TestPolylineToCircles_Visualization(t *testing.T) {
 }
 
 // generateHTMLMap creates an HTML file with a map visualizing the circles and polyline.
-func generateHTMLMap(circles []Circle, path []Center) error {
+func generateHTMLMap(circles []Circle, path []Point) error {
 	// Marshal circle and path data to JSON to be safely embedded in JavaScript.
 	circlesJSON, err := json.Marshal(circles)
 	if err != nil {
