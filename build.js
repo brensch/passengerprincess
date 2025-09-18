@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // Load environment variables from .env file
 require('dotenv').config();
@@ -11,6 +12,16 @@ if (!apiKey) {
 }
 
 console.log('API Key from env:', apiKey);
+
+// Build Tailwind CSS
+console.log('Building Tailwind CSS...');
+try {
+  execSync('npx tailwindcss -i src/input.css -o frontend/styles.css --content "./frontend/index.html"', { stdio: 'inherit' });
+  console.log('Tailwind CSS built successfully.');
+} catch (error) {
+  console.error('Error building Tailwind CSS:', error);
+  process.exit(1);
+}
 
 // Read the source HTML file from root
 const sourceFilePath = path.join(__dirname, 'index.html');

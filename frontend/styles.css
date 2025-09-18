@@ -1,0 +1,557 @@
+/* Princess Color Palette - Using Color Science for Harmony */
+:root {
+    /* Primary Palette - Soft Pastels */
+    --princess-lavender: #E6E0FF;
+    /* Light lavender */
+    --princess-rose: #FFE0E6;
+    /* Soft rose */
+    --princess-mint: #E0FFF0;
+    /* Gentle mint */
+    --princess-peach: #FFE6D9;
+    /* Warm peach */
+    --princess-lilac: #F0E6FF;
+    /* Pale lilac */
+    --princess-blush: #FFE6F0;
+    /* Light blush */
+
+    /* Accent Colors - Slightly More Saturated */
+    --princess-accent-lavender: #D4C5FF;
+    /* Medium lavender */
+    --princess-accent-rose: #FFB3C6;
+    /* Medium rose */
+    --princess-accent-mint: #B3FFD9;
+    /* Medium mint */
+    --princess-accent-peach: #FFD1B3;
+    /* Medium peach */
+
+    /* Text Colors - Elegant & Readable */
+    --princess-text-primary: #6B4D7C;
+    /* Rich lavender-purple */
+    --princess-text-secondary: #8B5A7A;
+    /* Muted rose-purple */
+    --princess-text-accent: #9B6B8F;
+    /* Soft purple-gray */
+
+    /* Surface Colors */
+    --princess-surface: #FDFBFF;
+    /* Almost white with lavender tint */
+    --princess-surface-soft: #F8F4FF;
+    /* Very light lavender */
+    --princess-border: #E8DCF0;
+    /* Soft lavender border */
+}
+
+.font-dancing {
+    font-family: 'Dancing Script', cursive;
+}
+
+/* Full screen map */
+body,
+html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: var(--princess-surface);
+}
+
+#map {
+    height: calc(100vh - 66px);
+    width: 100vw;
+    position: absolute;
+    top: 66px;
+    margin: 0;
+    padding: 0;
+}
+
+/* Overlay form at top */
+.overlay-form {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    z-index: 1000;
+    background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-lavender) 100%);
+    border-bottom: 2px solid var(--princess-border);
+    padding: 15px;
+    backdrop-filter: blur(8px);
+    max-height: 100vh;
+    overflow: visible;
+}
+
+/* Results area */
+.bottom-results {
+    position: absolute;
+    top: 66px;
+    left: 0;
+    right: 0;
+    z-index: 1100;
+    background: linear-gradient(135deg, var(--princess-surface) 0%, var(--princess-rose) 100%);
+    border-bottom: 2px solid var(--princess-border);
+    padding: 0;
+    box-shadow: 0 8px 32px rgba(107, 77, 124, 0.1);
+    backdrop-filter: blur(8px);
+    display: none;
+    height: calc(100vh - 66px);
+    overflow-x: hidden;
+    border-radius: 0 0 16px 16px;
+}
+
+/* Compact table styling */
+#chargers-table {
+    border-collapse: collapse;
+    line-height: 1;
+    height: auto;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    width: 100%;
+}
+
+#chargers-table tr,
+#chargers-table tr td,
+#chargers-table tr th {
+    height: 18px !important;
+    line-height: 1 !important;
+}
+
+#chargers-table td,
+#chargers-table th {
+    border-bottom: 1px solid var(--princess-border);
+}
+
+/* Custom scrollbar for the results list */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--princess-surface-soft);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--princess-accent-lavender);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--princess-accent-rose);
+}
+
+/* Table styles */
+#chargers-table {
+    width: 100%;
+    table-layout: auto;
+}
+
+#chargers-table td {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .overlay-form {
+        padding: 10px;
+        position: fixed;
+        top: 0;
+    }
+
+    .bottom-results {
+        padding: 0;
+    }
+
+    /* Table responsive design */
+    @media (max-width: 768px) {
+        #chargers-table {
+            font-size: 10px;
+            min-width: 800px;
+        }
+    }
+
+    .table-container {
+        width: 100%;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    /* Enable horizontal scrolling on mobile */
+    @media (max-width: 768px) {
+        .table-container {
+            overflow-x: auto;
+        }
+    }
+
+    #chargers-table th,
+    #chargers-table td {
+        padding: 4px 6px;
+    }
+}
+
+.autocomplete-suggestions {
+    position: fixed;
+    background: var(--princess-surface);
+    border: 2px solid var(--princess-border);
+    border-radius: 12px;
+    box-shadow: 0 16px 32px rgba(107, 77, 124, 0.15);
+    backdrop-filter: blur(8px);
+    z-index: 1200;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 2px;
+}
+
+.autocomplete-suggestion {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--princess-border);
+    transition: all 0.3s ease;
+    color: var(--princess-text-primary);
+}
+
+.autocomplete-suggestion:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-suggestion:hover,
+.autocomplete-suggestion.selected {
+    background: var(--princess-accent-lavender);
+    color: var(--princess-text-primary);
+    transform: translateY(-1px);
+}
+
+/* Enhanced link styling for clickable results */
+.city-link,
+.restaurant-link {
+    text-decoration: underline;
+    text-decoration-color: var(--princess-accent-rose);
+    text-underline-offset: 2px;
+    color: var(--princess-text-secondary);
+    transition: all 0.3s ease;
+}
+
+.city-link:hover,
+.restaurant-link:hover {
+    text-decoration-color: var(--princess-text-primary);
+    color: var(--princess-text-primary);
+    transform: translateY(-1px);
+}
+
+/* Custom emoji icons for map markers */
+.emoji-icon {
+    font-size: 24px;
+    line-height: 1;
+    text-align: center;
+    /* Simple shadow for better visibility */
+    text-shadow: 0 0 3px white, 0 0 5px white;
+}
+
+/* Ensure charger icons are on top using z-index */
+.charger-icon {
+    z-index: 1000 !important;
+}
+
+.restaurant-icon {
+    z-index: 900 !important;
+}
+
+/* Search highlight styling */
+mark {
+    background: linear-gradient(45deg, var(--princess-peach), var(--princess-blush)) !important;
+    color: var(--princess-text-primary) !important;
+    padding: 2px 4px !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+    box-shadow: 0 2px 8px rgba(107, 77, 124, 0.1) !important;
+    border: 1px solid var(--princess-border) !important;
+}
+
+/* Row highlight animation */
+@keyframes highlightFlashTwice {
+    0% {
+        background-color: transparent;
+        color: inherit;
+    }
+
+    15% {
+        background-color: var(--princess-accent-rose);
+        color: var(--princess-text-primary);
+    }
+
+    30% {
+        background-color: transparent;
+        color: inherit;
+    }
+
+    45% {
+        background-color: var(--princess-accent-rose);
+        color: var(--princess-text-primary);
+    }
+
+    60% {
+        background-color: transparent;
+        color: inherit;
+    }
+
+    100% {
+        background-color: transparent;
+        color: inherit;
+    }
+}
+
+.row-highlight-animation {
+    animation: highlightFlashTwice 1.2s ease-in-out;
+}
+
+/* Performance optimizations */
+.leaflet-container {
+    will-change: transform;
+}
+
+.marker-cluster-continuous {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.emoji-icon {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.marker-cluster-continuous div {
+    background-color: var(--princess-accent-lavender);
+    color: var(--princess-text-primary);
+    font-weight: bold;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    line-height: 1;
+}
+
+@keyframes princessSpin {
+    0% {
+        transform: rotate(0deg);
+        border-top-color: var(--princess-accent-lavender);
+        border-right-color: var(--princess-accent-rose);
+    }
+
+    25% {
+        transform: rotate(90deg);
+        border-top-color: var(--princess-accent-rose);
+        border-right-color: var(--princess-accent-mint);
+    }
+
+    50% {
+        transform: rotate(180deg);
+        border-top-color: var(--princess-accent-mint);
+        border-right-color: var(--princess-accent-peach);
+    }
+
+    75% {
+        transform: rotate(270deg);
+        border-top-color: var(--princess-accent-peach);
+        border-right-color: var(--princess-accent-lavender);
+    }
+
+    100% {
+        transform: rotate(360deg);
+        border-top-color: var(--princess-accent-lavender);
+        border-right-color: var(--princess-accent-rose);
+    }
+}
+
+#cuisine-filter-buttons button.selected {
+    background: linear-gradient(135deg, var(--princess-accent-lavender), var(--princess-accent-rose)) !important;
+    color: var(--princess-text-primary) !important;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(107, 77, 124, 0.2) !important;
+    transform: translateY(-1px);
+    border: 1px solid var(--princess-accent-rose) !important;
+}
+
+#cuisine-filter-buttons button:not(.selected):hover {
+    background: var(--princess-lavender) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(107, 77, 124, 0.15) !important;
+}
+
+/* Princess marker styling */
+.princess-marker {
+    background: transparent !important;
+    border: none !important;
+    font-size: 36px !important;
+    text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.3);
+    filter: drop-shadow(0 0 8px rgba(230, 224, 255, 0.8));
+}
+
+/* Enhanced input styling */
+.enhanced-input {
+    background: var(--princess-surface);
+    border: 2px solid var(--princess-border) !important;
+    color: var(--princess-text-primary);
+    transition: all 0.3s ease;
+}
+
+.enhanced-input:focus {
+    border-color: var(--princess-accent-lavender) !important;
+    box-shadow: 0 0 0 3px rgba(212, 197, 255, 0.3) !important;
+    background: var(--princess-surface-soft);
+}
+
+/* Button styling updates */
+.princess-button {
+    background: linear-gradient(135deg, var(--princess-accent-lavender), var(--princess-accent-rose));
+    color: var(--princess-text-primary);
+    border: 2px solid var(--princess-border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(107, 77, 124, 0.15);
+}
+
+.princess-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(107, 77, 124, 0.25);
+    background: linear-gradient(135deg, var(--princess-accent-rose), var(--princess-accent-mint));
+}
+
+/* Larger emojis in header buttons */
+#top-toolbar .princess-button {
+    font-size: 18px;
+}
+
+#top-toolbar .princess-button#gps-btn {
+    font-size: 20px;
+}
+
+/* PPP Logo styling */
+#ppp-logo:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+#ppp-logo:active {
+    transform: scale(0.95);
+}
+
+/* Table header styling */
+.princess-table-header {
+    color: var(--princess-text-primary) !important;
+    font-weight: 600;
+}
+
+/* Add subtle princess glow effects */
+.princess-glow {
+    box-shadow: 0 0 20px rgba(230, 224, 255, 0.4);
+}
+
+/* Input with icons styling */
+.input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    pointer-events: none;
+    font-size: 16px;
+    color: var(--princess-text-secondary);
+}
+
+.input-with-icon input {
+    padding-left: 40px !important;
+}
+
+/* My Location option styling */
+.my-location-option {
+    background: linear-gradient(135deg, var(--princess-lavender), var(--princess-accent-lavender)) !important;
+    border: 1px solid var(--princess-accent-lavender) !important;
+    font-weight: 600 !important;
+}
+
+.my-location-option::before {
+    content: "🎯";
+    margin-right: 8px;
+}
+
+.leaflet-marker-icon {
+    filter: drop-shadow(0 2px 8px rgba(107, 77, 124, 0.3));
+}
+
+/* Custom popup styling for consistent rendering */
+.custom-popup .leaflet-popup-content-wrapper {
+    background: var(--princess-surface);
+    color: var(--princess-text-primary);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(107, 77, 124, 0.2);
+    border: 2px solid var(--princess-border);
+    font-family: inherit;
+}
+
+.custom-popup .leaflet-popup-content {
+    margin: 16px;
+    line-height: 1.4;
+}
+
+.custom-popup .leaflet-popup-tip {
+    background: var(--princess-surface);
+    border: 2px solid var(--princess-border);
+    box-shadow: 0 2px 8px rgba(107, 77, 124, 0.1);
+}
+
+/* Ensure popup content renders correctly on first click */
+.custom-popup .leaflet-popup-content * {
+    box-sizing: border-box;
+}
+
+.custom-popup .leaflet-popup-content button {
+    font-family: inherit;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.custom-popup .leaflet-popup-content button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(107, 77, 124, 0.2);
+}
+
+/* Loading text styling */
+.loading-text {
+    font-size: 24px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--princess-text-primary);
+    margin: 20px 0;
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--princess-border);
+    border-top: 4px solid var(--princess-accent-lavender);
+    border-radius: 50%;
+    animation: princessSpin 1s linear infinite;
+    margin-bottom: 20px;
+}
