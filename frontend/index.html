@@ -286,6 +286,43 @@
             border: 1px solid var(--princess-border) !important;
         }
 
+        /* Row highlight animation */
+        @keyframes highlightFlashTwice {
+            0% {
+                background-color: transparent;
+                color: inherit;
+            }
+
+            15% {
+                background-color: var(--princess-accent-rose);
+                color: var(--princess-text-primary);
+            }
+
+            30% {
+                background-color: transparent;
+                color: inherit;
+            }
+
+            45% {
+                background-color: var(--princess-accent-rose);
+                color: var(--princess-text-primary);
+            }
+
+            60% {
+                background-color: transparent;
+                color: inherit;
+            }
+
+            100% {
+                background-color: transparent;
+                color: inherit;
+            }
+        }
+
+        .row-highlight-animation {
+            animation: highlightFlashTwice 1.2s ease-in-out;
+        }
+
         /* Performance optimizations */
         .leaflet-container {
             will-change: transform;
@@ -1799,11 +1836,22 @@
             bottomResults.style.display = 'block'
             topToolbar.style.display = 'flex'
             document.getElementById( 'toggle-btn' ).textContent = '🗺️'
-            const chargerRow = document.querySelector( `tr[data-charger-id="${ chargerId }"]` )
-            if ( chargerRow ) {
-                chargerRow.scrollIntoView( { behavior: 'smooth', block: 'center' } )
-                chargerRow.style.backgroundColor = '#fef2f2'
-                setTimeout( () => { chargerRow.style.backgroundColor = '' }, 2000 )
+
+            // Find ALL rows with the matching charger ID (supercharger + all its restaurants)
+            const chargerRows = document.querySelectorAll( `tr[data-charger-id="${ chargerId }"]` )
+            if ( chargerRows.length > 0 ) {
+                // Scroll to the first row (supercharger row)
+                chargerRows[ 0 ].scrollIntoView( { behavior: 'smooth', block: 'center' } )
+
+                // Add fade in/out animation to ALL rows
+                chargerRows.forEach( row => {
+                    row.classList.add( 'row-highlight-animation' )
+
+                    // Remove the animation class after it completes to allow re-triggering
+                    setTimeout( () => {
+                        row.classList.remove( 'row-highlight-animation' )
+                    }, 1200 )
+                } )
             }
             setTimeout( () => map.invalidateSize(), 100 )
         }
