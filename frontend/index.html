@@ -925,8 +925,13 @@
 
         // Debounced marker update for better performance
         let mapUpdateTimeout = null
+        let isNavigatingToMarker = false // Flag to prevent filtering during programmatic navigation
         const debouncedUpdateVisibleMarkers = () => {
             if ( mapUpdateTimeout ) clearTimeout( mapUpdateTimeout )
+            if ( isNavigatingToMarker ) {
+                console.log( '🚫 Skipping marker update during navigation' )
+                return // Skip updates when navigating to a specific marker
+            }
             mapUpdateTimeout = setTimeout( updateVisibleMarkers, 100 ) // 100ms debounce
         }
 
@@ -1080,7 +1085,7 @@
                 const matchingRestaurants = station.restaurants.filter( restaurant => {
                     const nameMatch = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
                     const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 ||
-                        currentCuisineFilter.some( fc => fc !== '' && fc.toLowerCase() === ( restaurant.primary_type_display || '' ).toLowerCase() )
+                        currentCuisineFilter.some( fc => fc !== '' && ( restaurant.primary_type_display || '' ).toLowerCase().includes( fc ) )
                     return nameMatch && cuisineMatch
                 } )
 
@@ -1324,7 +1329,7 @@
                 station.restaurantMarkers.forEach( restaurantMarker => {
                     const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
                     const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisine.includes( fc ) )
                     if ( nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
                         filteredRestaurantCount++
                     }
@@ -1336,7 +1341,7 @@
                 const marker = restaurantData.marker
                 const nameMatches = !currentSearchTerm || marker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
                 const restaurantCuisine = ( marker.options.cuisine || '' ).toLowerCase()
-                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisine.includes( fc ) )
                 if ( nameMatches && cuisineMatches && bounds.contains( marker.getLatLng() ) ) {
                     filteredRestaurantCount++
                 }
@@ -1354,7 +1359,7 @@
                     station.restaurantMarkers.forEach( restaurantMarker => {
                         const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
                         const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
-                        const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                        const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisine.includes( fc ) )
 
                         if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
                             if ( !restaurantLayer.hasLayer( restaurantMarker ) ) restaurantLayer.addLayer( restaurantMarker )
@@ -1409,95 +1414,132 @@
             if ( !cachedViewportData ) return
 
             const bounds = map.getBounds()
-            const superchargers = cachedViewportData.superchargers || []
-            const restaurants = cachedViewportData.restaurants || []
-            const mappings = cachedViewportData.mappings || []
+            const originalSuperchargers = cachedViewportData.superchargers || []
+            const originalRestaurants = cachedViewportData.restaurants || []
+            const originalMappings = cachedViewportData.mappings || []
 
             // Store mappings
-            viewportMappings = mappings
+            viewportMappings = originalMappings
 
-            // Performance optimization: limit the number of viewport superchargers to prevent slowdown
-            const maxViewportSuperchargers = 500 // Increased limit
-            const limitedSuperchargers = superchargers.slice( 0, maxViewportSuperchargers )
+            // Create filtered restaurant list
+            const filteredRestaurants = originalRestaurants.filter( restaurant => {
+                const nameMatches = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
+                const restaurantCuisine = ( restaurant.primary_type_display || '' ).toLowerCase()
+                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisine.includes( fc ) )
+                return nameMatches && cuisineMatches
+            } )
 
-            // Remove superchargers that are no longer in viewport bounds
+            // Create filtered supercharger list based on restaurant filters
+            const hasActiveFilters = currentSearchTerm !== '' || ( currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) )
+            let visibleSuperchargerIds = new Set()
+
+            if ( hasActiveFilters && filteredRestaurants.length > 0 ) {
+                // Get superchargers that have mappings to filtered restaurants
+                const filteredRestaurantIds = new Set( filteredRestaurants.map( r => r.place_id ) )
+                originalMappings.forEach( mapping => {
+                    if ( filteredRestaurantIds.has( mapping.restaurant_id ) ) {
+                        visibleSuperchargerIds.add( mapping.supercharger_id )
+                    }
+                } )
+            } else if ( !hasActiveFilters ) {
+                // No filters, all superchargers are visible
+                originalSuperchargers.forEach( sc => visibleSuperchargerIds.add( sc.place_id ) )
+            }
+            // If hasActiveFilters but no filtered restaurants, visibleSuperchargerIds remains empty
+
+            // Performance optimization: limit the number of viewport superchargers
+            const maxViewportSuperchargers = 500
+            const limitedSuperchargers = originalSuperchargers.slice( 0, maxViewportSuperchargers )
+
+            // Clear superchargers that are no longer in viewport bounds
             for ( const [ placeId, superchargerData ] of viewportSuperchargers ) {
                 if ( !bounds.contains( superchargerData.marker.getLatLng() ) ) {
-                    viewportSuperchargersLayer.removeLayer( superchargerData.marker )
+                    if ( viewportSuperchargersLayer.hasLayer( superchargerData.marker ) ) {
+                        console.log( `🔌 REMOVE: Supercharger ${ placeId } (out of bounds)` )
+                        viewportSuperchargersLayer.removeLayer( superchargerData.marker )
+                    }
                     viewportSuperchargers.delete( placeId )
                 }
             }
 
-            // Determine which superchargers should be visible based on filters
-            let visibleSuperchargerIds = new Set()
-            const hasActiveFilters = currentSearchTerm !== '' || ( currentCuisineFilter.length > 0 && !currentCuisineFilter.includes( '' ) )
-            if ( hasActiveFilters ) {
-                // Find restaurants that match the current filters
-                const matchingRestaurantIds = new Set()
-                restaurants.forEach( restaurant => {
-                    const nameMatches = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc.toLowerCase() === ( restaurant.primary_type_display || '' ).toLowerCase() )
-                    if ( nameMatches && cuisineMatches ) {
-                        matchingRestaurantIds.add( restaurant.place_id )
-                    }
-                } )
-                // Find superchargers that have mappings to matching restaurants
-                mappings.forEach( mapping => {
-                    if ( matchingRestaurantIds.has( mapping.restaurant_id ) ) {
-                        visibleSuperchargerIds.add( mapping.supercharger_id )
-                    }
-                } )
-            } else {
-                // No filters, all superchargers are visible
-                limitedSuperchargers.forEach( sc => visibleSuperchargerIds.add( sc.place_id ) )
-            }
-
-            // Add new superchargers (limited to prevent performance issues)
-            const superchargersToAdd = limitedSuperchargers.filter( supercharger =>
-                !viewportSuperchargers.has( supercharger.place_id ) &&
-                bounds.contains( L.latLng( supercharger.latitude, supercharger.longitude ) ) &&
-                visibleSuperchargerIds.has( supercharger.place_id )
-            )
-
-            superchargersToAdd.forEach( supercharger => {
-                const marker = createViewportSuperchargerMarker( supercharger )
-                viewportSuperchargers.set( supercharger.place_id, {
-                    data: supercharger,
-                    marker: marker
-                } )
-                viewportSuperchargersLayer.addLayer( marker )
+            // Get superchargers that should be visible
+            const shouldBeVisibleSuperchargerIds = new Set()
+            limitedSuperchargers.forEach( supercharger => {
+                if ( bounds.contains( L.latLng( supercharger.latitude, supercharger.longitude ) ) && visibleSuperchargerIds.has( supercharger.place_id ) ) {
+                    shouldBeVisibleSuperchargerIds.add( supercharger.place_id )
+                }
             } )
 
-            // Update visibility of existing superchargers
+            // Get currently visible superchargers in the layer
+            const currentlyVisibleSuperchargerIds = new Set()
             for ( const [ placeId, superchargerData ] of viewportSuperchargers ) {
-                const marker = superchargerData.marker
-                if ( visibleSuperchargerIds.has( placeId ) && bounds.contains( marker.getLatLng() ) ) {
-                    if ( !viewportSuperchargersLayer.hasLayer( marker ) ) viewportSuperchargersLayer.addLayer( marker )
-                } else {
-                    if ( viewportSuperchargersLayer.hasLayer( marker ) ) viewportSuperchargersLayer.removeLayer( marker )
+                if ( viewportSuperchargersLayer.hasLayer( superchargerData.marker ) ) {
+                    currentlyVisibleSuperchargerIds.add( placeId )
                 }
             }
 
-            // Handle viewport restaurants
-            updateViewportRestaurants( restaurants, bounds )
+            // Calculate deltas for superchargers
+            const superchargersToRemove = new Set()
+            const superchargersToAdd = new Set()
 
-            // Better clustering logic: adjust based on zoom and count to keep visible markers reasonable
+            // Find superchargers to remove (currently visible but should not be)
+            for ( const placeId of currentlyVisibleSuperchargerIds ) {
+                if ( !shouldBeVisibleSuperchargerIds.has( placeId ) ) {
+                    superchargersToRemove.add( placeId )
+                }
+            }
+
+            // Find superchargers to add (should be visible but currently not)
+            for ( const placeId of shouldBeVisibleSuperchargerIds ) {
+                if ( !currentlyVisibleSuperchargerIds.has( placeId ) ) {
+                    superchargersToAdd.add( placeId )
+                }
+            }
+
+            // Add new superchargers to the collection
+            limitedSuperchargers.forEach( supercharger => {
+                if ( !viewportSuperchargers.has( supercharger.place_id ) && bounds.contains( L.latLng( supercharger.latitude, supercharger.longitude ) ) ) {
+                    const marker = createViewportSuperchargerMarker( supercharger )
+                    viewportSuperchargers.set( supercharger.place_id, {
+                        data: supercharger,
+                        marker: marker
+                    } )
+                }
+            } )
+
+            // Apply delta changes - only remove superchargers that need to be removed
+            for ( const placeId of superchargersToRemove ) {
+                const superchargerData = viewportSuperchargers.get( placeId )
+                if ( superchargerData && viewportSuperchargersLayer.hasLayer( superchargerData.marker ) ) {
+                    console.log( `🔌 REMOVE: Supercharger ${ placeId } (filtered out)` )
+                    viewportSuperchargersLayer.removeLayer( superchargerData.marker )
+                }
+            }
+
+            // Apply delta changes - only add superchargers that need to be added
+            for ( const placeId of superchargersToAdd ) {
+                const superchargerData = viewportSuperchargers.get( placeId )
+                if ( superchargerData && !viewportSuperchargersLayer.hasLayer( superchargerData.marker ) ) {
+                    console.log( `🔌 ADD: Supercharger ${ placeId }` )
+                    viewportSuperchargersLayer.addLayer( superchargerData.marker )
+                }
+            }
+
+            // Handle viewport restaurants using the cleaned up approach
+            updateViewportRestaurants( originalRestaurants, bounds, filteredRestaurants )
+
+            // Better clustering logic
             const zoom = map.getZoom()
             const totalViewportSuperchargers = viewportSuperchargers.size
 
-            // Dynamic clustering based on zoom and count
             if ( totalViewportSuperchargers > 100 ) {
-                // At high counts, cluster earlier
                 viewportSuperchargersLayer.options.disableClusteringAtZoom = Math.max( 10, zoom - 2 )
             } else if ( totalViewportSuperchargers > 50 ) {
-                // Moderate clustering
                 viewportSuperchargersLayer.options.disableClusteringAtZoom = Math.max( 12, zoom - 1 )
             } else {
-                // Light clustering or no clustering for small numbers
                 viewportSuperchargersLayer.options.disableClusteringAtZoom = Math.max( 15, zoom + 1 )
             }
 
-            // Refresh the clusters
             setTimeout( () => viewportSuperchargersLayer.refreshClusters(), 50 )
         }
 
@@ -1576,11 +1618,40 @@
         /**
          * Updates restaurants for the current viewport.
          */
-        function updateViewportRestaurants ( restaurants, bounds ) {
-            const zoom = map.getZoom()
+        function updateViewportRestaurants ( restaurants, bounds, preFilteredRestaurants = null ) {
+            // Store the original viewport data
+            const originalViewportRestaurants = restaurants || []
+            const originalViewportSuperchargers = cachedViewportData.superchargers || []
+            const originalViewportMappings = cachedViewportData.mappings || []
 
-            // Count filtered restaurants for dynamic zoom threshold (both route and viewport)
-            let filteredRestaurantCount = 0
+            // Use pre-filtered restaurants if provided, otherwise filter ourselves
+            let filteredViewportRestaurants
+            if ( preFilteredRestaurants !== null ) {
+                filteredViewportRestaurants = preFilteredRestaurants
+            } else {
+                // Create filtered lists based on current filters
+                filteredViewportRestaurants = originalViewportRestaurants.filter( restaurant => {
+                    const nameMatches = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
+                    const restaurantCuisine = ( restaurant.primary_type_display || '' ).toLowerCase()
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisine.includes( fc ) )
+                    return nameMatches && cuisineMatches
+                } )
+            }
+
+            // Get superchargers that have mappings to filtered restaurants
+            const filteredRestaurantIds = new Set( filteredViewportRestaurants.map( r => r.place_id ) )
+            const filteredViewportSuperchargers = originalViewportSuperchargers.filter( supercharger => {
+                if ( filteredRestaurantIds.size === 0 ) {
+                    return false
+                }
+                // Check if this supercharger has mappings to any filtered restaurants
+                return originalViewportMappings.some( mapping =>
+                    mapping.supercharger_id === supercharger.place_id && filteredRestaurantIds.has( mapping.restaurant_id )
+                )
+            } )
+
+            // Count total filtered restaurants (route + viewport)
+            let totalFilteredRestaurantCount = 0
 
             // Count route restaurants
             const dataToUse = filteredChargerIDs !== null ? filteredStationData : stationData
@@ -1588,65 +1659,100 @@
                 station.restaurantMarkers.forEach( restaurantMarker => {
                     const nameMatches = !currentSearchTerm || restaurantMarker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
                     const restaurantCuisine = ( restaurantMarker.options.cuisine || '' ).toLowerCase()
-                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+                    const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && restaurantCuisine.includes( fc ) )
                     if ( nameMatches && cuisineMatches && bounds.contains( restaurantMarker.getLatLng() ) ) {
-                        filteredRestaurantCount++
+                        totalFilteredRestaurantCount++
                     }
                 } )
             } )
 
-            // Count viewport restaurants
+            // Add viewport restaurants count
+            totalFilteredRestaurantCount += filteredViewportRestaurants.filter( restaurant =>
+                bounds.contains( L.latLng( restaurant.latitude, restaurant.longitude ) )
+            ).length
+
+            // Determine if restaurants should be visible (between 1-50 total)
+            const restaurantsShouldBeVisible = ( totalFilteredRestaurantCount > 0 && totalFilteredRestaurantCount <= 50 )
+
+            // Clear route-based restaurant layer since we only want viewport restaurants visible
+            const routeRestaurantsCount = restaurantLayer.getLayers().length
+            if ( routeRestaurantsCount > 0 ) {
+                restaurantLayer.clearLayers()
+            }
+
+            // Get current restaurants that should be visible
+            const shouldBeVisibleIds = new Set()
+            if ( restaurantsShouldBeVisible ) {
+                filteredViewportRestaurants.forEach( restaurant => {
+                    if ( bounds.contains( L.latLng( restaurant.latitude, restaurant.longitude ) ) ) {
+                        shouldBeVisibleIds.add( restaurant.place_id )
+                    }
+                } )
+            }
+
+            // Get currently visible restaurants in the layer
+            const currentlyVisibleIds = new Set()
             for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
-                const marker = restaurantData.marker
-                const nameMatches = !currentSearchTerm || marker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
-                const restaurantCuisine = ( marker.options.cuisine || '' ).toLowerCase()
-                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
-                if ( nameMatches && cuisineMatches && bounds.contains( marker.getLatLng() ) ) {
-                    filteredRestaurantCount++
+                if ( viewportRestaurantsLayer.hasLayer( restaurantData.marker ) ) {
+                    currentlyVisibleIds.add( placeId )
                 }
             }
 
-            // Show restaurants if total filtered count is between 1 and 50 (inclusive)
-            // Don't show if 0 restaurants or more than 50
-            const restaurantsShouldBeVisible = ( filteredRestaurantCount > 0 && filteredRestaurantCount <= 50 )
+            // Calculate deltas
+            const toRemove = new Set()
+            const toAdd = new Set()
 
-            // Create a set of current restaurant place_ids
-            const currentPlaceIds = new Set( restaurants.map( r => r.place_id ) )
+            // Find restaurants to remove (currently visible but should not be)
+            for ( const placeId of currentlyVisibleIds ) {
+                if ( !shouldBeVisibleIds.has( placeId ) ) {
+                    toRemove.add( placeId )
+                }
+            }
 
-            // Remove restaurants that are no longer in viewport
+            // Find restaurants to add (should be visible but currently not)
+            for ( const placeId of shouldBeVisibleIds ) {
+                if ( !currentlyVisibleIds.has( placeId ) ) {
+                    toAdd.add( placeId )
+                }
+            }
+
+            // Update viewportRestaurants collection - remove restaurants no longer in viewport
+            const currentPlaceIds = new Set( originalViewportRestaurants.map( r => r.place_id ) )
             for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
                 if ( !currentPlaceIds.has( placeId ) ) {
-                    viewportRestaurantsLayer.removeLayer( restaurantData.marker )
+                    if ( viewportRestaurantsLayer.hasLayer( restaurantData.marker ) ) {
+                        viewportRestaurantsLayer.removeLayer( restaurantData.marker )
+                    }
                     viewportRestaurants.delete( placeId )
                 }
             }
 
-            // Add new restaurants
-            restaurants.forEach( restaurant => {
+            // Add new restaurants to the collection
+            originalViewportRestaurants.forEach( restaurant => {
                 if ( !viewportRestaurants.has( restaurant.place_id ) ) {
                     const marker = createRestaurantMarker( restaurant )
                     viewportRestaurants.set( restaurant.place_id, {
                         data: restaurant,
                         marker: marker
                     } )
-                    // Only add to layer if restaurants should be visible at current zoom
-                    if ( restaurantsShouldBeVisible && bounds.contains( marker.getLatLng() ) ) {
-                        viewportRestaurantsLayer.addLayer( marker )
-                    }
                 }
             } )
 
-            // Update visibility of existing restaurants based on zoom and filters
-            for ( const [ placeId, restaurantData ] of viewportRestaurants ) {
-                const marker = restaurantData.marker
-                const nameMatches = !currentSearchTerm || marker.options.restaurantName.toLowerCase().includes( currentSearchTerm )
-                const restaurantCuisine = ( marker.options.cuisine || '' ).toLowerCase()
-                const cuisineMatches = currentCuisineFilter.length === 0 || currentCuisineFilter.includes( '' ) || currentCuisineFilter.some( fc => fc !== '' && fc === restaurantCuisine )
+            // Apply delta changes - only remove markers that need to be removed
+            for ( const placeId of toRemove ) {
+                const restaurantData = viewportRestaurants.get( placeId )
+                if ( restaurantData && viewportRestaurantsLayer.hasLayer( restaurantData.marker ) ) {
+                    console.log( `🌭 REMOVE: Restaurant ${ placeId }` )
+                    viewportRestaurantsLayer.removeLayer( restaurantData.marker )
+                }
+            }
 
-                if ( restaurantsShouldBeVisible && nameMatches && cuisineMatches && bounds.contains( marker.getLatLng() ) ) {
-                    if ( !viewportRestaurantsLayer.hasLayer( marker ) ) viewportRestaurantsLayer.addLayer( marker )
-                } else {
-                    if ( viewportRestaurantsLayer.hasLayer( marker ) ) viewportRestaurantsLayer.removeLayer( marker )
+            // Apply delta changes - only add markers that need to be added
+            for ( const placeId of toAdd ) {
+                const restaurantData = viewportRestaurants.get( placeId )
+                if ( restaurantData && !viewportRestaurantsLayer.hasLayer( restaurantData.marker ) ) {
+                    console.log( `🌭 ADD: Restaurant ${ placeId }` )
+                    viewportRestaurantsLayer.addLayer( restaurantData.marker )
                 }
             }
         }
@@ -1826,6 +1932,8 @@
 
             const supercharger = station.chargerInfo.supercharger
 
+            console.log( `🎯 Navigating to supercharger ${ supercharger.place_id }` )
+
             document.getElementById( 'map' ).style.display = 'block'
             document.getElementById( 'bottom-results' ).style.display = 'none'
             document.getElementById( 'toggle-btn' ).textContent = '📖'
@@ -1836,8 +1944,10 @@
 
             if ( markerData && markerData.marker ) {
                 marker = markerData.marker
+                console.log( `🔌 Found existing marker for ${ supercharger.place_id }` )
             } else {
                 marker = createViewportSuperchargerMarker( supercharger )
+                console.log( `🔌 ADD: New marker for navigation to ${ supercharger.place_id }` )
                 viewportSuperchargersLayer.addLayer( marker )
                 viewportSuperchargers.set( supercharger.place_id, { data: supercharger, marker: marker } )
             }
@@ -1850,7 +1960,18 @@
                 className: 'custom-popup'
             } )
 
-            map.once( 'moveend', () => marker.openPopup() )
+            // Set navigation flag to prevent filtering interference
+            isNavigatingToMarker = true
+
+            map.once( 'moveend', () => {
+                console.log( `🎯 Arrived at supercharger ${ supercharger.place_id }, opening popup` )
+                marker.openPopup()
+                // Clear navigation flag after popup opens
+                setTimeout( () => {
+                    isNavigatingToMarker = false
+                    console.log( '✅ Navigation complete, filtering re-enabled' )
+                }, 500 ) // Give the popup time to fully open
+            } )
             map.setView( marker.getLatLng(), 15, { animate: true } )
         }
 
@@ -1865,16 +1986,30 @@
             const restaurantMarker = station.restaurantMarkers.find( m => m.options.restaurantName === restaurantName )
             if ( !restaurantMarker ) return
 
+            console.log( `🎯 Navigating to restaurant ${ restaurantName }` )
+
             document.getElementById( 'map' ).style.display = 'block'
             document.getElementById( 'bottom-results' ).style.display = 'none'
             document.getElementById( 'toggle-btn' ).textContent = '📖'
             map.invalidateSize()
 
             if ( !restaurantLayer.hasLayer( restaurantMarker ) ) {
+                console.log( `🌭 ADD: Restaurant marker for navigation to ${ restaurantName }` )
                 restaurantLayer.addLayer( restaurantMarker )
             }
 
-            map.once( 'moveend', () => restaurantMarker.openPopup() )
+            // Set navigation flag to prevent filtering interference
+            isNavigatingToMarker = true
+
+            map.once( 'moveend', () => {
+                console.log( `🎯 Arrived at restaurant ${ restaurantName }, opening popup` )
+                restaurantMarker.openPopup()
+                // Clear navigation flag after popup opens
+                setTimeout( () => {
+                    isNavigatingToMarker = false
+                    console.log( '✅ Navigation complete, filtering re-enabled' )
+                }, 500 ) // Give the popup time to fully open
+            } )
             map.setView( restaurantMarker.getLatLng(), 16, { animate: true } )
         }
 
