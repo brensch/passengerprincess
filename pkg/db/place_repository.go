@@ -146,3 +146,10 @@ func (r *SuperchargerRepository) AddSuperchargerWithRestaurants(supercharger *Su
 		return nil
 	})
 }
+
+// GetMappingsForSuperchargers retrieves all restaurant-supercharger mappings for a list of superchargers
+func (r *SuperchargerRepository) GetMappingsForSuperchargers(superchargerIDs []string) ([]RestaurantSuperchargerMapping, error) {
+	var mappings []RestaurantSuperchargerMapping
+	err := r.db.Where("supercharger_id IN ?", superchargerIDs).Find(&mappings).Error
+	return mappings, err
+}

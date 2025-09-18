@@ -70,11 +70,9 @@ type RestaurantWithDistance struct {
 
 // RestaurantSuperchargerMapping represents the mapping between restaurants and superchargers with distance
 type RestaurantSuperchargerMapping struct {
-	RestaurantID   string       `gorm:"primaryKey;column:restaurant_id;constraint:OnDelete:CASCADE" json:"restaurant_id"`
-	SuperchargerID string       `gorm:"primaryKey;column:supercharger_id;constraint:OnDelete:CASCADE" json:"supercharger_id"`
-	Distance       float64      `gorm:"column:distance" json:"distance"`
-	Restaurant     Restaurant   `gorm:"foreignKey:RestaurantID;references:PlaceID"`
-	Supercharger   Supercharger `gorm:"foreignKey:SuperchargerID;references:PlaceID"`
+	RestaurantID   string  `gorm:"primaryKey;column:restaurant_id;constraint:OnDelete:CASCADE" json:"restaurant_id"`
+	SuperchargerID string  `gorm:"primaryKey;column:supercharger_id;constraint:OnDelete:CASCADE;index:idx_supercharger_id" json:"supercharger_id"`
+	Distance       float64 `gorm:"column:distance" json:"distance"`
 }
 
 // TableName returns the table name for RestaurantSuperchargerMapping

@@ -285,11 +285,27 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get mappings for the superchargers
+	var superchargerIDs []string
+	for _, sc := range superchargers {
+		superchargerIDs = append(superchargerIDs, sc.PlaceID)
+	}
+	var mappings []db.RestaurantSuperchargerMapping
+	if len(superchargerIDs) > 0 {
+		mappings, err = service.Supercharger.GetMappingsForSuperchargers(superchargerIDs)
+		if err != nil {
+			log.Printf("Error getting mappings: %v", err)
+			writeJSONError(w, "Failed to get mappings", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	encoder.Encode(map[string]interface{}{
 		"superchargers": superchargers,
 		"restaurants":   restaurants,
+		"mappings":      mappings,
 	})
 }
