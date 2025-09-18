@@ -1625,11 +1625,8 @@
                     <div class="flex flex-col">
                         <div class="flex">
                             <div class="flex-1 flex flex-col">
-                                <div class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></div>
+                                <div class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong> (+ ${ distanceFromOrigin })</div>
                                 <div class="font-bold">${ arrivalTime }</div>
-                            </div>
-                            <div class="ml-2 flex flex-col items-end">
-                                <div class="text-xs text-pink-600 mb-1">Off Route: ${ distanceFromOrigin }</div>
                             </div>
                         </div>
                         <div class="w-full mb-1">
@@ -1651,11 +1648,8 @@
                         <div class="flex flex-col">
                             <div class="flex">
                                 <div class="flex-1 flex flex-col">
-                                    <div class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong></div>
+                                    <div class="text-xs text-pink-600"><strong>${ totalDistanceDisplay }</strong> (+ ${ distanceFromOrigin })</div>
                                     <div class="font-bold">${ arrivalTime }</div>
-                                </div>
-                                <div class="ml-2 flex flex-col items-end">
-                                    <div class="text-xs text-pink-600 mb-1">Off Route: ${ distanceFromOrigin }</div>
                                 </div>
                             </div>
                             <div class="w-full mb-1">
@@ -2325,7 +2319,39 @@
             // Clear autocomplete session tokens
             autocompleteSessions.origin = null
             autocompleteSessions.destination = null
-            window.location.href = window.location.pathname
+
+            // Clear input fields
+            originInput.value = ''
+            destinationInput.value = ''
+
+            // Hide the modal
+            document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
+
+            // Clear previous results and map layers
+            clearPreviousResults()
+
+            // Clear status message
+            updateStatus( '', false )
+
+            // Reset UI to initial search state
+            searchForm.style.display = 'block'
+            bottomResults.style.display = 'none'
+            mapElement.style.display = 'block'
+            topToolbar.style.display = 'none'
+            mapElement.style.top = '0'
+            mapElement.style.height = '100vh'
+            document.querySelector( '#search-form .flex.justify-between.items-center' ).style.display = 'none'
+
+            // Reset map to default view
+            map.setView( [ 37.7749, -122.4194 ], 6 )
+            map.invalidateSize()
+
+            // Clear autocomplete suggestions
+            originSuggestions.classList.add( 'hidden' )
+            destinationSuggestions.classList.add( 'hidden' )
+
+            // Clear URL query parameters
+            window.history.replaceState( null, '', window.location.pathname )
         } )
         document.getElementById( 'reload-from-here' ).addEventListener( 'click', () => {
             // Get modal button references
