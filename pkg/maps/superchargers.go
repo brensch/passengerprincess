@@ -534,7 +534,8 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 }
 
 const (
-	FieldMaskRestaurantTextSearch = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName,places.googleMapsUri"
+	FieldMaskRestaurantTextSearch   = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName,places.googleMapsUri"
+	FieldMaskRestaurantNearbySearch = "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.primaryTypeDisplayName,places.googleMapsUri"
 	// this is pro because of the usage of displayName. Without it we get non superchargers returned.
 	// There is no way to force it to contain the exact text.
 	FieldMaskSuperchargerDetails = "id,name,displayName,formattedAddress,location,googleMapsUri"
@@ -586,7 +587,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		return supercharger, []db.RestaurantWithDistance{}, nil
 	}
 
-	restaurants, err := GetPlacesViaTextSearch(ctx, apiKey, "restaurant", FieldMaskRestaurantTextSearch, Circle{
+	restaurants, err := GetPlacesViaTextSearch(ctx, apiKey, "food", FieldMaskRestaurantTextSearch, Circle{
 		Center: Point{
 			Latitude:  superchargerDetails.Location.Latitude,
 			Longitude: superchargerDetails.Location.Longitude,
