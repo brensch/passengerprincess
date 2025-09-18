@@ -607,13 +607,11 @@
     </div>
 
     <div class="overlay-form" id="search-form">
-        <!-- Consistent header bar -->
         <div class="flex justify-between items-center mb-6" style="height: 36px;">
             <div class="text-2xl font-bold font-dancing cursor-pointer" id="ppp-logo-search"
                 style="color: var(--princess-text-primary); text-shadow: 2px 2px 4px rgba(107, 77, 124, 0.2);"> PPP
             </div>
             <div class="flex space-x-2">
-                <!-- Empty space to match button area -->
             </div>
         </div>
         <header class="text-center mb-6">
@@ -1300,69 +1298,53 @@
         }
 
         /**
-         * Generates popup content for a supercharger marker.
+         * Generates the HTML content for a Supercharger popup.
+         * It checks if the supercharger is part of the route and includes extra info if it is.
          */
         function generateSuperchargerPopupContent ( supercharger, chargerId = null ) {
-            const routeSupercharger = routeSuperchargers.get( supercharger.place_id )
-            let popupContent
-
-            if ( routeSupercharger ) {
-                // This supercharger is on the route, show ETA info
-                try {
-                    const distanceFromRoute = routeSupercharger.distance_from_route || 0
-                    const distanceAlongRoute = routeSupercharger.distance_along_route || 0
-                    const arrivalTime = routeSupercharger.arrival_time || 'N/A'
-
-                    const distanceFromOrigin = distanceFromRoute ? ( distanceFromRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-                    const distanceAlongRouteDisplay = distanceAlongRoute ? ( distanceAlongRoute / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-                    const totalDistance = ( distanceAlongRoute + distanceFromRoute ) / 1609.34
-                    const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
-
-                    popupContent = `
-                        <div class="font-sans max-w-xs">
-                            <strong class="text-lg">${ supercharger.name }</strong><br>
-                            <strong>Address:</strong> ${ supercharger.address }<br>
-                            <strong>Arrival:</strong> ${ arrivalTime }<br>
-                            <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
-                            <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
-                            <div class="flex flex-col gap-2 mt-3">
-                                ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
-                                <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                            </div>
-                        </div>
-                    `
-                } catch ( error ) {
-                    console.error( 'Error accessing route supercharger data:', error, routeSupercharger )
-                    popupContent = `
-                        <div class="font-sans max-w-xs">
-                            <strong class="text-lg">${ supercharger.name }</strong><br>
-                            <strong>Address:</strong> ${ supercharger.address }<br>
-                            <strong>On Route</strong><br>
-                            <div class="flex flex-col gap-2 mt-3">
-                                ${ chargerId ? `<button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>` : '' }
-                                <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                                <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                            </div>
-                        </div>
-                    `
+            // If chargerId isn't passed directly, try to find it by looking through the route data
+            let finalChargerId = chargerId
+            if ( !finalChargerId ) {
+                const routeStation = stationData.find( s => s.chargerInfo.supercharger.place_id === supercharger.place_id )
+                if ( routeStation ) {
+                    finalChargerId = routeStation.id
                 }
-            } else {
-                // Regular viewport supercharger
-                popupContent = `
-                    <div class="font-sans max-w-xs">
-                        <strong class="text-lg">${ supercharger.name }</strong><br>
-                        <strong>Address:</strong> ${ supercharger.address }<br>
-                        <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                            <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                        </div>
+            }
+
+            const routeData = routeSuperchargers.get( supercharger.place_id )
+            let content = `
+                <div class="font-sans max-w-xs">
+                    <strong class="text-lg">${ supercharger.name }</strong><br>
+                    <p style="font-size: 0.9em; color: var(--princess-text-secondary); margin-top: 4px;">${ supercharger.address }</p>
+            `
+
+            if ( routeData ) {
+                const distFromRoute = ( routeData.distance_from_route || 0 ) / 1609.34
+                const totalDist = ( ( routeData.distance_along_route || 0 ) + ( routeData.distance_from_route || 0 ) ) / 1609.34
+                content += `
+                    <div style="margin-top: 10px; font-size: 0.9em; line-height: 1.5; color: var(--princess-text-primary);">
+                        <strong>Arrival:</strong> ${ routeData.arrival_time || 'N/A' }<br>
+                        <strong>Total Distance:</strong> ${ totalDist.toFixed( 1 ) } mi<br>
+                        <strong>Deviation:</strong> ${ distFromRoute.toFixed( 1 ) } mi
                     </div>
                 `
             }
 
-            return popupContent
+            content += '<div class="flex flex-col gap-2 mt-3">'
+            // Use the finalChargerId (which could be the one passed in or the one we found)
+            if ( finalChargerId ) {
+                content += `<button onclick="showChargerInResults('${ finalChargerId }')" class="princess-button text-sm w-full" style="background: var(--princess-accent-rose);">View in List</button>`
+            }
+            content += `
+                    <button onclick="openInGoogleMaps('${ supercharger.google_maps_uri || '' }')" class="princess-button text-sm w-full">Open in Google Maps</button>
+                    <button onclick="shareToTesla('${ supercharger.place_id }', '${ supercharger.name.replace( /'/g, '\\\'' ) }', '${ supercharger.google_maps_uri || '' }')" class="princess-button text-sm w-full" style="background: var(--princess-accent-mint);">Send to Tesla</button>
+                </div>
+            </div>`
+
+            return content
         }
+
+
         function createViewportSuperchargerMarker ( supercharger ) {
             const marker = L.marker( [ supercharger.latitude, supercharger.longitude ], {
                 icon: L.divIcon( {
@@ -1373,7 +1355,6 @@
                 } )
             } )
 
-            // Defer route lookup until popup is opened
             marker.on( 'popupopen', function () {
                 const popupContent = generateSuperchargerPopupContent( supercharger )
                 this.setPopupContent( popupContent )
@@ -1439,7 +1420,7 @@
             // Add new restaurants
             restaurants.forEach( restaurant => {
                 if ( !viewportRestaurants.has( restaurant.place_id ) ) {
-                    const marker = createViewportRestaurantMarker( restaurant )
+                    const marker = createRestaurantMarker( restaurant )
                     viewportRestaurants.set( restaurant.place_id, {
                         data: restaurant,
                         marker: marker
@@ -1467,9 +1448,46 @@
         }
 
         /**
-         * Creates a marker for a viewport restaurant.
+         * Generates the HTML content for a restaurant popup.
          */
-        function createViewportRestaurantMarker ( restaurant ) {
+        function generateRestaurantPopupContent ( restaurant ) {
+            let nearestDistance = null
+            const restaurantLatLng = L.latLng( restaurant.latitude, restaurant.longitude )
+
+            const allSuperchargers = [
+                ...Array.from( routeSuperchargers.values() ).map( r => r.supercharger ),
+                ...Array.from( viewportSuperchargers.values() ).map( v => v.data )
+            ]
+            const uniqueSuperchargers = Array.from( new Map( allSuperchargers.map( sc => [ sc.place_id, sc ] ) ).values() )
+
+            uniqueSuperchargers.forEach( sc => {
+                const scLatLng = L.latLng( sc.latitude, sc.longitude )
+                const distance = restaurantLatLng.distanceTo( scLatLng )
+                if ( nearestDistance === null || distance < nearestDistance ) {
+                    nearestDistance = distance
+                }
+            } )
+
+            const distanceDisplay = nearestDistance !== null ? `• ${ Math.round( nearestDistance ) }m from charger` : ''
+
+            return `
+                <div class="font-sans max-w-xs">
+                    <strong class="text-lg">${ restaurant.name }</strong><br>
+                    <p style="font-size: 0.9em; color: var(--princess-text-secondary); margin-top: 4px;">
+                        ${ restaurant.primary_type_display || '' } ${ distanceDisplay }
+                    </p>
+                    <div class="flex flex-col gap-2 mt-3">
+                        <button onclick="openInGoogleMaps('${ restaurant.google_maps_uri || '' }')" class="princess-button text-sm w-full">Open in Google Maps</button>
+                        <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="princess-button text-sm w-full" style="background: var(--princess-accent-mint);">Send to Tesla</button>
+                    </div>
+                </div>`
+        }
+
+
+        /**
+         * Creates a single, unified marker for a restaurant.
+         */
+        function createRestaurantMarker ( restaurant ) {
             const marker = L.marker( [ restaurant.latitude, restaurant.longitude ], {
                 icon: L.divIcon( {
                     className: 'emoji-icon restaurant-icon',
@@ -1481,44 +1499,8 @@
                 cuisine: ( restaurant.primary_type_display || '' )
             } )
 
-            // Generate popup content dynamically when popup is opened to ensure fresh data
             marker.on( 'popupopen', function () {
-                // Find distance to nearest supercharger
-                let nearestDistance = null
-                let nearestSupercharger = null
-
-                // Check route superchargers first
-                for ( const [ , charger ] of routeSuperchargers ) {
-                    const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.supercharger.latitude, charger.supercharger.longitude )
-                    if ( nearestDistance === null || distance < nearestDistance ) {
-                        nearestDistance = distance
-                        nearestSupercharger = charger.supercharger
-                    }
-                }
-
-                // Also check viewport superchargers
-                for ( const [ , scData ] of viewportSuperchargers ) {
-                    const charger = scData.data
-                    const distance = getDistance( restaurant.latitude, restaurant.longitude, charger.latitude, charger.longitude )
-                    if ( nearestDistance === null || distance < nearestDistance ) {
-                        nearestDistance = distance
-                        nearestSupercharger = charger
-                    }
-                }
-
-                const distanceDisplay = nearestDistance ? Math.round( nearestDistance ) + 'm' : 'Distance unknown'
-
-                const popupContent = `
-                    <div class="font-sans max-w-xs">
-                        <strong class="text-lg">${ restaurant.name }</strong><br>
-                        <strong>Distance to nearest supercharger:</strong> ${ distanceDisplay }<br>
-                        <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="openInGoogleMaps('${ restaurant.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Google Maps</button>
-                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
-                        </div>
-                    </div>
-                `
-                this.setPopupContent( popupContent )
+                this.setPopupContent( generateRestaurantPopupContent( restaurant ) )
             } )
 
             marker.bindPopup( 'Loading...', {
@@ -1531,92 +1513,16 @@
         }
 
         /**
-         * Calculate distance between two points using Haversine formula.
+         * Creates an array of restaurant markers for a given charger station.
          */
-        function getDistance ( lat1, lng1, lat2, lng2 ) {
-            const R = 6371e3 // Earth's radius in meters
-            const φ1 = lat1 * Math.PI / 180
-            const φ2 = lat2 * Math.PI / 180
-            const Δφ = ( lat2 - lat1 ) * Math.PI / 180
-            const Δλ = ( lng2 - lng1 ) * Math.PI / 180
-
-            const a = Math.sin( Δφ / 2 ) * Math.sin( Δφ / 2 ) +
-                Math.cos( φ1 ) * Math.cos( φ2 ) *
-                Math.sin( Δλ / 2 ) * Math.sin( Δλ / 2 )
-            const c = 2 * Math.atan2( Math.sqrt( a ), Math.sqrt( 1 - a ) )
-
-            return R * c
-        }
-
-        function createChargerMarker ( charger, chargerId ) {
-            // This function remains the same
-            const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-            const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
-            const totalDistance = ( ( charger.distance_along_route || 0 ) + ( charger.distance_from_route || 0 ) ) / 1609.34
-            const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
-            const arrivalTime = charger.arrival_time || 'N/A'
-            let popupContent = `
-                <div class="font-sans max-w-xs">
-                    <strong class="text-lg">${ charger.supercharger.name }</strong><br>
-                    <strong>Address:</strong> ${ charger.supercharger.address }<br>
-                    <strong>Arrival:</strong> ${ arrivalTime }<br>
-                    <strong>Deviation:</strong> ${ distanceFromOrigin }<br>
-                    <strong>Total Distance:</strong> ${ totalDistanceDisplay }<br>
-                    <div class="flex flex-col gap-2 mt-3">
-                        <button onclick="showChargerInResults('${ chargerId }')" class="w-full bg-pink-500 hover:bg-pink-600 text-white text-sm px-3 py-2 rounded font-medium">View in List</button>
-                        <button onclick="openInGoogleMaps('${ charger.supercharger.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded font-medium">Open in Google Maps</button>
-                        <button onclick="shareToTesla('${ charger.supercharger.place_id }', '${ charger.supercharger.name.replace( /'/g, '\\\'' ) }', '${ charger.supercharger.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded font-medium">Send to Tesla</button>
-                    </div>
-                </div>
-            `
-
-            return L.marker( [ charger.supercharger.latitude, charger.supercharger.longitude ], {
-                icon: L.divIcon( {
-                    className: 'emoji-icon',
-                    html: '🔋',
-                    iconSize: [ 24, 24 ],
-                    iconAnchor: [ 12, 12 ]
-                } )
-            } ).bindPopup( popupContent, {
-                maxWidth: 300,
-                minWidth: 200,
-                className: 'custom-popup'
-            } )
-        }
-
         function createRestaurantMarkers ( restaurants ) {
-            // This function remains the same
-            return ( restaurants || [] ).map( restaurant => {
-                return L.marker( [ restaurant.latitude, restaurant.longitude ], {
-                    icon: L.divIcon( {
-                        className: 'emoji-icon',
-                        html: '🌭',
-                        iconSize: [ 24, 24 ],
-                        iconAnchor: [ 12, 12 ]
-                    } ),
-                    restaurantName: restaurant.name,
-                    cuisine: ( restaurant.primary_type_display || '' )
-                } ).bindPopup( `
-                    <div class="font-sans max-w-xs">
-                        <strong class="text-lg">${ restaurant.name }</strong><br>
-                        ${ restaurant.distance ? Math.round( restaurant.distance ) + 'm' : 'Distance unknown' }<br>
-                        <div class="flex flex-col gap-2 mt-3">
-                            <button onclick="openInGoogleMaps('${ restaurant.google_maps_uri || '' }')" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded">Open in Google Maps</button>
-                            <button onclick="shareToTesla('${ restaurant.place_id }', '${ restaurant.name.replace( /'/g, '\\\'' ) }', '${ restaurant.google_maps_uri || '' }')" class="w-full bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 rounded">Send to Tesla</button>
-                        </div>
-                    </div>
-                `, {
-                    maxWidth: 300,
-                    minWidth: 200,
-                    className: 'custom-popup'
-                } )
-            } )
+            return ( restaurants || [] ).map( restaurant => createRestaurantMarker( restaurant ) )
         }
+
 
         // --- UI AND DOM MANIPULATION ---
 
         function createTableRowsForStation ( charger, restaurants, chargerId ) {
-            // This function remains the same
             const rows = []
             const distanceFromOrigin = charger.distance_from_route ? ( charger.distance_from_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
             const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
@@ -1684,91 +1590,89 @@
             return rows
         }
 
-        // --- All other helper and utility functions (addClickHandlersToRows, populateCuisineFilter, showLoadingState, etc.) remain the same ---
-        // (For brevity, the remaining utility functions which do not need changes are omitted, but they are present in the original file and should be kept)
+        /**
+         * Switches to the map, pans to the Supercharger, and opens its popup.
+         */
+        function showAndOpenSuperchargerPopup ( chargerId ) {
+            const station = stationData.find( s => s.id === chargerId )
+            if ( !station ) return
 
+            const supercharger = station.chargerInfo.supercharger
+
+            document.getElementById( 'map' ).style.display = 'block'
+            document.getElementById( 'bottom-results' ).style.display = 'none'
+            document.getElementById( 'toggle-btn' ).textContent = '📖'
+            map.invalidateSize()
+
+            let markerData = viewportSuperchargers.get( supercharger.place_id )
+            let marker
+
+            if ( markerData && markerData.marker ) {
+                marker = markerData.marker
+            } else {
+                marker = createViewportSuperchargerMarker( supercharger )
+                viewportSuperchargersLayer.addLayer( marker )
+                viewportSuperchargers.set( supercharger.place_id, { data: supercharger, marker: marker } )
+            }
+
+            const popupContent = generateSuperchargerPopupContent( supercharger, chargerId )
+            marker.unbindPopup()
+            marker.bindPopup( popupContent, {
+                maxWidth: 300,
+                minWidth: 200,
+                className: 'custom-popup'
+            } )
+
+            map.once( 'moveend', () => marker.openPopup() )
+            map.setView( marker.getLatLng(), 15, { animate: true } )
+        }
+
+
+        /**
+         * Switches to the map, pans to the restaurant, and opens its popup.
+         */
+        function showAndOpenRestaurantPopup ( chargerId, restaurantName ) {
+            const station = stationData.find( s => s.id === chargerId )
+            if ( !station ) return
+
+            const restaurantMarker = station.restaurantMarkers.find( m => m.options.restaurantName === restaurantName )
+            if ( !restaurantMarker ) return
+
+            document.getElementById( 'map' ).style.display = 'block'
+            document.getElementById( 'bottom-results' ).style.display = 'none'
+            document.getElementById( 'toggle-btn' ).textContent = '📖'
+            map.invalidateSize()
+
+            if ( !restaurantLayer.hasLayer( restaurantMarker ) ) {
+                restaurantLayer.addLayer( restaurantMarker )
+            }
+
+            map.once( 'moveend', () => restaurantMarker.openPopup() )
+            map.setView( restaurantMarker.getLatLng(), 16, { animate: true } )
+        }
+
+
+        /**
+         * Attaches click handlers to table rows to open popups on the map.
+         */
         function addClickHandlersToRows ( rows, chargerId ) {
             rows.forEach( row => {
                 row.querySelector( '.city-link' )?.addEventListener( 'click', ( e ) => {
                     e.stopPropagation()
-                    const station = stationData.find( s => s.id === chargerId )
-                    if ( station ) {
-                        const mapElement = document.getElementById( 'map' )
-                        mapElement.style.display = 'block'
-                        bottomResults.style.display = 'none'
-                        document.getElementById( 'toggle-btn' ).textContent = '📖'
-                        applyPendingRouteBounds()
-
-                        // Check if supercharger is already in viewport
-                        let superchargerMarker = null
-                        const viewportSupercharger = viewportSuperchargers.get( station.chargerInfo.supercharger.place_id )
-
-                        if ( viewportSupercharger && viewportSupercharger.marker ) {
-                            // Use existing viewport marker
-                            superchargerMarker = viewportSupercharger.marker
-                        } else {
-                            // Create a new marker for this supercharger
-                            const supercharger = station.chargerInfo.supercharger
-                            superchargerMarker = createViewportSuperchargerMarker( supercharger )
-
-                            // Generate popup content immediately and rebind popup
-                            const popupContent = generateSuperchargerPopupContent( supercharger, chargerId )
-                            superchargerMarker.bindPopup( popupContent, {
-                                maxWidth: 300,
-                                minWidth: 200,
-                                className: 'custom-popup'
-                            } )
-
-                            // Remove the popupopen event handler since we have the content ready
-                            superchargerMarker.off( 'popupopen' )
-
-                            // Add to the map layer FIRST
-                            viewportSuperchargersLayer.addLayer( superchargerMarker )
-
-                            // Add it to the viewport superchargers for future reference
-                            viewportSuperchargers.set( supercharger.place_id, {
-                                data: supercharger,
-                                marker: superchargerMarker
-                            } )
-                        }
-
-                        // Pan to the marker and open popup
-                        map.setView( superchargerMarker.getLatLng(), 15 )
-                        // Use setTimeout to ensure marker is fully added to map before opening popup
-                        setTimeout( () => {
-                            superchargerMarker.openPopup()
-                        }, 50 )
-                        map.invalidateSize()
-                    }
+                    showAndOpenSuperchargerPopup( chargerId )
                 } )
 
-                row.querySelector( '.restaurant-link' )?.addEventListener( 'click', ( e ) => {
-                    e.stopPropagation()
-                    const restaurantName = e.target.textContent
-                    const station = stationData.find( s => s.id === chargerId )
-                    if ( station ) {
-                        const restaurantMarker = station.restaurantMarkers.find( m => m.options.restaurantName === restaurantName )
-                        if ( restaurantMarker ) {
-                            const mapElement = document.getElementById( 'map' )
-                            mapElement.style.display = 'block'
-                            bottomResults.style.display = 'none'
-                            document.getElementById( 'toggle-btn' ).textContent = '📖'
-                            applyPendingRouteBounds()
-                            // Ensure the restaurant marker is added to the layer before zooming
-                            if ( !restaurantLayer.hasLayer( restaurantMarker ) ) {
-                                restaurantLayer.addLayer( restaurantMarker )
-                            }
-                            map.setView( restaurantMarker.getLatLng(), 16 )
-                            // Use setTimeout to ensure marker is fully added to map before opening popup
-                            setTimeout( () => {
-                                restaurantMarker.openPopup()
-                            }, 100 ) // Increased delay to 100ms for filtered restaurants
-                            map.invalidateSize()
-                        }
-                    }
-                } )
+                const restaurantLink = row.querySelector( '.restaurant-link' )
+                if ( restaurantLink ) {
+                    const restaurantName = restaurantLink.dataset.originalName
+                    restaurantLink.addEventListener( 'click', ( e ) => {
+                        e.stopPropagation()
+                        showAndOpenRestaurantPopup( chargerId, restaurantName )
+                    } )
+                }
             } )
         }
+
 
         function highlightTextInRow ( row, searchTerm, cuisineFilter ) {
             const restaurantCell = row.querySelector( '.restaurant-link' )
