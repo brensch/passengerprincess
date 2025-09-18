@@ -588,6 +588,7 @@
                 🔃
             </button>
             <button id="gps-btn" class="princess-button text-sm hidden" title="Center on Princess">👸</button>
+            <button id="open-filter-modal-btn" class="princess-button text-sm">🔎</button>
             <button id="toggle-btn" class="princess-button text-sm">Show
                 Results</button>
         </div>
@@ -595,15 +596,6 @@
 
     <div class="bottom-results" id="bottom-results">
         <div id="results-list" class="custom-scrollbar" style="height: 100%; overflow-y: auto; overflow-x: hidden;">
-            <div class="flex space-x-2 mb-4 pt-4 px-4">
-                <input type="text" id="restaurant-search"
-                    class="flex-grow px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 text-base enhanced-input"
-                    placeholder="Pick places please">
-                <button id="toggle-cuisine-btn" class="px-3 py-3 rounded-md shadow-sm text-sm princess-button"
-                    title="Toggle cuisine filters">Filters</button>
-            </div>
-            <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2 mb-4 px-4" style="display: none;">
-            </div>
 
             <div id="loading-container" class="loading-container hidden">
                 <div class="spinner"></div>
@@ -728,6 +720,25 @@
         </div>
     </div>
 
+    <div id="filter-modal" class="fixed inset-0 flex items-center justify-center z-[1200] hidden"
+        style="background: rgba(107, 77, 124, 0.6); backdrop-filter: blur(4px);">
+        <div class="rounded-xl max-w-lg w-full mx-4 shadow-2xl relative"
+            style="background: var(--princess-surface); border: 2px solid var(--princess-border);">
+            <div class="p-6">
+                <input type="text" id="restaurant-search"
+                    class="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 text-base enhanced-input mb-4"
+                    placeholder="Pick places please">
+                <div id="cuisine-filter-buttons" class="flex flex-wrap gap-2">
+                </div>
+            </div>
+            <div class="absolute bottom-4 right-4">
+                <button id="close-filter-modal-btn"
+                    class="px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300"
+                    style="background: var(--princess-accent-lavender); color: var(--princess-text-primary);">Perfect!</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- DOM ELEMENTS ---
         const originInput = document.getElementById( 'origin' )
@@ -745,6 +756,9 @@
         const restaurantSearchInput = document.getElementById( 'restaurant-search' )
         const cuisineFilterButtons = document.getElementById( 'cuisine-filter-buttons' )
         const helpBtn = document.getElementById( 'help-btn' )
+        const openFilterModalBtn = document.getElementById( 'open-filter-modal-btn' )
+        const filterModal = document.getElementById( 'filter-modal' )
+        const closeFilterModalBtn = document.getElementById( 'close-filter-modal-btn' )
 
         // Initially hide the top toolbar and adjust map position since search form is visible
         topToolbar.style.display = 'none'
@@ -1943,7 +1957,7 @@
         function shareToTesla ( placeId, name = '', googleMapsUri = null ) {
             let url = googleMapsUri
             if ( !url ) {
-                url = `https://www.google.com/maps/place/?q=place_id:${ placeId }`
+                url = `https://www.google.com/maps/place/?q=place_id:$${ placeId }`
             }
             const shareData = {
                 title: name || 'Location',
@@ -2401,9 +2415,19 @@
             }
         } )
 
-        document.getElementById( 'toggle-cuisine-btn' ).addEventListener( 'click', () => {
-            const cuisineDiv = document.getElementById( 'cuisine-filter-buttons' )
-            cuisineDiv.style.display = cuisineDiv.style.display === 'none' ? 'flex' : 'none'
+        // Event listeners for the new filter modal
+        openFilterModalBtn.addEventListener( 'click', () => {
+            filterModal.classList.remove( 'hidden' )
+        } )
+
+        closeFilterModalBtn.addEventListener( 'click', () => {
+            filterModal.classList.add( 'hidden' )
+        } )
+
+        filterModal.addEventListener( 'click', ( e ) => {
+            if ( e.target.id === 'filter-modal' ) {
+                filterModal.classList.add( 'hidden' )
+            }
         } )
 
         document.getElementById( 'gps-btn' ).addEventListener( 'click', () => {
