@@ -56,7 +56,11 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 
 	t.Logf("Found %d superchargers on route :", len(superchargers))
 	for i, sc := range superchargers {
-		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f) - ETA: %s", i+1, sc.Supercharger.Name, sc.Supercharger.Address, sc.Supercharger.Latitude, sc.Supercharger.Longitude, sc.ArrivalTime)
+		formattedTime := "N/A"
+		if sc.ArrivalTime > 0 {
+			formattedTime = time.UnixMilli(sc.ArrivalTime).Format(time.Kitchen)
+		}
+		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f) - ETA: %s", i+1, sc.Supercharger.Name, sc.Supercharger.Address, sc.Supercharger.Latitude, sc.Supercharger.Longitude, formattedTime)
 	}
 
 	// Generate HTML visualization with ETA data
@@ -76,7 +80,11 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 
 	t.Logf("Found %d superchargers on route from cached results:", len(superchargersCached))
 	for i, sc := range superchargersCached {
-		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f) - ETA: %s", i+1, sc.Supercharger.Name, sc.Supercharger.Address, sc.Supercharger.Latitude, sc.Supercharger.Longitude, sc.ArrivalTime)
+		formattedTime := "N/A"
+		if sc.ArrivalTime > 0 {
+			formattedTime = time.UnixMilli(sc.ArrivalTime).Format(time.Kitchen)
+		}
+		t.Logf("%d: %s at %s (Lat: %.6f, Lon: %.6f) - ETA: %s", i+1, sc.Supercharger.Name, sc.Supercharger.Address, sc.Supercharger.Latitude, sc.Supercharger.Longitude, formattedTime)
 	}
 
 	// make sure they're the same superchargers
@@ -274,10 +282,40 @@ const superchargerMapTemplate = `
         // Add supercharger markers
         const superchargerMarkers = [];
         superchargersData.forEach(charger => {
+            // Format arrival time
+            let formattedTime = 'N/A';
+            if (charger.arrivalTime && charger.arrivalTime > 0) {
+                const date = new Date(charger.arrivalTime);
+                formattedTime = date.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            }
+
             const marker = L.marker([charger.latitude, charger.longitude], {
                 icon: L.icon({
                     iconUrl: 'data:image/svg+xml;base64,' + btoa(
                         '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="red">' +
+                        '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>' +
+                        '</svg>'
+                    ),
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    popupAnchor: [0, -32]
+                })
+            }).addTo(map)
+                .bindPopup(
+                    '<div>' +
+                    '<h4>' + charger.name + '</h4>' +
+                    '<p><strong>Address:</strong> ' + charger.address + '</p>' +
+                    '<p><strong>ETA:</strong> ' + formattedTime + '</p>' +
+                    '<p><strong>Coordinates:</strong> ' + charger.latitude.toFixed(6) + ', ' + charger.longitude.toFixed(6) + '</p>' +
+                    '<p><strong>Place ID:</strong> ' + charger.placeId + '</p>' +
+                    '</div>'
+                );
+            superchargerMarkers.push(marker);
+        });' +
                         '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>' +
                         '</svg>'
                     ),

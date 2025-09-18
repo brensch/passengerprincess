@@ -1083,6 +1083,31 @@
             setTimeout( () => map.invalidateSize(), 50 )
         }
 
+        // --- UTILITY FUNCTIONS ---
+
+        /**
+         * Converts epoch milliseconds to user's local time in 12-hour format
+         * @param {number} epochMs - Epoch timestamp in milliseconds
+         * @returns {string} - Formatted time string (e.g., "3:45 PM") or "N/A" if invalid
+         */
+        function formatEpochMsToLocalTime ( epochMs ) {
+            if ( !epochMs || epochMs === 0 ) {
+                return 'N/A'
+            }
+
+            try {
+                const date = new Date( epochMs )
+                return date.toLocaleTimeString( 'en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                } )
+            } catch ( error ) {
+                console.error( 'Error formatting epoch time:', error )
+                return 'N/A'
+            }
+        }
+
         // --- MAP AND MARKER FUNCTIONS ---
 
         /**
@@ -1388,7 +1413,7 @@
                 const totalDist = ( ( routeData.distance_along_route || 0 ) + ( routeData.distance_from_route || 0 ) ) / 1609.34
                 content += `
                     <div style="margin-top: 10px; font-size: 0.9em; line-height: 1.5; color: var(--princess-text-primary);">
-                        <strong>Arrival:</strong> ${ routeData.arrival_time || 'N/A' }<br>
+                        <strong>Arrival:</strong> ${ formatEpochMsToLocalTime( routeData.arrival_time ) }<br>
                         <strong>Total Distance:</strong> ${ totalDist.toFixed( 1 ) } mi<br>
                         <strong>Deviation:</strong> ${ distFromRoute.toFixed( 1 ) } mi
                     </div>
@@ -1593,7 +1618,7 @@
             const distanceAlongRoute = ( charger.distance_along_route !== null && charger.distance_along_route !== undefined ) ? ( charger.distance_along_route / 1609.34 ).toFixed( 1 ) + ' mi' : 'N/A'
             const totalDistance = ( ( charger.distance_along_route || 0 ) + ( charger.distance_from_route || 0 ) ) / 1609.34
             const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed( 1 ) + ' mi' : 'N/A'
-            const arrivalTime = charger.arrival_time || 'N/A'
+            const arrivalTime = formatEpochMsToLocalTime( charger.arrival_time )
 
             const chargerCell = `
                 <td class="px-1 py-0 text-sm text-pink-500 border-r border-pink-200" rowspan="${ Math.max( 1, restaurants.length ) }">

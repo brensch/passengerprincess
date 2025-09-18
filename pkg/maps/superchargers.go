@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +28,7 @@ type superchargerResult struct {
 type SuperchargerWithETA struct {
 	Supercharger        *db.Supercharger            `json:"supercharger"`
 	Restaurants         []db.RestaurantWithDistance `json:"restaurants"`
-	ArrivalTime         string                      `json:"arrival_time"`           // Formatted arrival time
+	ArrivalTime         int64                       `json:"arrival_time"`           // Arrival time as epoch milliseconds
 	DistanceFromRoute   float64                     `json:"distance_from_route"`    // Distance from route in meters
 	DistanceAlongRoute  float64                     `json:"distance_along_route"`   // Distance along route in meters
 	ClosestPointOnRoute Center                      `json:"closest_point_on_route"` // Closest point on the route
@@ -309,7 +308,7 @@ func distanceToSegment(p, v, w Center) float64 {
 
 // calculateETA calculates the estimated arrival time at a supercharger
 // based on route duration and distance from route
-func calculateETA(cumulativePoints []CumPoint, distAlongRoute, distFromRoute float64, totalRouteDist float64, totalRouteDur time.Duration) time.Time {
+func calculateETA(cumulativePoints []CumPoint, distAlongRoute, distFromRoute float64, totalRouteDist float64, totalRouteDur time.Duration) int64 {
 	// Find the closest cumulative point for accurate ETA
 	var selectedCumDur int
 	var foundDuration bool
@@ -341,7 +340,7 @@ func calculateETA(cumulativePoints []CumPoint, distAlongRoute, distFromRoute flo
 	extraTimeSeconds := extraTimeHours * 3600
 	arrivalTime = arrivalTime.Add(time.Duration(extraTimeSeconds) * time.Second)
 
-	return arrivalTime
+	return arrivalTime.UnixMilli()
 }
 
 // SuperchargersOnRouteResult holds both the route information and the superchargers found along it
@@ -393,7 +392,7 @@ func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []C
 
 			eta := SuperchargerWithETA{
 				Supercharger:        sc,
-				ArrivalTime:         arrivalTime.Format(time.Kitchen), // e.g., "3:45PM"
+				ArrivalTime:         arrivalTime, // Epoch milliseconds
 				DistanceFromRoute:   distFromRoute,
 				DistanceAlongRoute:  distAlongRoute,
 				ClosestPointOnRoute: closestPoint,
@@ -575,7 +574,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Address:        derefString(superchargerDetails.FormattedAddress),
 			Latitude:       superchargerDetails.Location.Latitude,
 			Longitude:      superchargerDetails.Location.Longitude,
-			GoogleMapsUri:  derefGoogleMapsUri(superchargerDetails.GoogleMapsUri),
+			GoogleMapsUri:  derefString(superchargerDetails.GoogleMapsUri),
 			IsSupercharger: false,
 		}
 
@@ -622,7 +621,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Longitude:          restaurant.Location.Longitude,
 			PrimaryType:        derefString(restaurant.PrimaryType),
 			PrimaryTypeDisplay: derefDisplayName(restaurant.PrimaryTypeDisplayName),
-			GoogleMapsUri:      derefGoogleMapsUri(restaurant.GoogleMapsUri),
+			GoogleMapsUri:      derefString(restaurant.GoogleMapsUri),
 		}
 		dbRestaurants = append(dbRestaurants, db.RestaurantWithDistance{
 			Restaurant: dbRestaurant,
@@ -637,7 +636,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		Address:        derefString(superchargerDetails.FormattedAddress),
 		Latitude:       superchargerDetails.Location.Latitude,
 		Longitude:      superchargerDetails.Location.Longitude,
-		GoogleMapsUri:  derefGoogleMapsUri(superchargerDetails.GoogleMapsUri),
+		GoogleMapsUri:  derefString(superchargerDetails.GoogleMapsUri),
 		IsSupercharger: true,
 	}
 
@@ -655,27 +654,6 @@ func derefString(s *string) string {
 		return ""
 	}
 	return *s
-}
-
-func derefGoogleMapsUri(s *string) string {
-	if s == nil {
-		return ""
-	}
-	uri := *s
-	// Replace common Unicode escape sequences that might appear in Google Maps URIs
-	uri = strings.ReplaceAll(uri, "\\u0026", "&")
-	uri = strings.ReplaceAll(uri, "\\u003d", "=")
-	uri = strings.ReplaceAll(uri, "\\u002b", "+")
-	uri = strings.ReplaceAll(uri, "\\u002f", "/")
-	uri = strings.ReplaceAll(uri, "\\u003f", "?")
-	uri = strings.ReplaceAll(uri, "\\u0023", "#")
-	uri = strings.ReplaceAll(uri, "\\u0025", "%")
-
-	// Then URL decode if needed
-	if decoded, err := url.QueryUnescape(uri); err == nil {
-		return decoded
-	}
-	return uri
 }
 
 func derefDisplayName(dn *DisplayNameObj) string {
