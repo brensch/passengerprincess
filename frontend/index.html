@@ -929,7 +929,6 @@
         const debouncedUpdateVisibleMarkers = () => {
             if ( mapUpdateTimeout ) clearTimeout( mapUpdateTimeout )
             if ( isNavigatingToMarker ) {
-                console.log( '🚫 Skipping marker update during navigation' )
                 return // Skip updates when navigating to a specific marker
             }
             mapUpdateTimeout = setTimeout( updateVisibleMarkers, 100 ) // 100ms debounce
@@ -1455,7 +1454,6 @@
             for ( const [ placeId, superchargerData ] of viewportSuperchargers ) {
                 if ( !bounds.contains( superchargerData.marker.getLatLng() ) ) {
                     if ( viewportSuperchargersLayer.hasLayer( superchargerData.marker ) ) {
-                        console.log( `🔌 REMOVE: Supercharger ${ placeId } (out of bounds)` )
                         viewportSuperchargersLayer.removeLayer( superchargerData.marker )
                     }
                     viewportSuperchargers.delete( placeId )
@@ -1511,7 +1509,6 @@
             for ( const placeId of superchargersToRemove ) {
                 const superchargerData = viewportSuperchargers.get( placeId )
                 if ( superchargerData && viewportSuperchargersLayer.hasLayer( superchargerData.marker ) ) {
-                    console.log( `🔌 REMOVE: Supercharger ${ placeId } (filtered out)` )
                     viewportSuperchargersLayer.removeLayer( superchargerData.marker )
                 }
             }
@@ -1520,7 +1517,6 @@
             for ( const placeId of superchargersToAdd ) {
                 const superchargerData = viewportSuperchargers.get( placeId )
                 if ( superchargerData && !viewportSuperchargersLayer.hasLayer( superchargerData.marker ) ) {
-                    console.log( `🔌 ADD: Supercharger ${ placeId }` )
                     viewportSuperchargersLayer.addLayer( superchargerData.marker )
                 }
             }
@@ -1742,7 +1738,6 @@
             for ( const placeId of toRemove ) {
                 const restaurantData = viewportRestaurants.get( placeId )
                 if ( restaurantData && viewportRestaurantsLayer.hasLayer( restaurantData.marker ) ) {
-                    console.log( `🌭 REMOVE: Restaurant ${ placeId }` )
                     viewportRestaurantsLayer.removeLayer( restaurantData.marker )
                 }
             }
@@ -1751,7 +1746,6 @@
             for ( const placeId of toAdd ) {
                 const restaurantData = viewportRestaurants.get( placeId )
                 if ( restaurantData && !viewportRestaurantsLayer.hasLayer( restaurantData.marker ) ) {
-                    console.log( `🌭 ADD: Restaurant ${ placeId }` )
                     viewportRestaurantsLayer.addLayer( restaurantData.marker )
                 }
             }
@@ -1932,8 +1926,6 @@
 
             const supercharger = station.chargerInfo.supercharger
 
-            console.log( `🎯 Navigating to supercharger ${ supercharger.place_id }` )
-
             document.getElementById( 'map' ).style.display = 'block'
             document.getElementById( 'bottom-results' ).style.display = 'none'
             document.getElementById( 'toggle-btn' ).textContent = '📖'
@@ -1944,10 +1936,8 @@
 
             if ( markerData && markerData.marker ) {
                 marker = markerData.marker
-                console.log( `🔌 Found existing marker for ${ supercharger.place_id }` )
             } else {
                 marker = createViewportSuperchargerMarker( supercharger )
-                console.log( `🔌 ADD: New marker for navigation to ${ supercharger.place_id }` )
                 viewportSuperchargersLayer.addLayer( marker )
                 viewportSuperchargers.set( supercharger.place_id, { data: supercharger, marker: marker } )
             }
@@ -1964,12 +1954,10 @@
             isNavigatingToMarker = true
 
             map.once( 'moveend', () => {
-                console.log( `🎯 Arrived at supercharger ${ supercharger.place_id }, opening popup` )
                 marker.openPopup()
                 // Clear navigation flag after popup opens
                 setTimeout( () => {
                     isNavigatingToMarker = false
-                    console.log( '✅ Navigation complete, filtering re-enabled' )
                 }, 500 ) // Give the popup time to fully open
             } )
             map.setView( marker.getLatLng(), 15, { animate: true } )
@@ -1986,15 +1974,12 @@
             const restaurantMarker = station.restaurantMarkers.find( m => m.options.restaurantName === restaurantName )
             if ( !restaurantMarker ) return
 
-            console.log( `🎯 Navigating to restaurant ${ restaurantName }` )
-
             document.getElementById( 'map' ).style.display = 'block'
             document.getElementById( 'bottom-results' ).style.display = 'none'
             document.getElementById( 'toggle-btn' ).textContent = '📖'
             map.invalidateSize()
 
             if ( !restaurantLayer.hasLayer( restaurantMarker ) ) {
-                console.log( `🌭 ADD: Restaurant marker for navigation to ${ restaurantName }` )
                 restaurantLayer.addLayer( restaurantMarker )
             }
 
@@ -2002,12 +1987,10 @@
             isNavigatingToMarker = true
 
             map.once( 'moveend', () => {
-                console.log( `🎯 Arrived at restaurant ${ restaurantName }, opening popup` )
                 restaurantMarker.openPopup()
                 // Clear navigation flag after popup opens
                 setTimeout( () => {
                     isNavigatingToMarker = false
-                    console.log( '✅ Navigation complete, filtering re-enabled' )
                 }, 500 ) // Give the popup time to fully open
             } )
             map.setView( restaurantMarker.getLatLng(), 16, { animate: true } )
