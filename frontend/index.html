@@ -860,6 +860,12 @@
             const cuisine = e.target.dataset.cuisine
             const isSelected = e.target.classList.toggle( 'selected' )
 
+            // Clear any pending search filter timeout
+            if ( filterTimeout ) {
+                clearTimeout( filterTimeout )
+                filterTimeout = null
+            }
+
             // Update filter array based on selection
             if ( isSelected ) {
                 if ( cuisine === '' ) { // "All Cuisines" selected
@@ -882,7 +888,7 @@
                 cuisineFilterButtons.querySelector( 'button[data-cuisine=""]' )?.classList.add( 'selected' )
             }
 
-            filterListAndMap( currentSearchTerm, currentCuisineFilter )
+            filterListAndMap( restaurantSearchInput.value, currentCuisineFilter )
         } )
 
         // Debounced marker update for better performance
@@ -1042,7 +1048,7 @@
                 const matchingRestaurants = station.restaurants.filter( restaurant => {
                     const nameMatch = !currentSearchTerm || restaurant.name.toLowerCase().includes( currentSearchTerm )
                     const cuisineMatch = currentCuisineFilter.includes( '' ) || currentCuisineFilter.length === 0 ||
-                        currentCuisineFilter.some( fc => fc.toLowerCase() === ( restaurant.primary_type_display || '' ).toLowerCase() )
+                        currentCuisineFilter.some( fc => fc !== '' && fc.toLowerCase() === ( restaurant.primary_type_display || '' ).toLowerCase() )
                     return nameMatch && cuisineMatch
                 } )
 
