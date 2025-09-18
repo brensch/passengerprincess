@@ -1667,8 +1667,8 @@
                 bounds.contains( L.latLng( restaurant.latitude, restaurant.longitude ) )
             ).length
 
-            // Determine if restaurants should be visible (between 1-50 total)
-            const restaurantsShouldBeVisible = ( totalFilteredRestaurantCount > 0 && totalFilteredRestaurantCount <= 50 )
+            // Determine if restaurants should be visible (between 1-100 total)
+            const restaurantsShouldBeVisible = ( totalFilteredRestaurantCount > 0 && totalFilteredRestaurantCount <= 100 )
 
             // Clear route-based restaurant layer since we only want viewport restaurants visible
             const routeRestaurantsCount = restaurantLayer.getLayers().length
