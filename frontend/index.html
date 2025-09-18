@@ -1646,6 +1646,13 @@
             }
 
             addClickHandlersToRows( rows, chargerId )
+
+            // Add dark purple border to the last row to separate superchargers
+            if ( rows.length > 0 ) {
+                const lastRow = rows[ rows.length - 1 ]
+                lastRow.classList.add( 'border-b-2', 'border-purple-200' )
+            }
+
             return rows
         }
 
