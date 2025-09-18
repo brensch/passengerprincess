@@ -1058,8 +1058,11 @@
             stationData = []
             filteredChargerIDs = null
             currentSearchTerm = ''
+            currentCuisineFilter = []
             restaurantSearchInput.value = ''
             document.getElementById( 'chargers-tbody' ).innerHTML = ''
+            cuisineFilterButtons.innerHTML = ''
+            cuisineFilterButtons.parentElement.style.display = 'none'
             // Stop location tracking when clearing results
             stopLocationTracking()
         }
@@ -1473,8 +1476,32 @@
         newSearchBtn.addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.remove( 'hidden' ) )
         document.getElementById( 'cancel-new-search' ).addEventListener( 'click', () => document.getElementById( 'new-search-modal' ).classList.add( 'hidden' ) )
         document.getElementById( 'confirm-new-search' ).addEventListener( 'click', () => {
-            stopLocationTracking()
-            window.location.href = window.location.pathname
+            // Clear URL parameters to avoid state hangover
+            window.history.replaceState( {}, '', window.location.pathname )
+
+            // Clear input fields
+            originInput.value = ''
+            destinationInput.value = ''
+
+            // Clear previous results and state
+            clearPreviousResults()
+
+            // Reset UI to initial state
+            searchForm.style.display = 'block'
+            bottomResults.style.display = 'none'
+            topToolbar.style.display = 'none'
+            mapElement.style.top = '0'
+            mapElement.style.height = '100vh'
+            document.getElementById( 'toggle-btn' ).textContent = 'Show Results'
+
+            // Reset map to default view
+            map.setView( [ 37.7749, -122.4194 ], 6 )
+
+            // Clear status message
+            updateStatus( '', false )
+
+            // Hide the modal
+            document.getElementById( 'new-search-modal' ).classList.add( 'hidden' )
         } )
 
         // Toggle cuisine filter buttons
