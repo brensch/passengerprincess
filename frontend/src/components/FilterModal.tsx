@@ -77,12 +77,8 @@ const FilterModal = ({
             className="fixed inset-0 flex items-center justify-center z-[1200] bg-black bg-opacity-50 backdrop-blur-sm"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-princess-surface border-2 border-princess-border flex flex-col">
-                <div className="p-6 flex-1">
-                    <h3 className="text-2xl font-semibold mb-4 font-dancing text-princess-text-primary">
-                        🔍 Filter Restaurants
-                    </h3>
-
+            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-princess-surface border-2 border-princess-border flex flex-col h-[80vh]">
+                <div className="p-6 flex-1 overflow-y-auto min-h-0">
                     <input
                         type="text"
                         value={localSearchTerm}
@@ -93,31 +89,33 @@ const FilterModal = ({
                         placeholder="Pick places please"
                     />
 
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => handleCuisineToggle('')}
-                            className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-300 
-                        border ${localCuisineFilters.includes('') || localCuisineFilters.length === 0
-                                    ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
-                                    : 'bg-princess-surface text-princess-text-primary border-princess-border hover:bg-princess-accent-lavender'
-                                }`}
-                        >
-                            All Cuisines
-                        </button>
-
-                        {availableCuisines.map(cuisine => (
+                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                        <div className="flex flex-wrap gap-2 p-1">
                             <button
-                                key={cuisine}
-                                onClick={() => handleCuisineToggle(cuisine)}
-                                className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-300 
-                          border ${localCuisineFilters.includes(cuisine)
+                                onClick={() => handleCuisineToggle('')}
+                                className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 
+                        border touch-manipulation select-none ${localCuisineFilters.includes('') || localCuisineFilters.length === 0
                                         ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
-                                        : 'bg-princess-surface text-princess-text-primary border-princess-border hover:bg-princess-accent-lavender'
+                                        : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-accent-lavender active:scale-95'
                                     }`}
                             >
-                                {cuisine}
+                                All Cuisines
                             </button>
-                        ))}
+
+                            {availableCuisines.map(cuisine => (
+                                <button
+                                    key={cuisine}
+                                    onClick={() => handleCuisineToggle(cuisine)}
+                                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 
+                          border touch-manipulation select-none ${localCuisineFilters.includes(cuisine)
+                                            ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
+                                            : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-accent-lavender active:scale-95'
+                                        }`}
+                                >
+                                    {cuisine}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 

@@ -377,7 +377,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                 const marker = L.marker([supercharger.latitude, supercharger.longitude], {
                     icon: L.divIcon({
                         className: 'emoji-icon charger-icon',
-                        html: isRouteCharger ? '⚡' : '🔌',
+                        html: '⚡',
                         iconSize: isRouteCharger ? [30, 30] : [24, 24],
                         iconAnchor: isRouteCharger ? [15, 15] : [12, 12]
                     })
