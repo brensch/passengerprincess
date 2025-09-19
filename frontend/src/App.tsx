@@ -5,11 +5,12 @@ import ResultsTable from './components/ResultsTable'
 import TopToolbar from './components/TopToolbar'
 import FilterModal from './components/FilterModal'
 import HelpModal from './components/HelpModal'
+import { ViewportProvider, useViewport } from './contexts/ViewportContext'
 import { ViewMode } from './types'
 import { useRoute } from './hooks/useRoute'
 import { useFilters } from './hooks/useFilters'
 
-const App = () => {
+const AppContent = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('search')
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
@@ -25,6 +26,7 @@ const App = () => {
         updateFilters,
         filterCount
     } = useFilters(stationData)
+    const { setViewportToLocation, updateViewport, restoreSavedViewport } = useViewport()
 
     console.log('App render - viewMode:', viewMode, 'routeData:', !!routeData)
 
@@ -54,7 +56,6 @@ const App = () => {
 
     const handleNewSearch = () => {
         setViewMode('search')
-        mapRef.current?.resetRouteInitialization()
         clearRoute()
     }
 
@@ -74,17 +75,24 @@ const App = () => {
     const toggleView = () => {
         console.log('APP: toggleView called, current viewMode:', viewMode)
         if (viewMode === 'results') {
-            console.log('APP: Switching from results to map, restoring viewport')
+            console.log('APP: Switching from results to map, restoring saved viewport')
             setViewMode('map')
-            // Restore saved viewport when going to map (increased delay)
+            // Restore the saved viewport with sync enabled
             setTimeout(() => {
-                console.log('APP: Calling restoreViewport')
-                mapRef.current?.restoreViewport()
-            }, 200)
+                restoreSavedViewport()
+            }, 100)
         } else if (viewMode === 'map') {
-            console.log('APP: Switching from map to results, saving viewport')
+            console.log('APP: Switching from map to results, saving current viewport')
             // Save current viewport before going to results
-            mapRef.current?.saveViewport()
+            if (mapRef.current) {
+                const map = mapRef.current.getMap()
+                if (map) {
+                    const center = map.getCenter()
+                    const zoom = map.getZoom()
+                    updateViewport([center.lat, center.lng], zoom)
+                    console.log('APP: Saved viewport:', { center: [center.lat, center.lng], zoom })
+                }
+            }
             setViewMode('results')
         }
     }
@@ -162,23 +170,31 @@ const App = () => {
                                 className="w-full"
                                 onShowSuperchargerPopup={(placeId) => {
                                     console.log('APP: onShowSuperchargerPopup called with placeId:', placeId)
-                                    console.log('APP: Current viewMode:', viewMode, 'switching to map')
-                                    setViewMode('map')
-                                    // Add delay to ensure map is fully rendered
-                                    setTimeout(() => {
-                                        console.log('APP: Calling showSuperchargerPopup')
-                                        mapRef.current?.showSuperchargerPopup(placeId)
-                                    }, 100)
+                                    // Find the supercharger in station data
+                                    const station = filteredStationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
+                                    if (station) {
+                                        const supercharger = station.chargerInfo.supercharger
+                                        setViewportToLocation([supercharger.latitude, supercharger.longitude], 18)
+                                        setViewMode('map')
+                                        setTimeout(() => {
+                                            mapRef.current?.showSuperchargerPopup(placeId)
+                                        }, 100)
+                                    }
                                 }}
                                 onShowRestaurantPopup={(placeId) => {
                                     console.log('APP: onShowRestaurantPopup called with placeId:', placeId)
-                                    console.log('APP: Current viewMode:', viewMode, 'switching to map')
-                                    setViewMode('map')
-                                    // Add delay to ensure map is fully rendered
-                                    setTimeout(() => {
-                                        console.log('APP: Calling showRestaurantPopup')
-                                        mapRef.current?.showRestaurantPopup(placeId)
-                                    }, 100)
+                                    // Find the restaurant in station data
+                                    for (const station of filteredStationData) {
+                                        const restaurant = station.restaurants?.find(r => r.place_id === placeId)
+                                        if (restaurant) {
+                                            setViewportToLocation([restaurant.latitude, restaurant.longitude], 18)
+                                            setViewMode('map')
+                                            setTimeout(() => {
+                                                mapRef.current?.showRestaurantPopup(placeId)
+                                            }, 100)
+                                            return
+                                        }
+                                    }
                                 }}
                             />
                         ) : (
@@ -222,6 +238,14 @@ const App = () => {
                 onClose={() => setIsHelpModalOpen(false)}
             />
         </div>
+    )
+}
+
+const App = () => {
+    return (
+        <ViewportProvider>
+            <AppContent />
+        </ViewportProvider>
     )
 }
 

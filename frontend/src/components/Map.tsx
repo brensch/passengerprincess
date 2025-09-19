@@ -4,6 +4,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
 import { RouteResponse, StationData, SearchFilters, ViewportResponse, Supercharger, Restaurant, RestaurantSuperchargerMapping } from '../types'
+import { useViewport } from '../contexts/ViewportContext'
 
 // Fix for default markers in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -31,9 +32,6 @@ interface MapProps {
 export interface MapRef {
     fitBounds: (bounds: L.LatLngBounds) => void
     getMap: () => L.Map | null
-    saveViewport: () => void
-    restoreViewport: () => void
-    resetRouteInitialization: () => void
     showSuperchargerPopup: (placeId: string) => void
     showRestaurantPopup: (placeId: string) => void
 }
@@ -70,8 +68,8 @@ const Map = forwardRef<MapRef, MapProps>(({
     const viewportSuperchargers = useRef<Map<string, ViewportSuperchargerData>>(new (globalThis.Map)())
     const viewportRestaurants = useRef<Map<string, { data: Restaurant, marker: L.Marker }>>(new (globalThis.Map)())
     const viewportMappings = useRef<RestaurantSuperchargerMapping[]>([])
-    const savedViewport = useRef<{ center: [number, number], zoom: number } | null>(null)
     const hasInitializedRoute = useRef<boolean>(false)
+    const { viewport, updateViewport: updateViewportContext, setViewportToRoute } = useViewport()
 
     const formatEpochMsToLocalTime = useCallback((epochMs: number): string => {
         const date = new Date(epochMs)
@@ -150,29 +148,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             }
         },
         getMap: () => mapRef.current,
-        saveViewport: () => {
-            if (mapRef.current) {
-                const center = mapRef.current.getCenter()
-                const zoom = mapRef.current.getZoom()
-                savedViewport.current = { center: [center.lat, center.lng], zoom }
-                console.log('MAP: Saved viewport:', savedViewport.current)
-            } else {
-                console.log('MAP: Cannot save viewport - no map instance')
-            }
-        },
-        restoreViewport: () => {
-            console.log('MAP: Attempting to restore viewport:', savedViewport.current)
-            if (mapRef.current && savedViewport.current) {
-                console.log('MAP: Restoring viewport to:', savedViewport.current)
-                mapRef.current.setView(savedViewport.current.center, savedViewport.current.zoom, { animate: false })
-            } else {
-                console.log('MAP: Cannot restore viewport - map:', !!mapRef.current, 'savedViewport:', !!savedViewport.current)
-            }
-        },
-        resetRouteInitialization: () => {
-            console.log('MAP: Resetting route initialization flag')
-            hasInitializedRoute.current = false
-        },
         showSuperchargerPopup: (placeId: string) => {
             console.log('MAP: showSuperchargerPopup called with placeId:', placeId)
             if (!mapRef.current) {
@@ -185,7 +160,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             console.log('MAP: Viewport marker data found:', !!viewportMarkerData)
             if (viewportMarkerData?.marker) {
                 console.log('MAP: Using viewport marker, setting view to:', viewportMarkerData.marker.getLatLng())
-                mapRef.current.setView(viewportMarkerData.marker.getLatLng(), 18, { animate: false })
                 viewportMarkerData.marker.openPopup()
                 return
             }
@@ -198,9 +172,6 @@ const Map = forwardRef<MapRef, MapProps>(({
                 const latLng = L.latLng(supercharger.latitude, supercharger.longitude)
                 console.log('MAP: Creating temporary popup at:', latLng)
 
-                // Jump to location immediately at high zoom
-                mapRef.current.setView(latLng, 18, { animate: false })
-                
                 // Create and show a temporary popup immediately
                 const popup = L.popup()
                     .setLatLng(latLng)
@@ -223,7 +194,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             console.log('MAP: Viewport restaurant marker found:', !!viewportMarkerData)
             if (viewportMarkerData?.marker) {
                 console.log('MAP: Using viewport restaurant marker, setting view to:', viewportMarkerData.marker.getLatLng())
-                mapRef.current.setView(viewportMarkerData.marker.getLatLng(), 18, { animate: false })
                 viewportMarkerData.marker.openPopup()
                 return
             }
@@ -235,9 +205,6 @@ const Map = forwardRef<MapRef, MapProps>(({
                     console.log('MAP: Restaurant found in station data, creating popup at:', restaurant.latitude, restaurant.longitude)
                     const latLng = L.latLng(restaurant.latitude, restaurant.longitude)
 
-                    // Jump to location immediately at high zoom
-                    mapRef.current.setView(latLng, 18, { animate: false })
-                    
                     // Create and show a temporary popup immediately
                     const popup = L.popup()
                         .setLatLng(latLng)
@@ -624,18 +591,7 @@ const Map = forwardRef<MapRef, MapProps>(({
             viewportTimeout = setTimeout(updateViewport, 300)
         }
 
-        // Save viewport when user moves/zooms the map
-        const saveViewportOnMove = () => {
-            if (mapRef.current) {
-                const center = mapRef.current.getCenter()
-                const zoom = mapRef.current.getZoom()
-                savedViewport.current = { center: [center.lat, center.lng], zoom }
-                console.log('MAP: Auto-saved viewport on move:', savedViewport.current)
-            }
-        }
-
         map.on('moveend zoomend', debouncedViewportUpdate)
-        map.on('moveend zoomend', saveViewportOnMove)
 
         // Initial viewport load
         setTimeout(updateViewport, 100)
@@ -643,7 +599,6 @@ const Map = forwardRef<MapRef, MapProps>(({
         return () => {
             clearTimeout(viewportTimeout)
             map.off('moveend zoomend', debouncedViewportUpdate)
-            map.off('moveend zoomend', saveViewportOnMove)
         }
     }, [updateViewport])
 
@@ -682,14 +637,14 @@ const Map = forwardRef<MapRef, MapProps>(({
                     console.log('MAP: First route load, fitting bounds')
                     mapRef.current.fitBounds(polyline.getBounds().pad(0.1))
                     hasInitializedRoute.current = true
-                    
-                    // Save the initial viewport after fitting bounds
+
+                    // Save the initial viewport in context after fitting bounds
                     setTimeout(() => {
                         if (mapRef.current) {
                             const center = mapRef.current.getCenter()
                             const zoom = mapRef.current.getZoom()
-                            savedViewport.current = { center: [center.lat, center.lng], zoom }
-                            console.log('MAP: Saved initial viewport after route fitting:', savedViewport.current)
+                            updateViewportContext([center.lat, center.lng], zoom)
+                            console.log('MAP: Saved initial viewport after route fitting:', { center: [center.lat, center.lng], zoom })
                         }
                     }, 100)
                 } else {
@@ -697,7 +652,15 @@ const Map = forwardRef<MapRef, MapProps>(({
                 }
             }
         }
-    }, [routeData])    // Update user location
+    }, [routeData])
+
+    // Sync map view with viewport context only when explicitly requested
+    useEffect(() => {
+        if (mapRef.current && viewport && viewport.shouldSync) {
+            console.log('MAP: Syncing map view with viewport context:', viewport)
+            mapRef.current.setView(viewport.center, viewport.zoom, { animate: false })
+        }
+    }, [viewport])    // Update user location
     useEffect(() => {
         if (!layersRef.current) return
 
