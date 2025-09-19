@@ -4,7 +4,6 @@ interface ResultsTableProps {
     stationData: StationData[]
     routeData: RouteResponse | null
     searchTerm: string
-    cuisineFilters: string[]
     isLoading: boolean
     statusMessage: string
     className?: string
@@ -16,7 +15,6 @@ const ResultsTable = ({
     stationData,
     routeData,
     searchTerm,
-    cuisineFilters,
     isLoading,
     statusMessage,
     className = '',
@@ -48,15 +46,40 @@ const ResultsTable = ({
         return text.replace(regex, '<mark>$1</mark>')
     }
 
-    const openInGoogleMaps = (uri?: string) => {
-        if (uri) {
-            window.open(uri, '_blank')
+    const shareToTesla = async (placeId: string, name: string, googleMapsUri?: string) => {
+        // Create Google Maps link if not provided
+        const mapsUrl = googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${placeId}`
+
+        // Use native sharing API if available
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `${name} - Tesla Destination`,
+                    text: `Navigate to ${name}`,
+                    url: mapsUrl
+                })
+            } catch (error) {
+                // User cancelled or error occurred, fallback to copy
+                if (error instanceof Error && error.name !== 'AbortError') {
+                    console.error('Share failed:', error)
+                    fallbackShare(mapsUrl, name)
+                }
+            }
+        } else {
+            // Fallback for browsers without native share
+            fallbackShare(mapsUrl, name)
         }
     }
 
-    const shareToTesla = (placeId: string, name: string, googleMapsUri?: string) => {
-        // Tesla sharing functionality - this would need to be implemented
-        console.log('Share to Tesla:', { placeId, name, googleMapsUri })
+    const fallbackShare = async (url: string, name: string) => {
+        try {
+            await navigator.clipboard.writeText(url)
+            alert(`Google Maps link for ${name} copied to clipboard!`)
+        } catch (error) {
+            console.error('Copy failed:', error)
+            // Final fallback - open in new tab
+            window.open(url, '_blank')
+        }
     }
 
     if (isLoading) {
@@ -87,16 +110,16 @@ const ResultsTable = ({
                 <table id="chargers-table" className="w-full text-sm border-collapse">
                     <thead className="bg-princess-surface-soft sticky top-0 z-10">
                         <tr className="border-b-2 border-princess-border">
-                            <th className="text-left p-3 font-semibold text-princess-text-primary princess-table-header border-r border-princess-border">
+                            <th className="text-left px-1 py-1 font-semibold text-princess-text-primary princess-table-header border-r border-princess-border">
                                 Charger
                             </th>
-                            <th className="text-left p-3 font-semibold text-princess-text-primary princess-table-header">
+                            <th className="text-left px-1 py-1 font-semibold text-princess-text-primary princess-table-header">
                                 Restaurant
                             </th>
-                            <th className="text-left p-3 font-semibold text-princess-text-primary princess-table-header">
+                            <th className="text-left px-1 py-1 font-semibold text-princess-text-primary princess-table-header">
                                 Walk
                             </th>
-                            <th className="text-left p-3 font-semibold text-princess-text-primary princess-table-header">
+                            <th className="text-left px-1 py-1 font-semibold text-princess-text-primary princess-table-header">
                                 Cuisine
                             </th>
                         </tr>
@@ -139,7 +162,7 @@ const ResultsTable = ({
                                                 <div className="flex gap-1">
                                                     <button
                                                         onClick={() => onShowSuperchargerPopup?.(chargerInfo.supercharger.place_id)}
-                                                        className="princess-button text-xs px-1 py-0.5 rounded"
+                                                        className="text-xs px-2 py-0.5 rounded bg-princess-accent-lavender text-princess-text-primary hover:bg-princess-accent-rose transition-colors border border-princess-border"
                                                     >
                                                         Map
                                                     </button>
@@ -149,7 +172,7 @@ const ResultsTable = ({
                                                             chargerInfo.supercharger.name,
                                                             chargerInfo.supercharger.google_maps_uri
                                                         )}
-                                                        className="princess-button text-xs px-1 py-0.5 rounded bg-princess-accent-mint"
+                                                        className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
                                                     >
                                                         Send to Tesla
                                                     </button>
@@ -167,7 +190,7 @@ const ResultsTable = ({
                             return restaurants.map((restaurant, restaurantIndex) => (
                                 <tr
                                     key={`${station.id}-${restaurantIndex}`}
-                                    className={`border-b ${restaurantIndex === restaurants.length - 1 ? 'border-b-2 border-purple-200' : 'border-princess-border'} hover:bg-princess-lavender transition-colors`}
+                                    className={`border-b ${restaurantIndex === restaurants.length - 1 ? 'border-b-2 border-purple-200' : 'border-princess-border'}`}
                                     data-charger-id={station.id}
                                     data-restaurant-id={restaurant.name}
                                 >
@@ -191,7 +214,7 @@ const ResultsTable = ({
                                                 <div className="flex gap-1">
                                                     <button
                                                         onClick={() => onShowSuperchargerPopup?.(chargerInfo.supercharger.place_id)}
-                                                        className="princess-button text-xs px-1 py-0.5 rounded"
+                                                        className="text-xs px-2 py-0.5 rounded bg-princess-accent-lavender text-princess-text-primary hover:bg-princess-accent-rose transition-colors border border-princess-border"
                                                     >
                                                         Map
                                                     </button>
@@ -201,7 +224,7 @@ const ResultsTable = ({
                                                             chargerInfo.supercharger.name,
                                                             chargerInfo.supercharger.google_maps_uri
                                                         )}
-                                                        className="princess-button text-xs px-1 py-0.5 rounded bg-princess-accent-mint"
+                                                        className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
                                                     >
                                                         Send to Tesla
                                                     </button>
@@ -212,7 +235,7 @@ const ResultsTable = ({
                                     <td className="px-1 py-0 text-sm text-pink-700">
                                         <button
                                             onClick={() => onShowRestaurantPopup?.(restaurant.place_id)}
-                                            className="text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link underline decoration-princess-accent-rose hover:decoration-princess-text-primary transition-all duration-300"
+                                            className="text-left text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link underline decoration-princess-accent-rose hover:decoration-princess-text-primary transition-all duration-300"
                                             dangerouslySetInnerHTML={{
                                                 __html: highlightText(restaurant.name, searchTerm)
                                             }}

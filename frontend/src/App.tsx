@@ -197,7 +197,6 @@ const App = () => {
                                 stationData={filteredStationData}
                                 routeData={routeData}
                                 searchTerm={searchTerm}
-                                cuisineFilters={cuisineFilters}
                                 isLoading={isLoading}
                                 statusMessage={statusMessage}
                                 className="w-full"
