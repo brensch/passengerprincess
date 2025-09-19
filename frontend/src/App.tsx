@@ -93,8 +93,9 @@ const AppContent = () => {
         const destination = params.get('destination')
 
         if (destination && userLocation) {
-            // Use current location as origin and refresh the route
-            handleRouteSearch('My Location', decodeURIComponent(destination))
+            // Use actual coordinates as origin and refresh the route
+            const originCoords = `${userLocation[0]},${userLocation[1]}`
+            handleRouteSearch(originCoords, decodeURIComponent(destination))
         }
     }
 
@@ -324,18 +325,20 @@ const AppContent = () => {
                 </>
             )}
 
-            {/* Floating Help Button */}
-            <button
-                onClick={() => setIsHelpModalOpen(true)}
-                className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose 
-                         text-princess-text-primary text-3xl rounded-full shadow-lg hover:shadow-xl
-                         hover:from-princess-accent-rose hover:to-princess-accent-lavender
-                         transition-all duration-300 transform hover:scale-110 z-50
-                         border-2 border-princess-border backdrop-blur-sm"
-                title="Help"
-            >
-                ❓
-            </button>
+            {/* Floating Help Button - only show on search page */}
+            {viewMode === 'search' && (
+                <button
+                    onClick={() => setIsHelpModalOpen(true)}
+                    className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose 
+                             text-princess-text-primary text-3xl rounded-full shadow-lg hover:shadow-xl
+                             hover:from-princess-accent-rose hover:to-princess-accent-lavender
+                             transition-all duration-300 transform hover:scale-110 z-50
+                             border-2 border-princess-border backdrop-blur-sm"
+                    title="Help"
+                >
+                    ❓
+                </button>
+            )}
 
             <FilterModal
                 isOpen={isFilterModalOpen}
