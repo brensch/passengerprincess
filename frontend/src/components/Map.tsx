@@ -207,7 +207,9 @@ const Map = forwardRef<MapRef, MapProps>(({
                     const latLng = L.latLng(restaurant.latitude, restaurant.longitude)
 
                     // Create and show a temporary popup immediately
-                    const popup = L.popup()
+                    const popup = L.popup({
+                        className: 'custom-popup'
+                    })
                         .setLatLng(latLng)
                         .setContent(generateRestaurantPopupContent(restaurant))
                         .openOn(mapRef.current)
