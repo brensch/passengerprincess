@@ -1,0 +1,33 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        'princess-lavender': '#E6E0FF',
+        'princess-rose': '#FFE0E6',
+        'princess-mint': '#E0FFF0',
+        'princess-peach': '#FFE6D9',
+        'princess-lilac': '#F0E6FF',
+        'princess-blush': '#FFE6F0',
+        'princess-accent-lavender': '#D4C5FF',
+        'princess-accent-rose': '#FFB3C6',
+        'princess-accent-mint': '#B3FFD9',
+        'princess-accent-peach': '#FFD1B3',
+        'princess-text-primary': '#6B4D7C',
+        'princess-text-secondary': '#8B5A7A',
+        'princess-text-accent': '#9B6B8F',
+        'princess-surface': '#FDFBFF',
+        'princess-surface-soft': '#F8F4FF',
+        'princess-border': '#E8DCF0',
+      },
+      fontFamily: {
+        'dancing': ['Dancing Script', 'cursive'],
+      },
+    },
+  },
+  plugins: [],
+}

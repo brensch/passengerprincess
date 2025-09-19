@@ -1,0 +1,313 @@
+import { useState, useRef } from 'react'
+import { AutocompleteResult } from '../types'
+
+interface SearchFormProps {
+    onSearch: (origin: string, destination: string) => void
+    isLoading: boolean
+    statusMessage: string
+    isError: boolean
+    userLocation: [number, number] | null
+}
+
+const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation }: SearchFormProps) => {
+    const [origin, setOrigin] = useState('')
+    const [destination, setDestination] = useState('')
+    const [originSuggestions, setOriginSuggestions] = useState<AutocompleteResult[]>([])
+    const [destinationSuggestions, setDestinationSuggestions] = useState<AutocompleteResult[]>([])
+    const [showOriginSuggestions, setShowOriginSuggestions] = useState(false)
+    const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false)
+    const [selectedOriginIndex, setSelectedOriginIndex] = useState(-1)
+    const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(-1)
+
+    const originRef = useRef<HTMLInputElement>(null)
+    const destinationRef = useRef<HTMLInputElement>(null)
+    const debounceRef = useRef<number>()
+
+    const handleSearch = (e: any) => {
+        e.preventDefault()
+        if (origin.trim() && destination.trim() && !isLoading) {
+            onSearch(origin.trim(), destination.trim())
+        }
+    }
+
+    const handleOriginChange = (value: string) => {
+        setOrigin(value)
+        setSelectedOriginIndex(-1)
+        fetchSuggestions(value, 'origin')
+    }
+
+    const handleDestinationChange = (value: string) => {
+        setDestination(value)
+        setSelectedDestinationIndex(-1)
+        fetchSuggestions(value, 'destination')
+    }
+
+    const fetchSuggestions = (query: string, type: 'origin' | 'destination') => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current)
+        }
+
+        if (query.length < 3) {
+            if (type === 'origin') {
+                setOriginSuggestions([])
+                setShowOriginSuggestions(false)
+            } else {
+                setDestinationSuggestions([])
+                setShowDestinationSuggestions(false)
+            }
+            return
+        }
+
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const response = await fetch(`/autocomplete?partial=${encodeURIComponent(query)}`)
+                const data = await response.json()
+
+                if (response.ok && data.predictions) {
+                    if (type === 'origin') {
+                        setOriginSuggestions(data.predictions)
+                        setShowOriginSuggestions(true)
+                    } else {
+                        setDestinationSuggestions(data.predictions)
+                        setShowDestinationSuggestions(true)
+                    }
+                }
+            } catch (error) {
+                console.error('Autocomplete error:', error)
+            }
+        }, 300)
+    }
+
+    const handleSuggestionClick = (suggestion: AutocompleteResult, type: 'origin' | 'destination') => {
+        if (suggestion.isMyLocation) {
+            handleMyLocationSelection(type)
+        } else {
+            if (type === 'origin') {
+                setOrigin(suggestion.description)
+                setShowOriginSuggestions(false)
+            } else {
+                setDestination(suggestion.description)
+                setShowDestinationSuggestions(false)
+            }
+        }
+    }
+
+    const handleMyLocationSelection = async (type: 'origin' | 'destination') => {
+        try {
+            const setValue = type === 'origin' ? setOrigin : setDestination
+            setValue('Getting your location...')
+
+            const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 20000
+                })
+            )
+
+            const { latitude, longitude } = position.coords
+            const address = await reverseGeocode(latitude, longitude)
+            setValue(address)
+
+            if (type === 'origin') {
+                setShowOriginSuggestions(false)
+            } else {
+                setShowDestinationSuggestions(false)
+            }
+        } catch (error) {
+            console.error('Geolocation error:', error)
+            const setValue = type === 'origin' ? setOrigin : setDestination
+            setValue('')
+        }
+    }
+
+    const reverseGeocode = async (lat: number, lon: number): Promise<string> => {
+        try {
+            // Use a basic coordinate format as fallback
+            return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+        } catch (error) {
+            console.error('Reverse geocoding error:', error)
+            return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+        }
+    }
+
+    const handleKeyDown = (e: any, type: 'origin' | 'destination') => {
+        const suggestions = type === 'origin' ? originSuggestions : destinationSuggestions
+        const selectedIndex = type === 'origin' ? selectedOriginIndex : selectedDestinationIndex
+        const setSelectedIndex = type === 'origin' ? setSelectedOriginIndex : setSelectedDestinationIndex
+        const showSuggestions = type === 'origin' ? showOriginSuggestions : showDestinationSuggestions
+
+        if (!showSuggestions || suggestions.length === 0) {
+            if (e.key === 'Enter') {
+                e.preventDefault()
+                handleSearch(e as any)
+            }
+            return
+        }
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault()
+                setSelectedIndex(Math.min(selectedIndex + 1, suggestions.length - 1))
+                break
+            case 'ArrowUp':
+                e.preventDefault()
+                setSelectedIndex(Math.max(selectedIndex - 1, -1))
+                break
+            case 'Enter':
+                e.preventDefault()
+                if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+                    handleSuggestionClick(suggestions[selectedIndex], type)
+                }
+                break
+            case 'Escape':
+                if (type === 'origin') {
+                    setShowOriginSuggestions(false)
+                } else {
+                    setShowDestinationSuggestions(false)
+                }
+                setSelectedIndex(-1)
+                break
+        }
+    }
+
+    const handleFocus = (type: 'origin' | 'destination') => {
+        const value = type === 'origin' ? origin : destination
+        if (value.trim() === '') {
+            const myLocationOption: AutocompleteResult = {
+                description: "My Location",
+                place_id: "my_location",
+                isMyLocation: true
+            }
+            if (type === 'origin') {
+                setOriginSuggestions([myLocationOption])
+                setShowOriginSuggestions(true)
+            } else {
+                setDestinationSuggestions([myLocationOption])
+                setShowDestinationSuggestions(true)
+            }
+        }
+    }
+
+    const handleBlur = (type: 'origin' | 'destination') => {
+        setTimeout(() => {
+            if (type === 'origin') {
+                setShowOriginSuggestions(false)
+                setSelectedOriginIndex(-1)
+            } else {
+                setShowDestinationSuggestions(false)
+                setSelectedDestinationIndex(-1)
+            }
+        }, 150)
+    }
+
+    return (
+        <div className="w-full max-w-2xl p-8">
+            <div className="text-center mb-8">
+                <h1 className="text-6xl font-dancing text-princess-text-primary mb-4">
+                    ✨ Passenger Princess Protector ✨
+                </h1>
+                <p className="text-lg text-princess-text-secondary">
+                    Find perfect pitstops along your Tesla route
+                </p>
+            </div>
+
+            <form onSubmit={handleSearch} className="space-y-6">
+                <div className="relative">
+                    <input
+                        ref={originRef}
+                        type="text"
+                        value={origin}
+                        onChange={(e) => handleOriginChange(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, 'origin')}
+                        onFocus={() => handleFocus('origin')}
+                        onBlur={() => handleBlur('origin')}
+                        placeholder="Starting point (or use My Location)"
+                        className="w-full px-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
+                     bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
+                     focus:border-transparent transition-all duration-300"
+                        disabled={isLoading}
+                    />
+
+                    {showOriginSuggestions && originSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50">
+                            {originSuggestions.map((suggestion, index) => (
+                                <div
+                                    key={suggestion.place_id}
+                                    className={`px-4 py-3 cursor-pointer transition-colors border-b border-princess-border last:border-b-0
+                            ${index === selectedOriginIndex
+                                            ? 'bg-princess-accent-lavender text-princess-text-primary'
+                                            : 'text-princess-text-primary hover:bg-princess-accent-lavender'
+                                        }`}
+                                    onMouseDown={() => handleSuggestionClick(suggestion, 'origin')}
+                                >
+                                    {suggestion.description}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="relative">
+                    <input
+                        ref={destinationRef}
+                        type="text"
+                        value={destination}
+                        onChange={(e) => handleDestinationChange(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, 'destination')}
+                        onFocus={() => handleFocus('destination')}
+                        onBlur={() => handleBlur('destination')}
+                        placeholder="Where to, Princess?"
+                        className="w-full px-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
+                     bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
+                     focus:border-transparent transition-all duration-300"
+                        disabled={isLoading}
+                    />
+
+                    {showDestinationSuggestions && destinationSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50">
+                            {destinationSuggestions.map((suggestion, index) => (
+                                <div
+                                    key={suggestion.place_id}
+                                    className={`px-4 py-3 cursor-pointer transition-colors border-b border-princess-border last:border-b-0
+                            ${index === selectedDestinationIndex
+                                            ? 'bg-princess-accent-lavender text-princess-text-primary'
+                                            : 'text-princess-text-primary hover:bg-princess-accent-lavender'
+                                        }`}
+                                    onMouseDown={() => handleSuggestionClick(suggestion, 'destination')}
+                                >
+                                    {suggestion.description}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={!origin.trim() || !destination.trim() || isLoading}
+                    className="w-full py-4 px-8 text-xl font-semibold rounded-2xl bg-gradient-to-r 
+                   from-princess-accent-lavender to-princess-accent-rose text-princess-text-primary
+                   hover:from-princess-accent-rose hover:to-princess-accent-lavender
+                   disabled:opacity-50 disabled:cursor-not-allowed
+                   transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100
+                   shadow-lg hover:shadow-xl"
+                >
+                    {isLoading ? '✨ Finding your perfect route...' : '✨ Find My Route ✨'}
+                </button>
+            </form>
+
+            {statusMessage && (
+                <div className={`mt-6 p-4 rounded-xl text-center font-medium ${isError
+                        ? 'bg-gradient-to-r from-princess-rose to-princess-blush text-princess-text-primary border border-princess-accent-rose'
+                        : 'bg-gradient-to-r from-princess-surface-soft to-princess-lavender text-princess-text-secondary'
+                    }`}>
+                    {statusMessage}
+                </div>
+            )}
+        </div>
+    )
+}
+
+export default SearchForm

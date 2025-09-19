@@ -1,0 +1,143 @@
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Princess Color Palette - Using Color Science for Harmony */
+  /* Primary Palette - Soft Pastels */
+  --princess-lavender: #E6E0FF;
+  --princess-rose: #FFE0E6;
+  --princess-mint: #E0FFF0;
+  --princess-peach: #FFE6D9;
+  --princess-lilac: #F0E6FF;
+  --princess-blush: #FFE6F0;
+
+  /* Accent Colors - Slightly More Saturated */
+  --princess-accent-lavender: #D4C5FF;
+  --princess-accent-rose: #FFB3C6;
+  --princess-accent-mint: #B3FFD9;
+  --princess-accent-peach: #FFD1B3;
+
+  /* Text Colors - Elegant & Readable */
+  --princess-text-primary: #6B4D7C;
+  --princess-text-secondary: #8B5A7A;
+  --princess-text-accent: #9B6B8F;
+
+  /* Surface Colors */
+  --princess-surface: #FDFBFF;
+  --princess-surface-soft: #F8F4FF;
+  --princess-border: #E8DCF0;
+}
+
+body, html {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--princess-surface);
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--princess-surface-soft);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--princess-accent-lavender);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--princess-accent-rose);
+}
+
+/* Leaflet CSS overrides */
+.leaflet-container {
+  font-family: inherit;
+}
+
+/* Custom popup styles */
+.custom-popup .leaflet-popup-content-wrapper {
+  background: var(--princess-surface);
+  border: 2px solid var(--princess-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 32px rgba(107, 77, 124, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+.custom-popup .leaflet-popup-tip {
+  background: var(--princess-surface);
+  border: 2px solid var(--princess-border);
+}
+
+/* Emoji icons for map markers */
+.emoji-icon {
+  font-size: 24px;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 0 3px white, 0 0 5px white;
+}
+
+.charger-icon {
+  z-index: 1000 !important;
+}
+
+.restaurant-icon {
+  z-index: 900 !important;
+}
+
+/* Princess marker */
+.princess-marker {
+  font-size: 36px;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 0 3px white, 0 0 5px white;
+}
+
+/* Search highlight styling */
+mark {
+  background: linear-gradient(45deg, var(--princess-peach), var(--princess-blush)) !important;
+  color: var(--princess-text-primary) !important;
+  padding: 2px 4px !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 8px rgba(107, 77, 124, 0.1) !important;
+  border: 1px solid var(--princess-border) !important;
+}
+
+/* Row highlight animation */
+@keyframes highlightFlashTwice {
+  0% {
+    background-color: transparent;
+    color: inherit;
+  }
+  15% {
+    background-color: var(--princess-accent-rose);
+    color: var(--princess-text-primary);
+  }
+  30% {
+    background-color: transparent;
+    color: inherit;
+  }
+  45% {
+    background-color: var(--princess-accent-rose);
+    color: var(--princess-text-primary);
+  }
+  60% {
+    background-color: transparent;
+    color: inherit;
+  }
+  100% {
+    background-color: transparent;
+    color: inherit;
+  }
+}
+
+.row-highlight-animation {
+  animation: highlightFlashTwice 1.2s ease-in-out;
+}
