@@ -9,6 +9,7 @@ import { ViewportProvider, useViewport } from './contexts/ViewportContext'
 import { ViewMode } from './types'
 import { useRoute } from './hooks/useRoute'
 import { useFilters } from './hooks/useFilters'
+import * as L from 'leaflet'
 
 const AppContent = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('search')
@@ -26,7 +27,7 @@ const AppContent = () => {
         updateFilters,
         filterCount
     } = useFilters(stationData)
-    const { setViewportToLocation, updateViewport, restoreSavedViewport } = useViewport()
+    const { setViewportToLocation, setViewportToRoute, updateViewport, restoreSavedViewport } = useViewport()
 
     console.log('App render - viewMode:', viewMode, 'routeData:', !!routeData)
 
@@ -131,6 +132,54 @@ const AppContent = () => {
             console.log('No URL params, staying in search mode')
         }
     }, [])
+
+    // Utility function to decode polyline
+    const decodePolyline = (encoded: string): [number, number][] => {
+        const coordinates: [number, number][] = []
+        let index = 0
+        let lat = 0
+        let lng = 0
+
+        while (index < encoded.length) {
+            // Decode latitude
+            let result = 0
+            let shift = 0
+            let byte: number
+            do {
+                byte = encoded.charCodeAt(index++) - 63
+                result |= (byte & 0x1F) << shift
+                shift += 5
+            } while (byte >= 0x20)
+            lat += (result & 1) ? ~(result >> 1) : (result >> 1)
+
+            // Decode longitude
+            result = 0
+            shift = 0
+            do {
+                byte = encoded.charCodeAt(index++) - 63
+                result |= (byte & 0x1F) << shift
+                shift += 5
+            } while (byte >= 0x20)
+            lng += (result & 1) ? ~(result >> 1) : (result >> 1)
+
+            coordinates.push([lat / 1e5, lng / 1e5])
+        }
+        return coordinates
+    }
+
+    // Set viewport when route data is received
+    useEffect(() => {
+        if (routeData?.route?.EncodedPolyline) {
+            console.log('APP: Setting viewport to route bounds')
+            const coordinates = decodePolyline(routeData.route.EncodedPolyline)
+            if (coordinates.length > 0) {
+                const polyline = L.polyline(coordinates)
+                const bounds = polyline.getBounds().pad(0.1)
+                setViewportToRoute(bounds)
+                console.log('APP: Set viewport to route bounds:', bounds)
+            }
+        }
+    }, [routeData, setViewportToRoute])
 
     console.log('Rendering - viewMode:', viewMode)
 

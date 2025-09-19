@@ -68,8 +68,7 @@ const Map = forwardRef<MapRef, MapProps>(({
     const viewportSuperchargers = useRef<Map<string, ViewportSuperchargerData>>(new (globalThis.Map)())
     const viewportRestaurants = useRef<Map<string, { data: Restaurant, marker: L.Marker }>>(new (globalThis.Map)())
     const viewportMappings = useRef<RestaurantSuperchargerMapping[]>([])
-    const hasInitializedRoute = useRef<boolean>(false)
-    const { viewport, updateViewport: updateViewportContext, setViewportToRoute } = useViewport()
+    const { viewport } = useViewport()
 
     const formatEpochMsToLocalTime = useCallback((epochMs: number): string => {
         const date = new Date(epochMs)
@@ -616,9 +615,9 @@ const Map = forwardRef<MapRef, MapProps>(({
         }
     }, [searchFilters, applyViewportFilters, viewportData, stationData])
 
-    // Update route polyline and fit bounds only on first load
+    // Update route polyline 
     useEffect(() => {
-        console.log('MAP: Route effect triggered, routeData:', !!routeData, 'hasInitialized:', hasInitializedRoute.current)
+        console.log('MAP: Route effect triggered, routeData:', !!routeData)
         if (!routeData || !layersRef.current || !mapRef.current) {
             console.log('MAP: Route effect early return - routeData:', !!routeData, 'layersRef:', !!layersRef.current, 'mapRef:', !!mapRef.current)
             return
@@ -649,26 +648,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                     drawTrafficSegments(trafficSegments, route)
                 }
 
-                const polyline = basePolyline
-
-                // Only fit bounds on first route load
-                if (!hasInitializedRoute.current) {
-                    console.log('MAP: First route load, fitting bounds')
-                    mapRef.current.fitBounds(polyline.getBounds().pad(0.1))
-                    hasInitializedRoute.current = true
-
-                    // Save the initial viewport in context after fitting bounds
-                    setTimeout(() => {
-                        if (mapRef.current) {
-                            const center = mapRef.current.getCenter()
-                            const zoom = mapRef.current.getZoom()
-                            updateViewportContext([center.lat, center.lng], zoom)
-                            console.log('MAP: Saved initial viewport after route fitting:', { center: [center.lat, center.lng], zoom })
-                        }
-                    }, 100)
-                } else {
-                    console.log('MAP: Route already initialized, skipping bounds fitting')
-                }
+                console.log('MAP: Route polyline added, not fitting bounds (handled by App)')
             }
         }
     }, [routeData])
@@ -677,7 +657,19 @@ const Map = forwardRef<MapRef, MapProps>(({
     useEffect(() => {
         if (mapRef.current && viewport && viewport.shouldSync) {
             console.log('MAP: Syncing map view with viewport context:', viewport)
-            mapRef.current.setView(viewport.center, viewport.zoom, { animate: false })
+            const currentCenter = mapRef.current.getCenter()
+            const currentZoom = mapRef.current.getZoom()
+
+            // Only sync if the map is not already at the target position
+            const centerDiff = Math.abs(currentCenter.lat - viewport.center[0]) + Math.abs(currentCenter.lng - viewport.center[1])
+            const zoomDiff = Math.abs(currentZoom - viewport.zoom)
+
+            if (centerDiff > 0.001 || zoomDiff > 0.1) {
+                console.log('MAP: Actually syncing - centerDiff:', centerDiff, 'zoomDiff:', zoomDiff)
+                mapRef.current.setView(viewport.center, viewport.zoom, { animate: false })
+            } else {
+                console.log('MAP: Skipping sync - map already at target position')
+            }
         }
     }, [viewport])    // Update user location
     useEffect(() => {
