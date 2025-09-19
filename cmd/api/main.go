@@ -12,7 +12,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/brensch/passengerprincess/pkg/db"
@@ -78,7 +77,7 @@ func main() {
 	}
 
 	// Register handlers.
-	http.HandleFunc("/", withGzip(serveFrontend)) // Serve the HTML file at the root
+	http.Handle("/", http.FileServer(http.Dir("frontend/dist/"))) // Serve static files from frontend dist
 	http.HandleFunc("/autocomplete", withGzip(autocompleteHandler))
 	http.HandleFunc("/route", withGzip(routeHandler))
 	http.HandleFunc("/superchargers/viewport", withGzip(viewportHandler))
@@ -100,46 +99,6 @@ func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	encoder.Encode(map[string]string{"error": message})
-}
-
-// serveFrontend serves the frontend HTML file with API key templating
-func serveFrontend(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Read the frontend HTML file
-	htmlContent, err := os.ReadFile("frontend/index.html")
-	if err != nil {
-		log.Printf("Error reading frontend file: %v", err)
-		writeJSONError(w, "Could not load frontend", http.StatusInternalServerError)
-		return
-	}
-
-	// Parse the template and inject the API key
-	tmpl, err := template.New("frontend").Parse(string(htmlContent))
-	if err != nil {
-		log.Printf("Error parsing frontend template: %v", err)
-		writeJSONError(w, "Could not parse frontend", http.StatusInternalServerError)
-		return
-	}
-
-	// Set content type to HTML
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	// Execute template with API key
-	data := struct {
-		APIKey string
-	}{
-		APIKey: googleAPIKey,
-	}
-
-	if err := tmpl.Execute(w, data); err != nil {
-		log.Printf("Error executing frontend template: %v", err)
-		writeJSONError(w, "Could not render frontend", http.StatusInternalServerError)
-		return
-	}
 }
 
 // autocompleteHandler handles place autocomplete requests
