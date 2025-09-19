@@ -86,16 +86,16 @@ const Map = forwardRef<MapRef, MapProps>(({
         const etaInfo = viewportSuperchargerData?.etaInfo
 
         let content = `
-            <div class="font-sans max-w-xs p-4">
-                <h3 class="font-semibold text-lg mb-2">${supercharger.name}</h3>
-                <p class="text-sm text-gray-600 mb-2">${supercharger.address}</p>
+            <div class="font-sans max-w-xs p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
+                <h3 class="font-semibold text-lg mb-1 text-princess-text-primary">${supercharger.name}</h3>
+                <p class="text-sm text-princess-text-secondary mb-1">${supercharger.address}</p>
         `
 
         if (etaInfo) {
             const distFromRoute = (etaInfo.distance_from_route || 0) / 1609.34
             const totalDist = ((etaInfo.distance_along_route || 0) + (etaInfo.distance_from_route || 0)) / 1609.34
             content += `
-                <div class="mt-2 text-sm text-gray-700">
+                <div class="mt-1 text-sm text-princess-text-primary space-y-0.5">
                     <p><strong>Arrival:</strong> ${formatEpochMsToLocalTime(etaInfo.arrival_time)}</p>
                     <p><strong>Total Distance:</strong> ${totalDist.toFixed(1)} mi</p>
                     <p><strong>Deviation:</strong> ${distFromRoute.toFixed(1)} mi</p>
@@ -103,13 +103,13 @@ const Map = forwardRef<MapRef, MapProps>(({
             `
         }
 
-        content += '<div class="flex flex-col gap-2 mt-3">'
+        content += '<div class="flex flex-col gap-1.5 mt-2">'
         if (finalChargerId) {
-            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1 bg-pink-500 text-white rounded text-sm hover:bg-pink-600">View in List</button>`
+            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-purple-600 hover:to-purple-700 hover:shadow-md">View in List</button>`
         }
         content += `
             <button onclick="window.open('${supercharger.google_maps_uri}', '_blank')" 
-                    class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                    class="px-3 py-1.5 bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-orange-500 hover:to-orange-600 hover:shadow-md">
                 Open in Maps
             </button>
         </div>
@@ -124,17 +124,17 @@ const Map = forwardRef<MapRef, MapProps>(({
         let distanceText = ''
         if (mapping) {
             const walkingDistance = (mapping.distance / 1609.34 * 5280).toFixed(0) // Convert to feet
-            distanceText = `<p class="text-sm text-gray-600">Walking: ${walkingDistance} ft to supercharger</p>`
+            distanceText = `Walking: ${walkingDistance} ft to supercharger`
         }
 
         return `
-            <div class="font-sans max-w-xs p-4">
-                <h3 class="font-semibold text-lg mb-2">${restaurant.name}</h3>
-                <p class="text-sm text-gray-600 mb-2">${restaurant.primary_type_display || 'Restaurant'}</p>
-                ${restaurant.rating ? `<p class="text-sm">Rating: ${'⭐'.repeat(Math.floor(restaurant.rating))} (${restaurant.rating})</p>` : ''}
-                ${distanceText}
+            <div class="font-sans max-w-xs p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
+                <h3 class="font-semibold text-lg mb-1 text-princess-text-primary">${restaurant.name}</h3>
+                <p class="text-sm text-princess-text-secondary mb-1">${restaurant.primary_type_display || 'Restaurant'}</p>
+                ${restaurant.rating ? `<p class="text-sm mb-1 text-princess-text-primary">Rating: ${'⭐'.repeat(Math.floor(restaurant.rating))} (${restaurant.rating})</p>` : ''}
+                ${distanceText ? `<p class="text-sm text-princess-text-secondary mb-1">${distanceText}</p>` : ''}
                 <button onclick="window.open('${restaurant.google_maps_uri}', '_blank')" 
-                        class="mt-2 px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+                        class="mt-2 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-green-600 hover:to-green-700 hover:shadow-md">
                     Open in Maps
                 </button>
             </div>
@@ -173,7 +173,9 @@ const Map = forwardRef<MapRef, MapProps>(({
                 console.log('MAP: Creating temporary popup at:', latLng)
 
                 // Create and show a temporary popup immediately
-                const popup = L.popup()
+                const popup = L.popup({
+                    className: 'custom-popup'
+                })
                     .setLatLng(latLng)
                     .setContent(generateSuperchargerPopupContent(supercharger, station.id))
                     .openOn(mapRef.current)
@@ -445,7 +447,9 @@ const Map = forwardRef<MapRef, MapProps>(({
                     etaInfo: routeSuperchargerMap.get(supercharger.place_id)
                 }
 
-                marker.bindPopup(() => generateSuperchargerPopupContent(supercharger, stationId))
+                marker.bindPopup(() => generateSuperchargerPopupContent(supercharger, stationId), {
+                    className: 'custom-popup'
+                })
                 viewportSuperchargers.current.set(supercharger.place_id, superchargerData)
             }
         })
@@ -534,7 +538,9 @@ const Map = forwardRef<MapRef, MapProps>(({
                         })
                     })
 
-                    marker.bindPopup(() => generateRestaurantPopupContent(restaurant))
+                    marker.bindPopup(() => generateRestaurantPopupContent(restaurant), {
+                        className: 'custom-popup'
+                    })
                     viewportRestaurants.current.set(restaurant.place_id, { data: restaurant, marker })
                 }
             })
@@ -691,11 +697,13 @@ const Map = forwardRef<MapRef, MapProps>(({
             })
 
             userMarker.bindPopup(`
-                <div class="p-4">
-                    <h3 class="font-semibold text-lg mb-2">Princess Location</h3>
-                    <p class="text-sm">You are extremely nice.</p>
+                <div class="font-sans max-w-xs p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
+                    <h3 class="font-semibold text-lg mb-1 text-princess-text-primary">Princess Location</h3>
+                    <p class="text-sm text-princess-text-secondary">You are extremely nice.</p>
                 </div>
-            `)
+            `, {
+                className: 'custom-popup'
+            })
 
             userLocationLayer.addLayer(userMarker)
         }

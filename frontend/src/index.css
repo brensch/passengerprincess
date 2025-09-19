@@ -63,16 +63,23 @@ body, html {
 
 /* Custom popup styles */
 .custom-popup .leaflet-popup-content-wrapper {
-  background: var(--princess-surface);
-  border: 2px solid var(--princess-border);
-  border-radius: 12px;
-  box-shadow: 0 16px 32px rgba(107, 77, 124, 0.15);
-  backdrop-filter: blur(8px);
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
 }
 
 .custom-popup .leaflet-popup-tip {
-  background: var(--princess-surface);
-  border: 2px solid var(--princess-border);
+  background: linear-gradient(135deg, #E6E0FF, #F0E6FF, #FFE0E6) !important;
+  border: 1px solid #E8DCF0 !important;
 }
 
 /* Emoji icons for map markers */
