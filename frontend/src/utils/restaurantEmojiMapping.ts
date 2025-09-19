@@ -7,7 +7,7 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
     'fine_dining_restaurant': '🍽️',
     'meal_delivery': '🚚',
     'meal_takeaway': '📦',
-    
+
     // Specific cuisines
     'american_restaurant': '🍔',
     'asian_restaurant': '🥢',
@@ -30,7 +30,7 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
     'mediterranean_restaurant': '🫒',
     'brazilian_restaurant': '🇧🇷',
     'afghani_restaurant': '🍲',
-    
+
     // Fast food & quick service
     'fast_food_restaurant': '🍟',
     'hamburger_restaurant': '🍔',
@@ -39,7 +39,7 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
     'bagel_shop': '🥯',
     'deli': '🥪',
     'donut_shop': '🍩',
-    
+
     // Specific food types
     'barbecue_restaurant': '🍖',
     'steak_house': '🥩',
@@ -51,7 +51,7 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
     'breakfast_restaurant': '🍳',
     'brunch_restaurant': '🥐',
     'dessert_restaurant': '🍰',
-    
+
     // Beverages & light food
     'cafe': '☕',
     'coffee_shop': '☕',
@@ -62,23 +62,23 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
     'pub': '🍺',
     'bar_and_grill': '🍺',
     'ice_cream_shop': '🍦',
-    
+
     // Bakery & sweets
     'bakery': '🥖',
     'dessert_shop': '🧁',
     'candy_store': '🍭',
     'confectionery': '🍬',
     'acai_shop': '🍓',
-    
+
     // Dining venues
     'diner': '🥞',
     'food_court': '🍽️',
     'banquet_hall': '🎉',
-    
+
     // Food services
     'catering_service': '🍽️',
     'food_delivery': '🚚',
-    
+
     // Stores with food
     'grocery_store': '🛒',
     'supermarket': '🛒',
@@ -94,7 +94,7 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
     'warehouse_store': '🏪',
     'wholesaler': '📦',
     'food': '🍽️',
-    
+
     // Non-food establishments (fallback emojis)
     'gas_station': '⛽',
     'electric_vehicle_charging_station': '🔌',
@@ -153,7 +153,7 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
     'car_repair': '🔧',
     'child_care_agency': '👶',
     'event_venue': '🎪',
-};
+}
 
 /**
  * Get the emoji for a restaurant type
@@ -161,8 +161,8 @@ export const RESTAURANT_TYPE_TO_EMOJI: Record<string, string> = {
  * @returns The corresponding emoji or a default restaurant emoji
  */
 export function getRestaurantEmoji(primaryType: string | null | undefined): string {
-    if (!primaryType) return '🍽️'; // Default restaurant emoji
-    
-    const emoji = RESTAURANT_TYPE_TO_EMOJI[primaryType.toLowerCase()];
-    return emoji || '🍽️'; // Default to restaurant emoji if not found
+    if (!primaryType) return '🍽️' // Default restaurant emoji
+
+    const emoji = RESTAURANT_TYPE_TO_EMOJI[primaryType.toLowerCase()]
+    return emoji || '🍽️' // Default to restaurant emoji if not found
 }
