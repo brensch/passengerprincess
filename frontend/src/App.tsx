@@ -175,8 +175,47 @@ const AppContent = () => {
             if (coordinates.length > 0) {
                 const polyline = L.polyline(coordinates)
                 const bounds = polyline.getBounds().pad(0.1)
-                setViewportToRoute(bounds)
-                console.log('APP: Set viewport to route bounds:', bounds)
+                const center = bounds.getCenter()
+
+                // Calculate optimal zoom using actual viewport size
+                const EARTH_RADIUS = 6378137 // Earth's radius in meters
+                const MAX_ZOOM = 18
+
+                const latDiff = (bounds.getNorth() - bounds.getSouth()) * Math.PI / 180
+                const lngDiff = (bounds.getEast() - bounds.getWest()) * Math.PI / 180
+
+                // Convert to meters at the center latitude
+                const centerLat = center.lat * Math.PI / 180
+                const latDistance = latDiff * EARTH_RADIUS
+                const lngDistance = lngDiff * EARTH_RADIUS * Math.cos(centerLat)
+
+                // Use actual viewport size instead of hardcoded values
+                const containerWidth = window.innerWidth
+                const containerHeight = window.innerHeight
+
+                console.log('APP: Container size:', { width: containerWidth, height: containerHeight })
+
+                // Calculate zoom for both dimensions and take the smaller (more zoomed out)
+                // Add some padding by reducing effective container size
+                const effectiveWidth = containerWidth * 0.9  // 10% padding
+                const effectiveHeight = containerHeight * 0.9 // 10% padding
+
+                const zoomForWidth = Math.log2(effectiveWidth * 156543.03392 * Math.cos(centerLat) / lngDistance)
+                const zoomForHeight = Math.log2(effectiveHeight * 156543.03392 / latDistance)
+
+                let optimalZoom = Math.min(zoomForWidth, zoomForHeight)
+                optimalZoom = Math.max(1, Math.min(MAX_ZOOM, Math.floor(optimalZoom)))
+
+                setViewportToRoute(bounds, center, optimalZoom)
+                console.log('APP: Set viewport to route bounds with calculated zoom:', {
+                    center: [center.lat, center.lng],
+                    zoom: optimalZoom,
+                    latDistance: latDistance / 1000, // km
+                    lngDistance: lngDistance / 1000, // km
+                    containerSize: { width: containerWidth, height: containerHeight },
+                    zoomForWidth,
+                    zoomForHeight
+                })
             }
         }
     }, [routeData, setViewportToRoute])
