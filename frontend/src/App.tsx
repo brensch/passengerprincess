@@ -109,6 +109,19 @@ const App = () => {
         window.history.replaceState(null, '', window.location.pathname)
     }
 
+    const handleRefresh = () => {
+        if (!userLocation || !routeData) return
+
+        // Get the destination from the current URL params or use a default
+        const params = new URLSearchParams(window.location.search)
+        const destination = params.get('destination')
+
+        if (destination && userLocation) {
+            // Use current location as origin and refresh the route
+            handleRouteSearch('My Location', decodeURIComponent(destination))
+        }
+    }
+
     const toggleView = () => {
         if (viewMode === 'results') {
             setViewMode('map')
@@ -152,26 +165,14 @@ const App = () => {
     return (
         <div className="h-screen overflow-hidden bg-princess-surface">
             {viewMode === 'search' && (
-                <div className="h-full flex flex-col">
-                    <Map
-                        ref={mapRef}
-                        routeData={routeData}
-                        stationData={filteredStationData}
+                <div className="h-full flex items-center justify-center bg-gradient-to-b from-princess-surface to-princess-lavender">
+                    <SearchForm
+                        onSearch={handleRouteSearch}
+                        isLoading={isLoading}
+                        statusMessage={statusMessage}
+                        isError={isError}
                         userLocation={userLocation}
-                        searchFilters={{ searchTerm, cuisineFilters }}
-                        className="flex-1"
                     />
-                    <div className="absolute inset-0 z-10 bg-gradient-to-b from-princess-surface to-princess-lavender backdrop-blur-sm" style={{ backgroundColor: 'rgba(253, 251, 255, 0.95)' }}>
-                        <div className="h-full flex items-center justify-center">
-                            <SearchForm
-                                onSearch={handleRouteSearch}
-                                isLoading={isLoading}
-                                statusMessage={statusMessage}
-                                isError={isError}
-                                userLocation={userLocation}
-                            />
-                        </div>
-                    </div>
                 </div>
             )}
 
@@ -181,12 +182,12 @@ const App = () => {
                         onNewSearch={handleNewSearch}
                         onToggleView={toggleView}
                         onOpenFilter={() => setIsFilterModalOpen(true)}
-                        onOpenHelp={() => setIsHelpModalOpen(true)}
+                        onRefresh={handleRefresh}
                         viewMode={viewMode}
                         filterCount={getFilterCount()}
                     />
 
-                    <div className="flex" style={{ height: 'calc(100vh - 66px)', marginTop: '66px' }}>
+                    <div className="flex" style={{ height: 'calc(100vh - 50px)', marginTop: '50px' }}>
                         {viewMode === 'results' ? (
                             <ResultsTable
                                 stationData={filteredStationData}
@@ -209,6 +210,19 @@ const App = () => {
                     </div>
                 </>
             )}
+
+            {/* Floating Help Button */}
+            <button
+                onClick={() => setIsHelpModalOpen(true)}
+                className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose 
+                         text-princess-text-primary text-3xl rounded-full shadow-lg hover:shadow-xl
+                         hover:from-princess-accent-rose hover:to-princess-accent-lavender
+                         transition-all duration-300 transform hover:scale-110 z-50
+                         border-2 border-princess-border backdrop-blur-sm"
+                title="Help"
+            >
+                ❓
+            </button>
 
             <FilterModal
                 isOpen={isFilterModalOpen}

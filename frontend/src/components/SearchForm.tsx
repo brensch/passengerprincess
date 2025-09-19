@@ -25,6 +25,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
 
     const handleSearch = (e: any) => {
         e.preventDefault()
+
         if (origin.trim() && destination.trim() && !isLoading) {
             onSearch(origin.trim(), destination.trim())
         }
@@ -172,18 +173,20 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
 
     const handleFocus = (type: 'origin' | 'destination') => {
         const value = type === 'origin' ? origin : destination
+
         if (value.trim() === '') {
-            const myLocationOption: AutocompleteResult = {
-                description: "My Location",
-                place_id: "my_location",
-                isMyLocation: true
-            }
             if (type === 'origin') {
+                const myLocationOption: AutocompleteResult = {
+                    description: "My Location",
+                    place_id: "my_location",
+                    isMyLocation: true
+                }
                 setOriginSuggestions([myLocationOption])
                 setShowOriginSuggestions(true)
             } else {
-                setDestinationSuggestions([myLocationOption])
-                setShowDestinationSuggestions(true)
+                // Don't show "My Location" for destination
+                setDestinationSuggestions([])
+                setShowDestinationSuggestions(false)
             }
         }
     }
@@ -204,29 +207,29 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
         <div className="w-full max-w-2xl p-8">
             <div className="text-center mb-8">
                 <h1 className="text-6xl font-dancing text-princess-text-primary mb-4">
-                    ✨ Passenger Princess Protector ✨
+                    Passenger Princess Protector
                 </h1>
-                <p className="text-lg text-princess-text-secondary">
-                    Find perfect pitstops along your Tesla route
-                </p>
             </div>
 
             <form onSubmit={handleSearch} className="space-y-6">
                 <div className="relative">
-                    <input
-                        ref={originRef}
-                        type="text"
-                        value={origin}
-                        onChange={(e) => handleOriginChange(e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, 'origin')}
-                        onFocus={() => handleFocus('origin')}
-                        onBlur={() => handleBlur('origin')}
-                        placeholder="Starting point (or use My Location)"
-                        className="w-full px-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
-                     bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
-                     focus:border-transparent transition-all duration-300"
-                        disabled={isLoading}
-                    />
+                    <div className="flex items-center">
+                        <span className="absolute left-4 text-2xl pointer-events-none">👸</span>
+                        <input
+                            ref={originRef}
+                            type="text"
+                            value={origin}
+                            onChange={(e) => handleOriginChange(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, 'origin')}
+                            onFocus={() => handleFocus('origin')}
+                            onBlur={() => handleBlur('origin')}
+                            placeholder="Princess Pickup Point"
+                            className="w-full pl-16 pr-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
+                         bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
+                         focus:border-transparent transition-all duration-300"
+                            disabled={isLoading}
+                        />
+                    </div>
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
@@ -249,20 +252,23 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
                 </div>
 
                 <div className="relative">
-                    <input
-                        ref={destinationRef}
-                        type="text"
-                        value={destination}
-                        onChange={(e) => handleDestinationChange(e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, 'destination')}
-                        onFocus={() => handleFocus('destination')}
-                        onBlur={() => handleBlur('destination')}
-                        placeholder="Where to, Princess?"
-                        className="w-full px-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
-                     bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
-                     focus:border-transparent transition-all duration-300"
-                        disabled={isLoading}
-                    />
+                    <div className="flex items-center">
+                        <span className="absolute left-4 text-2xl pointer-events-none">📌</span>
+                        <input
+                            ref={destinationRef}
+                            type="text"
+                            value={destination}
+                            onChange={(e) => handleDestinationChange(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, 'destination')}
+                            onFocus={() => handleFocus('destination')}
+                            onBlur={() => handleBlur('destination')}
+                            placeholder="Preferred Place of Passage"
+                            className="w-full pl-16 pr-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
+                         bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
+                         focus:border-transparent transition-all duration-300"
+                            disabled={isLoading}
+                        />
+                    </div>
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
@@ -294,14 +300,14 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
                    transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100
                    shadow-lg hover:shadow-xl"
                 >
-                    {isLoading ? '✨ Finding your perfect route...' : '✨ Find My Route ✨'}
+                    {isLoading ? '✨ Finding your perfect route...' : 'Plan Princess Portage'}
                 </button>
             </form>
 
             {statusMessage && (
                 <div className={`mt-6 p-4 rounded-xl text-center font-medium ${isError
-                        ? 'bg-gradient-to-r from-princess-rose to-princess-blush text-princess-text-primary border border-princess-accent-rose'
-                        : 'bg-gradient-to-r from-princess-surface-soft to-princess-lavender text-princess-text-secondary'
+                    ? 'bg-gradient-to-r from-princess-rose to-princess-blush text-princess-text-primary border border-princess-accent-rose'
+                    : 'bg-gradient-to-r from-princess-surface-soft to-princess-lavender text-princess-text-secondary'
                     }`}>
                     {statusMessage}
                 </div>
