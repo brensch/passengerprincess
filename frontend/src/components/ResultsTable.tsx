@@ -86,8 +86,8 @@ const ResultsTable = ({
         return (
             <div className={`${className} flex items-center justify-center bg-princess-surface`}>
                 <div className="text-center">
-                    <div className="text-6xl mb-4">✨</div>
-                    <div className="text-xl font-dancing text-princess-text-primary">{statusMessage}</div>
+                    <div className="text-6xl mb-4">🧠</div>
+                    <div className="text-2xl font-dancing text-princess-text-primary">Pondering Possible Paths</div>
                 </div>
             </div>
         )
