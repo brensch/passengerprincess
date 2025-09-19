@@ -54,6 +54,7 @@ const App = () => {
 
     const handleNewSearch = () => {
         setViewMode('search')
+        mapRef.current?.resetRouteInitialization()
         clearRoute()
     }
 
@@ -71,9 +72,19 @@ const App = () => {
     }
 
     const toggleView = () => {
+        console.log('APP: toggleView called, current viewMode:', viewMode)
         if (viewMode === 'results') {
+            console.log('APP: Switching from results to map, restoring viewport')
             setViewMode('map')
+            // Restore saved viewport when going to map (increased delay)
+            setTimeout(() => {
+                console.log('APP: Calling restoreViewport')
+                mapRef.current?.restoreViewport()
+            }, 200)
         } else if (viewMode === 'map') {
+            console.log('APP: Switching from map to results, saving viewport')
+            // Save current viewport before going to results
+            mapRef.current?.saveViewport()
             setViewMode('results')
         }
     }
@@ -150,14 +161,22 @@ const App = () => {
                                 statusMessage={error || ''}
                                 className="w-full"
                                 onShowSuperchargerPopup={(placeId) => {
+                                    console.log('APP: onShowSuperchargerPopup called with placeId:', placeId)
+                                    console.log('APP: Current viewMode:', viewMode, 'switching to map')
                                     setViewMode('map')
+                                    // Add delay to ensure map is fully rendered
                                     setTimeout(() => {
+                                        console.log('APP: Calling showSuperchargerPopup')
                                         mapRef.current?.showSuperchargerPopup(placeId)
                                     }, 100)
                                 }}
                                 onShowRestaurantPopup={(placeId) => {
+                                    console.log('APP: onShowRestaurantPopup called with placeId:', placeId)
+                                    console.log('APP: Current viewMode:', viewMode, 'switching to map')
                                     setViewMode('map')
+                                    // Add delay to ensure map is fully rendered
                                     setTimeout(() => {
+                                        console.log('APP: Calling showRestaurantPopup')
                                         mapRef.current?.showRestaurantPopup(placeId)
                                     }, 100)
                                 }}

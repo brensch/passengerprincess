@@ -31,6 +31,9 @@ interface MapProps {
 export interface MapRef {
     fitBounds: (bounds: L.LatLngBounds) => void
     getMap: () => L.Map | null
+    saveViewport: () => void
+    restoreViewport: () => void
+    resetRouteInitialization: () => void
     showSuperchargerPopup: (placeId: string) => void
     showRestaurantPopup: (placeId: string) => void
 }
@@ -67,6 +70,8 @@ const Map = forwardRef<MapRef, MapProps>(({
     const viewportSuperchargers = useRef<Map<string, ViewportSuperchargerData>>(new (globalThis.Map)())
     const viewportRestaurants = useRef<Map<string, { data: Restaurant, marker: L.Marker }>>(new (globalThis.Map)())
     const viewportMappings = useRef<RestaurantSuperchargerMapping[]>([])
+    const savedViewport = useRef<{ center: [number, number], zoom: number } | null>(null)
+    const hasInitializedRoute = useRef<boolean>(false)
 
     const formatEpochMsToLocalTime = useCallback((epochMs: number): string => {
         const date = new Date(epochMs)
@@ -145,23 +150,104 @@ const Map = forwardRef<MapRef, MapProps>(({
             }
         },
         getMap: () => mapRef.current,
+        saveViewport: () => {
+            if (mapRef.current) {
+                const center = mapRef.current.getCenter()
+                const zoom = mapRef.current.getZoom()
+                savedViewport.current = { center: [center.lat, center.lng], zoom }
+                console.log('MAP: Saved viewport:', savedViewport.current)
+            } else {
+                console.log('MAP: Cannot save viewport - no map instance')
+            }
+        },
+        restoreViewport: () => {
+            console.log('MAP: Attempting to restore viewport:', savedViewport.current)
+            if (mapRef.current && savedViewport.current) {
+                console.log('MAP: Restoring viewport to:', savedViewport.current)
+                mapRef.current.setView(savedViewport.current.center, savedViewport.current.zoom, { animate: false })
+            } else {
+                console.log('MAP: Cannot restore viewport - map:', !!mapRef.current, 'savedViewport:', !!savedViewport.current)
+            }
+        },
+        resetRouteInitialization: () => {
+            console.log('MAP: Resetting route initialization flag')
+            hasInitializedRoute.current = false
+        },
         showSuperchargerPopup: (placeId: string) => {
-            const viewportMarkerData = viewportSuperchargers.current.get(placeId)
-            const marker = viewportMarkerData?.marker
+            console.log('MAP: showSuperchargerPopup called with placeId:', placeId)
+            if (!mapRef.current) {
+                console.log('MAP: No map instance available')
+                return
+            }
 
-            if (marker && mapRef.current) {
-                mapRef.current.setView(marker.getLatLng(), 15)
-                marker.openPopup()
+            // First try to find the marker in viewport data
+            const viewportMarkerData = viewportSuperchargers.current.get(placeId)
+            console.log('MAP: Viewport marker data found:', !!viewportMarkerData)
+            if (viewportMarkerData?.marker) {
+                console.log('MAP: Using viewport marker, setting view to:', viewportMarkerData.marker.getLatLng())
+                mapRef.current.setView(viewportMarkerData.marker.getLatLng(), 18, { animate: false })
+                viewportMarkerData.marker.openPopup()
+                return
+            }
+
+            // If not found in viewport, find the supercharger in station data and create a temporary popup
+            const station = stationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
+            console.log('MAP: Station found in station data:', !!station)
+            if (station) {
+                const supercharger = station.chargerInfo.supercharger
+                const latLng = L.latLng(supercharger.latitude, supercharger.longitude)
+                console.log('MAP: Creating temporary popup at:', latLng)
+
+                // Jump to location immediately at high zoom
+                mapRef.current.setView(latLng, 18, { animate: false })
+                
+                // Create and show a temporary popup immediately
+                const popup = L.popup()
+                    .setLatLng(latLng)
+                    .setContent(generateSuperchargerPopupContent(supercharger, station.id))
+                    .openOn(mapRef.current)
+                console.log('MAP: Popup created and opened:', !!popup)
+            } else {
+                console.log('MAP: Station not found for placeId:', placeId)
             }
         },
         showRestaurantPopup: (placeId: string) => {
-            const viewportMarkerData = viewportRestaurants.current.get(placeId)
-            const marker = viewportMarkerData?.marker
-
-            if (marker && mapRef.current) {
-                mapRef.current.setView(marker.getLatLng(), 15)
-                marker.openPopup()
+            console.log('MAP: showRestaurantPopup called with placeId:', placeId)
+            if (!mapRef.current) {
+                console.log('MAP: No map instance available')
+                return
             }
+
+            // First try to find the marker in viewport data
+            const viewportMarkerData = viewportRestaurants.current.get(placeId)
+            console.log('MAP: Viewport restaurant marker found:', !!viewportMarkerData)
+            if (viewportMarkerData?.marker) {
+                console.log('MAP: Using viewport restaurant marker, setting view to:', viewportMarkerData.marker.getLatLng())
+                mapRef.current.setView(viewportMarkerData.marker.getLatLng(), 18, { animate: false })
+                viewportMarkerData.marker.openPopup()
+                return
+            }
+
+            // If not found in viewport, find the restaurant in station data and create a temporary popup
+            for (const station of stationData) {
+                const restaurant = station.restaurants?.find(r => r.place_id === placeId)
+                if (restaurant) {
+                    console.log('MAP: Restaurant found in station data, creating popup at:', restaurant.latitude, restaurant.longitude)
+                    const latLng = L.latLng(restaurant.latitude, restaurant.longitude)
+
+                    // Jump to location immediately at high zoom
+                    mapRef.current.setView(latLng, 18, { animate: false })
+                    
+                    // Create and show a temporary popup immediately
+                    const popup = L.popup()
+                        .setLatLng(latLng)
+                        .setContent(generateRestaurantPopupContent(restaurant))
+                        .openOn(mapRef.current)
+                    console.log('MAP: Restaurant popup created and opened:', !!popup)
+                    return
+                }
+            }
+            console.log('MAP: Restaurant not found for placeId:', placeId)
         }
     }))
 
@@ -538,7 +624,18 @@ const Map = forwardRef<MapRef, MapProps>(({
             viewportTimeout = setTimeout(updateViewport, 300)
         }
 
+        // Save viewport when user moves/zooms the map
+        const saveViewportOnMove = () => {
+            if (mapRef.current) {
+                const center = mapRef.current.getCenter()
+                const zoom = mapRef.current.getZoom()
+                savedViewport.current = { center: [center.lat, center.lng], zoom }
+                console.log('MAP: Auto-saved viewport on move:', savedViewport.current)
+            }
+        }
+
         map.on('moveend zoomend', debouncedViewportUpdate)
+        map.on('moveend zoomend', saveViewportOnMove)
 
         // Initial viewport load
         setTimeout(updateViewport, 100)
@@ -546,6 +643,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         return () => {
             clearTimeout(viewportTimeout)
             map.off('moveend zoomend', debouncedViewportUpdate)
+            map.off('moveend zoomend', saveViewportOnMove)
         }
     }, [updateViewport])
 
@@ -557,14 +655,19 @@ const Map = forwardRef<MapRef, MapProps>(({
         }
     }, [searchFilters, applyViewportFilters, viewportData, stationData])
 
-    // Update route polyline only
+    // Update route polyline and fit bounds only on first load
     useEffect(() => {
-        if (!routeData || !layersRef.current || !mapRef.current) return
+        console.log('MAP: Route effect triggered, routeData:', !!routeData, 'hasInitialized:', hasInitializedRoute.current)
+        if (!routeData || !layersRef.current || !mapRef.current) {
+            console.log('MAP: Route effect early return - routeData:', !!routeData, 'layersRef:', !!layersRef.current, 'mapRef:', !!mapRef.current)
+            return
+        }
 
         const { route } = layersRef.current
         route.clearLayers()
 
         if (routeData.route?.EncodedPolyline) {
+            console.log('MAP: Adding route polyline')
             const coordinates = decodePolyline(routeData.route.EncodedPolyline)
             if (coordinates.length > 0) {
                 const polyline = L.polyline(coordinates, {
@@ -574,13 +677,27 @@ const Map = forwardRef<MapRef, MapProps>(({
                 })
                 route.addLayer(polyline)
 
-                // Fit map to route bounds
-                mapRef.current.fitBounds(polyline.getBounds().pad(0.1))
+                // Only fit bounds on first route load
+                if (!hasInitializedRoute.current) {
+                    console.log('MAP: First route load, fitting bounds')
+                    mapRef.current.fitBounds(polyline.getBounds().pad(0.1))
+                    hasInitializedRoute.current = true
+                    
+                    // Save the initial viewport after fitting bounds
+                    setTimeout(() => {
+                        if (mapRef.current) {
+                            const center = mapRef.current.getCenter()
+                            const zoom = mapRef.current.getZoom()
+                            savedViewport.current = { center: [center.lat, center.lng], zoom }
+                            console.log('MAP: Saved initial viewport after route fitting:', savedViewport.current)
+                        }
+                    }, 100)
+                } else {
+                    console.log('MAP: Route already initialized, skipping bounds fitting')
+                }
             }
         }
-    }, [routeData])
-
-    // Update user location
+    }, [routeData])    // Update user location
     useEffect(() => {
         if (!layersRef.current) return
 
