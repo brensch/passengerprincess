@@ -98,6 +98,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
             const setValue = type === 'origin' ? setOrigin : setDestination
             setValue('Getting your location...')
 
+            // Get GPS location
             const position = await new Promise<GeolocationPosition>((resolve, reject) =>
                 navigator.geolocation.getCurrentPosition(resolve, reject, {
                     enableHighAccuracy: true,
@@ -105,7 +106,9 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
                 })
             )
 
-            const { latitude, longitude } = position.coords
+            const coords = position.coords
+            const latitude = coords.latitude
+            const longitude = coords.longitude
             const address = await reverseGeocode(latitude, longitude)
             setValue(address)
 
@@ -123,12 +126,20 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
 
     const reverseGeocode = async (lat: number, lon: number): Promise<string> => {
         try {
-            // Use a basic coordinate format as fallback
-            return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
+            // Use our backend reverse geocoding endpoint
+            const response = await fetch(`/reverse-geocode?lat=${lat}&lon=${lon}`)
+            if (response.ok) {
+                const data = await response.json()
+                if (data.address) {
+                    return data.address
+                }
+            }
         } catch (error) {
             console.error('Reverse geocoding error:', error)
-            return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
         }
+
+        // Use coordinate format as fallback
+        return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
     }
 
     const handleKeyDown = (e: any, type: 'origin' | 'destination') => {

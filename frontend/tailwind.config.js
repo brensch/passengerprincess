@@ -23,6 +23,20 @@ export default {
         'princess-surface': '#FDFBFF',
         'princess-surface-soft': '#F8F4FF',
         'princess-border': '#E8DCF0',
+        // Additional pink shades for table styling to match original
+        'pink': {
+          200: '#FBBDCB',
+          500: '#EC4899',
+          600: '#DB2777',
+          700: '#BE185D',
+          800: '#9D174D',
+        },
+        // Purple shades for table borders
+        'purple': {
+          200: '#E2BBE9',
+          500: '#A855F7',
+          600: '#9333EA',
+        }
       },
       fontFamily: {
         'dancing': ['Dancing Script', 'cursive'],

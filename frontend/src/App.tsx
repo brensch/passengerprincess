@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import Map from './components/Map'
+import Map, { MapRef } from './components/Map'
 import SearchForm from './components/SearchForm'
 import ResultsTable from './components/ResultsTable'
 import TopToolbar from './components/TopToolbar'
@@ -21,7 +21,7 @@ const App = () => {
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
 
-    const mapRef = useRef<any>(null)
+    const mapRef = useRef<MapRef>(null)
 
     console.log('App render - viewMode:', viewMode, 'routeData:', !!routeData)
 
@@ -46,7 +46,6 @@ const App = () => {
                 chargerInfo: {
                     supercharger: item.supercharger,
                     restaurants: item.restaurants || [],
-                    eta_ms: item.eta_ms,
                     distance_along_route: item.distance_along_route,
                     distance_from_route: item.distance_from_route
                 },
@@ -130,18 +129,23 @@ const App = () => {
         }
     }
 
-    // Handle geolocation
+    // Handle geolocation - get GPS location
     useEffect(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setUserLocation([position.coords.latitude, position.coords.longitude])
-                },
-                (error) => {
-                    console.log('Geolocation error:', error)
-                }
-            )
+        const getUserLocation = () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        setUserLocation([position.coords.latitude, position.coords.longitude])
+                    },
+                    (error) => {
+                        console.log('Geolocation error:', error)
+                        // If GPS fails, just leave userLocation as null
+                    }
+                )
+            }
         }
+
+        getUserLocation()
     }, [])
 
     // Load search from URL on mount
@@ -196,6 +200,18 @@ const App = () => {
                                 isLoading={isLoading}
                                 statusMessage={statusMessage}
                                 className="w-full"
+                                onShowSuperchargerPopup={(placeId) => {
+                                    setViewMode('map')
+                                    setTimeout(() => {
+                                        mapRef.current?.showSuperchargerPopup(placeId)
+                                    }, 100)
+                                }}
+                                onShowRestaurantPopup={(placeId) => {
+                                    setViewMode('map')
+                                    setTimeout(() => {
+                                        mapRef.current?.showRestaurantPopup(placeId)
+                                    }, 100)
+                                }}
                             />
                         ) : (
                             <Map

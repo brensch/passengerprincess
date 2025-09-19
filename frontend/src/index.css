@@ -141,3 +141,64 @@ mark {
 .row-highlight-animation {
   animation: highlightFlashTwice 1.2s ease-in-out;
 }
+
+/* Princess button styling */
+.princess-button {
+  background: linear-gradient(135deg, var(--princess-accent-lavender), var(--princess-accent-rose));
+  color: var(--princess-text-primary);
+  border: 2px solid var(--princess-border);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(107, 77, 124, 0.15);
+}
+
+.princess-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(107, 77, 124, 0.25);
+  background: linear-gradient(135deg, var(--princess-accent-rose), var(--princess-accent-mint));
+}
+
+/* Table styling */
+#chargers-table {
+  border-collapse: collapse;
+  line-height: 1;
+  height: auto;
+  width: 100%;
+}
+
+#chargers-table tr,
+#chargers-table tr td,
+#chargers-table tr th {
+  height: 18px !important;
+  line-height: 1 !important;
+}
+
+#chargers-table td,
+#chargers-table th {
+  border-bottom: 1px solid var(--princess-border);
+}
+
+/* Enhanced link styling for clickable results */
+.city-link,
+.restaurant-link {
+  text-decoration: underline;
+  text-decoration-color: var(--princess-accent-rose);
+  text-underline-offset: 2px;
+  color: var(--princess-text-secondary);
+  transition: all 0.3s ease;
+}
+
+.city-link:hover,
+.restaurant-link:hover {
+  text-decoration-color: var(--princess-text-primary);
+  color: var(--princess-text-primary);
+  transform: translateY(-1px);
+}
+
+/* Princess table header styling */
+.princess-table-header {
+  color: var(--princess-text-primary) !important;
+  font-weight: 600;
+}

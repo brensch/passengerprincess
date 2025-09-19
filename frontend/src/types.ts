@@ -6,7 +6,7 @@ export interface Restaurant {
     primary_type_display?: string
     latitude: number
     longitude: number
-    distance_from_charger?: number
+    distance?: number  // This is the walking distance to the supercharger
     google_maps_uri?: string
 }
 
@@ -18,7 +18,7 @@ export interface Supercharger {
     address?: string
     rating?: number
     google_maps_uri?: string
-    eta_ms?: number
+    arrival_time?: number  // This is the arrival time at this supercharger in epoch milliseconds
     distance_along_route?: number
     distance_from_route?: number
 }
@@ -28,7 +28,6 @@ export interface StationData {
     chargerInfo: {
         supercharger: Supercharger
         restaurants: Restaurant[]
-        eta_ms?: number
         distance_along_route?: number
         distance_from_route?: number
     }

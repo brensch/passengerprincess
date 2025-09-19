@@ -21,6 +21,8 @@ interface MapProps {
 export interface MapRef {
     fitBounds: (bounds: L.LatLngBounds) => void
     getMap: () => L.Map | null
+    showSuperchargerPopup: (placeId: string) => void
+    showRestaurantPopup: (placeId: string) => void
 }
 
 const Map = forwardRef<MapRef, MapProps>(({
@@ -38,6 +40,10 @@ const Map = forwardRef<MapRef, MapProps>(({
         restaurants: L.LayerGroup
         userLocation: L.LayerGroup
     } | null>(null)
+    const markersRef = useRef<{
+        superchargers: { [key: string]: L.Marker }
+        restaurants: { [key: string]: L.Marker }
+    }>({ superchargers: {}, restaurants: {} })
 
     useImperativeHandle(ref, () => ({
         fitBounds: (bounds: L.LatLngBounds) => {
@@ -45,7 +51,21 @@ const Map = forwardRef<MapRef, MapProps>(({
                 mapRef.current.fitBounds(bounds)
             }
         },
-        getMap: () => mapRef.current
+        getMap: () => mapRef.current,
+        showSuperchargerPopup: (placeId: string) => {
+            const marker = markersRef.current.superchargers[placeId]
+            if (marker && mapRef.current) {
+                mapRef.current.setView(marker.getLatLng(), 15)
+                marker.openPopup()
+            }
+        },
+        showRestaurantPopup: (placeId: string) => {
+            const marker = markersRef.current.restaurants[placeId]
+            if (marker && mapRef.current) {
+                mapRef.current.setView(marker.getLatLng(), 15)
+                marker.openPopup()
+            }
+        }
     }))
 
     // Initialize map
@@ -106,6 +126,10 @@ const Map = forwardRef<MapRef, MapProps>(({
         superchargers.clearLayers()
         restaurants.clearLayers()
 
+        // Clear marker refs
+        markersRef.current.superchargers = {}
+        markersRef.current.restaurants = {}
+
         stationData.forEach((station) => {
             const { chargerInfo } = station
 
@@ -126,7 +150,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         <div class="p-4">
           <h3 class="font-semibold text-lg mb-2">${chargerInfo.supercharger.name}</h3>
           <p class="text-sm text-gray-600 mb-2">${chargerInfo.supercharger.address || ''}</p>
-          ${chargerInfo.eta_ms ? `<p class="text-sm">ETA: ${formatEpochMsToLocalTime(chargerInfo.eta_ms)}</p>` : ''}
+          ${chargerInfo.supercharger.arrival_time ? `<p class="text-sm">ETA: ${formatEpochMsToLocalTime(chargerInfo.supercharger.arrival_time)}</p>` : ''}
           <button onclick="window.open('${chargerInfo.supercharger.google_maps_uri}', '_blank')" 
                   class="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
             Open in Maps
@@ -135,6 +159,7 @@ const Map = forwardRef<MapRef, MapProps>(({
       `)
 
             superchargers.addLayer(superchargerMarker)
+            markersRef.current.superchargers[chargerInfo.supercharger.place_id] = superchargerMarker
 
             // Add restaurant markers (filtered)
             station.restaurants.forEach((restaurant) => {
@@ -169,6 +194,7 @@ const Map = forwardRef<MapRef, MapProps>(({
           `)
 
                     restaurants.addLayer(restaurantMarker)
+                    markersRef.current.restaurants[restaurant.place_id] = restaurantMarker
                 }
             })
         })

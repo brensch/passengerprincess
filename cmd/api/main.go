@@ -82,6 +82,7 @@ func main() {
 	http.HandleFunc("/autocomplete", withGzip(autocompleteHandler))
 	http.HandleFunc("/route", withGzip(routeHandler))
 	http.HandleFunc("/superchargers/viewport", withGzip(viewportHandler))
+	http.HandleFunc("/reverse-geocode", withGzip(reverseGeocodeHandler))
 
 	// Start the server.
 	port := "8040"
@@ -307,5 +308,106 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 		"superchargers": superchargers,
 		"restaurants":   restaurants,
 		"mappings":      mappings,
+	})
+}
+
+// reverseGeocodeHandler handles reverse geocoding requests (coordinates to address)
+func reverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get latitude and longitude from query parameters
+	latStr := strings.TrimSpace(r.URL.Query().Get("lat"))
+	lonStr := strings.TrimSpace(r.URL.Query().Get("lon"))
+
+	if latStr == "" || lonStr == "" {
+		writeJSONError(w, "Both lat and lon parameters are required", http.StatusBadRequest)
+		return
+	}
+
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		writeJSONError(w, "Invalid lat parameter", http.StatusBadRequest)
+		return
+	}
+
+	lon, err := strconv.ParseFloat(lonStr, 64)
+	if err != nil {
+		writeJSONError(w, "Invalid lon parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Call Google Maps Geocoding API
+	url := "https://maps.googleapis.com/maps/api/geocode/json?latlng=" + latStr + "," + lonStr + "&key=" + googleAPIKey
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		log.Printf("Error creating reverse geocoding request: %v", err)
+		writeJSONError(w, "Failed to create geocoding request", http.StatusInternalServerError)
+		return
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error making reverse geocoding request: %v", err)
+		writeJSONError(w, "Failed to geocode location", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	var geocodeData struct {
+		Status  string `json:"status"`
+		Results []struct {
+			FormattedAddress string `json:"formatted_address"`
+		} `json:"results"`
+		ErrorMessage string `json:"error_message,omitempty"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&geocodeData); err != nil {
+		log.Printf("Error decoding reverse geocoding response: %v", err)
+		writeJSONError(w, "Failed to decode geocoding response", http.StatusInternalServerError)
+		return
+	}
+
+	if geocodeData.Status != "OK" {
+		log.Printf("Reverse geocoding failed with status: %s, message: %s", geocodeData.Status, geocodeData.ErrorMessage)
+		// Fallback to coordinates if reverse geocoding fails
+		formattedCoords := strconv.FormatFloat(lat, 'f', 6, 64) + ", " + strconv.FormatFloat(lon, 'f', 6, 64)
+		w.Header().Set("Content-Type", "application/json")
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false)
+		encoder.Encode(map[string]interface{}{
+			"address": formattedCoords,
+			"status":  "fallback",
+		})
+		return
+	}
+
+	if len(geocodeData.Results) == 0 {
+		// Fallback to coordinates if no results
+		formattedCoords := strconv.FormatFloat(lat, 'f', 6, 64) + ", " + strconv.FormatFloat(lon, 'f', 6, 64)
+		w.Header().Set("Content-Type", "application/json")
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false)
+		encoder.Encode(map[string]interface{}{
+			"address": formattedCoords,
+			"status":  "fallback",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	encoder.Encode(map[string]interface{}{
+		"address": geocodeData.Results[0].FormattedAddress,
+		"status":  "success",
 	})
 }

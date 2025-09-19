@@ -20,7 +20,8 @@ export default defineConfig({
             '/api': 'http://localhost:8040',
             '/route': 'http://localhost:8040',
             '/superchargers': 'http://localhost:8040',
-            '/autocomplete': 'http://localhost:8040'
+            '/autocomplete': 'http://localhost:8040',
+            '/reverse-geocode': 'http://localhost:8040'
         }
     }
 })
