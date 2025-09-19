@@ -625,12 +625,25 @@ const Map = forwardRef<MapRef, MapProps>(({
             console.log('MAP: Adding route polyline')
             const coordinates = decodePolyline(routeData.route.EncodedPolyline)
             if (coordinates.length > 0) {
-                const polyline = L.polyline(coordinates, {
+                // Draw base route
+                const basePolyline = L.polyline(coordinates, {
                     color: '#8B5CF6',
                     weight: 5,
                     opacity: 0.8
                 })
-                route.addLayer(polyline)
+                route.addLayer(basePolyline)
+
+                // Draw traffic segments if available
+                if (routeData.route.travelAdvisory?.speedReadingIntervals) {
+                    console.log('MAP: Adding traffic segments')
+                    const trafficSegments = buildTrafficSegments(
+                        routeData.route.EncodedPolyline,
+                        routeData.route.travelAdvisory.speedReadingIntervals
+                    )
+                    drawTrafficSegments(trafficSegments, route)
+                }
+
+                const polyline = basePolyline
 
                 // Only fit bounds on first route load
                 if (!hasInitializedRoute.current) {
@@ -707,6 +720,69 @@ const Map = forwardRef<MapRef, MapProps>(({
 })
 
 Map.displayName = 'Map'
+
+// Traffic segment types
+interface TrafficSegment {
+    coordinates: [number, number][]
+    speed: 'NORMAL' | 'SLOW' | 'TRAFFIC_JAM'
+}
+
+// Traffic utility functions
+function buildTrafficSegments(
+    encodedPolyline: string,
+    intervals: Array<{
+        startPolylinePointIndex: number
+        endPolylinePointIndex: number
+        speed: 'NORMAL' | 'SLOW' | 'TRAFFIC_JAM'
+    }>
+): TrafficSegment[] {
+    const allCoords = decodePolyline(encodedPolyline)
+    const segments: TrafficSegment[] = []
+
+    intervals.forEach(interval => {
+        const start = interval.startPolylinePointIndex
+        const end = interval.endPolylinePointIndex
+        const coords = allCoords.slice(start, end + 1)
+        if (coords.length > 1) {
+            segments.push({
+                coordinates: coords,
+                speed: interval.speed
+            })
+        }
+    })
+
+    return segments
+}
+
+function drawTrafficSegments(segments: TrafficSegment[], routeLayer: L.LayerGroup): void {
+    segments.forEach(segment => {
+        if (segment.coordinates.length < 2) return
+
+        let color: string
+        switch (segment.speed) {
+            case 'NORMAL':
+                color = '#34D399' // Emerald 400 - green for normal speed
+                break
+            case 'SLOW':
+                color = '#FBBF24' // Amber 400 - yellow for slow traffic
+                break
+            case 'TRAFFIC_JAM':
+                color = '#F87171' // Red 400 - red for traffic jams
+                break
+            default:
+                color = '#60A5FA' // Blue 400 - fallback
+                break
+        }
+
+        const trafficPolyline = L.polyline(segment.coordinates, {
+            color: color,
+            weight: 6,
+            opacity: 0.85
+        })
+
+        routeLayer.addLayer(trafficPolyline)
+    })
+}
 
 // Utility functions
 function decodePolyline(encoded: string): [number, number][] {
