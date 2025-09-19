@@ -5,6 +5,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
 import { RouteResponse, StationData, SearchFilters, ViewportResponse, Supercharger, Restaurant, RestaurantSuperchargerMapping } from '../types'
 import { useViewport } from '../contexts/ViewportContext'
+import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
 
 // Fix for default markers in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -126,10 +127,12 @@ const Map = forwardRef<MapRef, MapProps>(({
             distanceText = `Walking: ${walkingDistance} ft to supercharger`
         }
 
+        const emoji = getRestaurantEmoji(restaurant.primary_type)
+
         return `
             <div class="font-sans max-w-xs p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
                 <h3 class="font-semibold text-lg mb-1 text-princess-text-primary">${restaurant.name}</h3>
-                <p class="text-sm text-princess-text-secondary mb-1">${restaurant.primary_type_display || 'Restaurant'}</p>
+                <p class="text-sm text-princess-text-secondary mb-1">${emoji} ${restaurant.primary_type_display || 'Restaurant'}</p>
                 ${restaurant.rating ? `<p class="text-sm mb-1 text-princess-text-primary">Rating: ${'⭐'.repeat(Math.floor(restaurant.rating))} (${restaurant.rating})</p>` : ''}
                 ${distanceText ? `<p class="text-sm text-princess-text-secondary mb-1">${distanceText}</p>` : ''}
                 <button onclick="window.open('${restaurant.google_maps_uri}', '_blank')" 
@@ -530,10 +533,11 @@ const Map = forwardRef<MapRef, MapProps>(({
                     bounds.contains(L.latLng(restaurant.latitude, restaurant.longitude))) {
 
                     const isRouteRestaurant = routeRestaurantMap.has(restaurant.place_id)
+                    const restaurantEmoji = getRestaurantEmoji(restaurant.primary_type)
                     const marker = L.marker([restaurant.latitude, restaurant.longitude], {
                         icon: L.divIcon({
                             className: 'emoji-icon restaurant-icon',
-                            html: '🍽️',
+                            html: restaurantEmoji,
                             iconSize: isRouteRestaurant ? [24, 24] : [20, 20],
                             iconAnchor: isRouteRestaurant ? [12, 12] : [10, 10]
                         })

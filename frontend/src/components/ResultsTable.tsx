@@ -1,4 +1,5 @@
 import { StationData, RouteResponse } from '../types'
+import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
 
 interface ResultsTableProps {
     stationData: StationData[]
@@ -248,10 +249,14 @@ const ResultsTable = ({
                                     <td
                                         className="px-1 py-0 text-sm text-pink-700"
                                         data-original-cuisine={restaurant.primary_type_display || 'N/A'}
-                                        dangerouslySetInnerHTML={{
-                                            __html: highlightText(restaurant.primary_type_display || 'N/A', searchTerm)
-                                        }}
-                                    />
+                                    >
+                                        <span className="inline-flex items-center gap-1">
+                                            <span>{getRestaurantEmoji(restaurant.primary_type)}</span>
+                                            <span dangerouslySetInnerHTML={{
+                                                __html: highlightText(restaurant.primary_type_display || 'N/A', searchTerm)
+                                            }} />
+                                        </span>
+                                    </td>
                                 </tr>
                             ))
                         })}
