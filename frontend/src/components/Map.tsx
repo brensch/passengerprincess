@@ -1,6 +1,6 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useRef, forwardRef, useImperativeHandle, useState } from 'react'
 import * as L from 'leaflet'
-import { RouteData, StationData, SearchFilters } from '../types'
+import { RouteResponse, StationData, SearchFilters, ViewportResponse } from '../types'
 
 // Fix for default markers in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -11,7 +11,7 @@ L.Icon.Default.mergeOptions({
 })
 
 interface MapProps {
-    routeData: RouteData | null
+    routeData: RouteResponse | null
     stationData: StationData[]
     userLocation: [number, number] | null
     searchFilters: SearchFilters
@@ -39,11 +39,17 @@ const Map = forwardRef<MapRef, MapProps>(({
         superchargers: L.LayerGroup
         restaurants: L.LayerGroup
         userLocation: L.LayerGroup
+        viewportSuperchargers: L.LayerGroup
+        viewportRestaurants: L.LayerGroup
     } | null>(null)
     const markersRef = useRef<{
         superchargers: { [key: string]: L.Marker }
         restaurants: { [key: string]: L.Marker }
     }>({ superchargers: {}, restaurants: {} })
+
+    // Viewport state
+    const [viewportData, setViewportData] = useState<ViewportResponse | null>(null)
+    const lastBoundsRef = useRef<L.LatLngBounds | null>(null)
 
     useImperativeHandle(ref, () => ({
         fitBounds: (bounds: L.LatLngBounds) => {
@@ -82,13 +88,54 @@ const Map = forwardRef<MapRef, MapProps>(({
             route: L.layerGroup().addTo(map),
             superchargers: L.layerGroup().addTo(map),
             restaurants: L.layerGroup().addTo(map),
-            userLocation: L.layerGroup().addTo(map)
+            userLocation: L.layerGroup().addTo(map),
+            viewportSuperchargers: L.layerGroup().addTo(map),
+            viewportRestaurants: L.layerGroup().addTo(map)
         }
 
         mapRef.current = map
         layersRef.current = layers
 
+        // Add viewport loading on map move/zoom
+        const updateViewport = async () => {
+            if (!map) return
+
+            const bounds = map.getBounds()
+            const currentBounds = lastBoundsRef.current
+
+            // Only update if bounds have changed significantly
+            if (currentBounds && bounds.equals(currentBounds)) return
+
+            lastBoundsRef.current = bounds
+
+            try {
+                const response = await fetch(
+                    `/superchargers/viewport?min_lat=${bounds.getSouth()}&max_lat=${bounds.getNorth()}&min_lng=${bounds.getWest()}&max_lng=${bounds.getEast()}`
+                )
+                const data: ViewportResponse = await response.json()
+
+                if (response.ok) {
+                    setViewportData(data)
+                }
+            } catch (error) {
+                console.error('Failed to load viewport data:', error)
+            }
+        }
+
+        // Debounce viewport updates
+        let viewportTimeout: ReturnType<typeof setTimeout>
+        const debouncedViewportUpdate = () => {
+            clearTimeout(viewportTimeout)
+            viewportTimeout = setTimeout(updateViewport, 300)
+        }
+
+        map.on('moveend zoomend', debouncedViewportUpdate)
+
+        // Initial viewport load
+        setTimeout(updateViewport, 100)
+
         return () => {
+            clearTimeout(viewportTimeout)
             map.remove()
             mapRef.current = null
             layersRef.current = null
@@ -150,7 +197,6 @@ const Map = forwardRef<MapRef, MapProps>(({
         <div class="p-4">
           <h3 class="font-semibold text-lg mb-2">${chargerInfo.supercharger.name}</h3>
           <p class="text-sm text-gray-600 mb-2">${chargerInfo.supercharger.address || ''}</p>
-          ${chargerInfo.supercharger.arrival_time ? `<p class="text-sm">ETA: ${formatEpochMsToLocalTime(chargerInfo.supercharger.arrival_time)}</p>` : ''}
           <button onclick="window.open('${chargerInfo.supercharger.google_maps_uri}', '_blank')" 
                   class="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
             Open in Maps
@@ -199,6 +245,89 @@ const Map = forwardRef<MapRef, MapProps>(({
             })
         })
     }, [stationData, searchFilters])
+
+    // Update viewport superchargers and restaurants
+    useEffect(() => {
+        if (!layersRef.current || !viewportData) return
+
+        const { viewportSuperchargers, viewportRestaurants } = layersRef.current
+        viewportSuperchargers.clearLayers()
+        viewportRestaurants.clearLayers()
+
+        // Add viewport superchargers
+        viewportData.superchargers.forEach((supercharger) => {
+            // Skip if this supercharger is already shown in route data
+            if (stationData.some(station => station.chargerInfo.supercharger.place_id === supercharger.place_id)) {
+                return
+            }
+
+            const marker = L.marker([supercharger.latitude, supercharger.longitude], {
+                icon: L.divIcon({
+                    className: 'emoji-icon charger-icon',
+                    html: '⚡',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            })
+
+            marker.bindPopup(`
+                <div class="p-4">
+                    <h3 class="font-semibold text-lg mb-2">${supercharger.name}</h3>
+                    <p class="text-sm text-gray-600 mb-2">${supercharger.address}</p>
+                    <button onclick="window.open('${supercharger.google_maps_uri}', '_blank')" 
+                            class="mt-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+                        Open in Maps
+                    </button>
+                </div>
+            `)
+
+            viewportSuperchargers.addLayer(marker)
+        })
+
+        // Add viewport restaurants with filtering
+        const filteredRestaurants = viewportData.restaurants.filter(restaurant => {
+            const nameMatch = !searchFilters.searchTerm ||
+                restaurant.name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase())
+            const cuisineMatch = searchFilters.cuisineFilters.includes('') ||
+                searchFilters.cuisineFilters.length === 0 ||
+                searchFilters.cuisineFilters.some(cuisine =>
+                    cuisine !== '' && (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase())
+                )
+
+            // Skip if this restaurant is already shown in route data
+            const isInRouteData = stationData.some(station =>
+                station.restaurants.some(r => r.place_id === restaurant.place_id)
+            )
+
+            return nameMatch && cuisineMatch && !isInRouteData
+        })
+
+        filteredRestaurants.forEach((restaurant) => {
+            const marker = L.marker([restaurant.latitude, restaurant.longitude], {
+                icon: L.divIcon({
+                    className: 'emoji-icon restaurant-icon',
+                    html: '🍽️',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            })
+
+            marker.bindPopup(`
+                <div class="p-4">
+                    <h3 class="font-semibold text-lg mb-2">${restaurant.name}</h3>
+                    <p class="text-sm text-gray-600 mb-2">${restaurant.primary_type_display || 'Restaurant'}</p>
+                    ${restaurant.rating ? `<p class="text-sm">Rating: ${'⭐'.repeat(Math.floor(restaurant.rating))} (${restaurant.rating})</p>` : ''}
+                    <button onclick="window.open('${restaurant.google_maps_uri}', '_blank')" 
+                            class="mt-2 px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+                        Open in Maps
+                    </button>
+                </div>
+            `)
+
+            viewportRestaurants.addLayer(marker)
+        })
+
+    }, [viewportData, searchFilters, stationData])
 
     // Update user location
     useEffect(() => {
@@ -282,24 +411,6 @@ function decodePolyline(encoded: string): [number, number][] {
     }
 
     return coords
-}
-
-function formatEpochMsToLocalTime(epochMs: number): string {
-    if (!epochMs || epochMs === 0) {
-        return 'N/A'
-    }
-
-    try {
-        const date = new Date(epochMs)
-        return date.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        })
-    } catch (error) {
-        console.error('Error formatting epoch time:', error)
-        return 'N/A'
-    }
 }
 
 export default Map

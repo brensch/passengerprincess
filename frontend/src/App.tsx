@@ -5,11 +5,11 @@ import ResultsTable from './components/ResultsTable'
 import TopToolbar from './components/TopToolbar'
 import FilterModal from './components/FilterModal'
 import HelpModal from './components/HelpModal'
-import { RouteData, StationData, ViewMode } from './types'
+import { RouteResponse, StationData, ViewMode, SuperchargerWithETA, ViewportResponse } from './types'
 
 const App = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('search')
-    const [routeData, setRouteData] = useState<RouteData | null>(null)
+    const [routeData, setRouteData] = useState<RouteResponse | null>(null)
     const [stationData, setStationData] = useState<StationData[]>([])
     const [filteredStationData, setFilteredStationData] = useState<StationData[]>([])
     const [searchTerm, setSearchTerm] = useState('')
@@ -40,8 +40,8 @@ const App = () => {
 
             setRouteData(data)
 
-            // Transform the route data to match StationData structure expected by components
-            const transformedStations: StationData[] = (data.superchargers || []).map((item: any, index: number) => ({
+            // Transform the route data to match StationData structure expected by legacy components
+            const transformedStations: StationData[] = (data.superchargers || []).map((item: SuperchargerWithETA, index: number) => ({
                 id: item.supercharger?.place_id || `station-${index}`,
                 chargerInfo: {
                     supercharger: item.supercharger,
@@ -195,6 +195,7 @@ const App = () => {
                         {viewMode === 'results' ? (
                             <ResultsTable
                                 stationData={filteredStationData}
+                                routeData={routeData}
                                 searchTerm={searchTerm}
                                 cuisineFilters={cuisineFilters}
                                 isLoading={isLoading}

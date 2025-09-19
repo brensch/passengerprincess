@@ -1,7 +1,8 @@
-import { StationData } from '../types'
+import { StationData, RouteResponse } from '../types'
 
 interface ResultsTableProps {
     stationData: StationData[]
+    routeData: RouteResponse | null
     searchTerm: string
     cuisineFilters: string[]
     isLoading: boolean
@@ -13,6 +14,7 @@ interface ResultsTableProps {
 
 const ResultsTable = ({
     stationData,
+    routeData,
     searchTerm,
     cuisineFilters,
     isLoading,
@@ -100,20 +102,22 @@ const ResultsTable = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {stationData.map((station, stationIndex) => {
+                        {stationData.map((station) => {
                             const { chargerInfo } = station
                             const restaurants = station.restaurants || []
                             const maxRows = Math.max(1, restaurants.length)
 
+                            // Find the corresponding SuperchargerWithETA from routeData to get arrival_time
+                            const routeCharger = routeData?.superchargers.find(
+                                s => s.supercharger.place_id === chargerInfo.supercharger.place_id
+                            )
+
                             // Calculate distances
                             const distanceFromOrigin = chargerInfo.distance_from_route ?
                                 (chargerInfo.distance_from_route / 1609.34).toFixed(1) + ' mi' : 'N/A'
-                            const distanceAlongRoute = (chargerInfo.distance_along_route !== null && chargerInfo.distance_along_route !== undefined) ?
-                                (chargerInfo.distance_along_route / 1609.34).toFixed(1) + ' mi' : 'N/A'
                             const totalDistance = ((chargerInfo.distance_along_route || 0) + (chargerInfo.distance_from_route || 0)) / 1609.34
                             const totalDistanceDisplay = totalDistance > 0 ? totalDistance.toFixed(1) + ' mi' : 'N/A'
-                            const arrivalTime = formatEpochMsToLocalTime(chargerInfo.supercharger.arrival_time)
-                            console.log(chargerInfo.distance_along_route)
+                            const arrivalTime = routeCharger ? formatEpochMsToLocalTime(routeCharger.arrival_time) : 'N/A'
 
                             if (restaurants.length === 0) {
                                 // No restaurants case
