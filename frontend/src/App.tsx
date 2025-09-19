@@ -33,9 +33,34 @@ const AppContent = () => {
 
     // Add global function for popup buttons
     useEffect(() => {
-        window.showChargerInResults = (_chargerId: string) => {
+        window.showChargerInResults = (chargerId: string) => {
             setViewMode('results')
-            // You could add scrolling to the specific charger here
+
+            // Wait for the view to update, then scroll to the charger
+            setTimeout(() => {
+                // Find all rows for this charger (including all restaurant rows)
+                const targetRows = document.querySelectorAll(`tr[data-charger-id="${chargerId}"]`) as NodeListOf<HTMLElement>
+                if (targetRows.length > 0) {
+                    // Highlight all rows for this charger
+                    targetRows.forEach(row => {
+                        row.style.backgroundColor = '#fbbf24' // amber-400
+                        row.style.transition = 'background-color 0.3s ease'
+                    })
+
+                    // Jump directly to the first row (no smooth scrolling)
+                    targetRows[0].scrollIntoView({
+                        behavior: 'auto',
+                        block: 'center'
+                    })
+
+                    // Remove highlight after 2 seconds
+                    setTimeout(() => {
+                        targetRows.forEach(row => {
+                            row.style.backgroundColor = ''
+                        })
+                    }, 2000)
+                }
+            }, 100)
         }
 
         return () => {
