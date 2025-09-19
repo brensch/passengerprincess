@@ -5,107 +5,56 @@ import ResultsTable from './components/ResultsTable'
 import TopToolbar from './components/TopToolbar'
 import FilterModal from './components/FilterModal'
 import HelpModal from './components/HelpModal'
-import { RouteResponse, StationData, ViewMode, SuperchargerWithETA, ViewportResponse } from './types'
+import { ViewMode } from './types'
+import { useRoute } from './hooks/useRoute'
+import { useFilters } from './hooks/useFilters'
 
 const App = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('search')
-    const [routeData, setRouteData] = useState<RouteResponse | null>(null)
-    const [stationData, setStationData] = useState<StationData[]>([])
-    const [filteredStationData, setFilteredStationData] = useState<StationData[]>([])
-    const [searchTerm, setSearchTerm] = useState('')
-    const [cuisineFilters, setCuisineFilters] = useState<string[]>([''])
-    const [isLoading, setIsLoading] = useState(false)
-    const [statusMessage, setStatusMessage] = useState('')
-    const [isError, setIsError] = useState(false)
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
 
     const mapRef = useRef<MapRef>(null)
+    const { routeData, stationData, isLoading, error, searchRoute, clearRoute } = useRoute()
+    const {
+        searchFilters,
+        filteredStationData,
+        searchTerm,
+        cuisineFilters,
+        updateFilters,
+        filterCount
+    } = useFilters(stationData)
 
     console.log('App render - viewMode:', viewMode, 'routeData:', !!routeData)
 
+    // Add global function for popup buttons
+    useEffect(() => {
+        window.showChargerInResults = (_chargerId: string) => {
+            setViewMode('results')
+            // You could add scrolling to the specific charger here
+        }
+
+        return () => {
+            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+            delete (window as any).showChargerInResults
+        }
+    }, [])
+
     const handleRouteSearch = async (origin: string, destination: string) => {
-        setIsLoading(true)
         setViewMode('results')
-        setStatusMessage('Finding your route...')
 
         try {
-            const response = await fetch(`/route?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`)
-            const data = await response.json()
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to find route')
-            }
-
-            setRouteData(data)
-
-            // Transform the route data to match StationData structure expected by legacy components
-            const transformedStations: StationData[] = (data.superchargers || []).map((item: SuperchargerWithETA, index: number) => ({
-                id: item.supercharger?.place_id || `station-${index}`,
-                chargerInfo: {
-                    supercharger: item.supercharger,
-                    restaurants: item.restaurants || [],
-                    distance_along_route: item.distance_along_route,
-                    distance_from_route: item.distance_from_route
-                },
-                restaurants: item.restaurants || []
-            }))
-
-            setStationData(transformedStations)
-            setFilteredStationData(transformedStations)
-            setStatusMessage('')
-            setIsError(false)
-
-            // Update URL
-            const url = new URL(window.location.href)
-            url.searchParams.set('origin', origin)
-            url.searchParams.set('destination', destination)
-            window.history.pushState({}, '', url)
-
+            await searchRoute(origin, destination)
         } catch (error) {
             console.error('Route search error:', error)
-            setStatusMessage(error instanceof Error ? error.message : 'Failed to find route')
-            setIsError(true)
             setViewMode('search')
-        } finally {
-            setIsLoading(false)
         }
-    }
-
-    const handleFilter = (term: string, cuisines: string[]) => {
-        setSearchTerm(term)
-        setCuisineFilters(cuisines)
-
-        const filtered = stationData.map(station => {
-            const matchingRestaurants = station.restaurants.filter(restaurant => {
-                const nameMatch = !term || restaurant.name.toLowerCase().includes(term.toLowerCase())
-                const cuisineMatch = cuisines.includes('') || cuisines.length === 0 ||
-                    cuisines.some(cuisine => cuisine !== '' && (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase()))
-                return nameMatch && cuisineMatch
-            })
-
-            if (matchingRestaurants.length > 0) {
-                return { ...station, restaurants: matchingRestaurants }
-            }
-            return null
-        }).filter(station => station !== null) as StationData[]
-
-        setFilteredStationData(filtered)
     }
 
     const handleNewSearch = () => {
         setViewMode('search')
-        setRouteData(null)
-        setStationData([])
-        setFilteredStationData([])
-        setSearchTerm('')
-        setCuisineFilters([''])
-        setStatusMessage('')
-        setIsError(false)
-
-        // Clear URL params
-        window.history.replaceState(null, '', window.location.pathname)
+        clearRoute()
     }
 
     const handleRefresh = () => {
@@ -173,8 +122,8 @@ const App = () => {
                     <SearchForm
                         onSearch={handleRouteSearch}
                         isLoading={isLoading}
-                        statusMessage={statusMessage}
-                        isError={isError}
+                        statusMessage={error || ''}
+                        isError={!!error}
                         userLocation={userLocation}
                     />
                 </div>
@@ -188,7 +137,7 @@ const App = () => {
                         onOpenFilter={() => setIsFilterModalOpen(true)}
                         onRefresh={handleRefresh}
                         viewMode={viewMode}
-                        filterCount={getFilterCount()}
+                        filterCount={filterCount}
                     />
 
                     <div className="flex" style={{ height: 'calc(100vh - 50px)', marginTop: '50px' }}>
@@ -198,7 +147,7 @@ const App = () => {
                                 routeData={routeData}
                                 searchTerm={searchTerm}
                                 isLoading={isLoading}
-                                statusMessage={statusMessage}
+                                statusMessage={error || ''}
                                 className="w-full"
                                 onShowSuperchargerPopup={(placeId) => {
                                     setViewMode('map')
@@ -219,7 +168,7 @@ const App = () => {
                                 routeData={routeData}
                                 stationData={filteredStationData}
                                 userLocation={userLocation}
-                                searchFilters={{ searchTerm, cuisineFilters }}
+                                searchFilters={searchFilters}
                                 className="w-full"
                             />
                         )}
@@ -245,7 +194,7 @@ const App = () => {
                 onClose={() => setIsFilterModalOpen(false)}
                 searchTerm={searchTerm}
                 cuisineFilters={cuisineFilters}
-                onFilter={handleFilter}
+                onFilter={updateFilters}
                 stationData={stationData}
             />
 
@@ -255,17 +204,6 @@ const App = () => {
             />
         </div>
     )
-
-    function getFilterCount(): number {
-        let count = 0
-        if (cuisineFilters.length > 0 && !cuisineFilters.includes('')) {
-            count += cuisineFilters.length
-        }
-        if (searchTerm.trim() !== '') {
-            count += 1
-        }
-        return count
-    }
 }
 
 export default App
