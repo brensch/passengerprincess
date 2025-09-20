@@ -18,6 +18,10 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
     const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false)
     const [selectedOriginIndex, setSelectedOriginIndex] = useState(-1)
     const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(-1)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
+    const [isApiError, setIsApiError] = useState(false)
+    const [fullError, setFullError] = useState<string | null>(null)
+    const [showErrorPopup, setShowErrorPopup] = useState(false)
 
     const originRef = useRef<HTMLInputElement>(null)
     const destinationRef = useRef<HTMLInputElement>(null)
@@ -27,6 +31,9 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
         e.preventDefault()
 
         if (origin.trim() && destination.trim() && !isLoading) {
+            setErrorMessage(null)
+            setIsApiError(false)
+            setFullError(null)
             onSearch(origin.trim(), destination.trim())
         }
     }
@@ -34,12 +41,18 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
     const handleOriginChange = (value: string) => {
         setOrigin(value)
         setSelectedOriginIndex(-1)
+        setErrorMessage(null)
+        setIsApiError(false)
+        setFullError(null)
         fetchSuggestions(value, 'origin')
     }
 
     const handleDestinationChange = (value: string) => {
         setDestination(value)
         setSelectedDestinationIndex(-1)
+        setErrorMessage(null)
+        setIsApiError(false)
+        setFullError(null)
         fetchSuggestions(value, 'destination')
     }
 
@@ -75,6 +88,9 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
                 }
             } catch (error) {
                 console.error('Autocomplete error:', error)
+                setErrorMessage('Autocomplete is not working right now. Just type an address and it will probably still work.')
+                setIsApiError(true)
+                setFullError(error instanceof Error ? error.message : 'Unknown error')
             }
         }, 300)
     }
@@ -121,6 +137,9 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
             console.error('Geolocation error:', error)
             const setValue = type === 'origin' ? setOrigin : setDestination
             setValue('')
+            setErrorMessage('I can\'t find you. Please allow location access.')
+            setIsApiError(false)
+            setFullError(null)
         }
     }
 
@@ -315,12 +334,35 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
                 </button>
             </form>
 
-            {statusMessage && (
-                <div className={`mt-6 p-4 rounded-xl text-center font-medium ${isError
+            {(errorMessage || statusMessage) && (
+                <div className={`mt-6 p-4 rounded-xl text-center font-medium ${errorMessage || isError
                     ? 'bg-gradient-to-r from-princess-rose to-princess-blush text-princess-text-primary border border-princess-accent-rose'
                     : 'bg-gradient-to-r from-princess-surface-soft to-princess-lavender text-princess-text-secondary'
                     }`}>
-                    {statusMessage}
+                    Dear Princess, {errorMessage || statusMessage}
+                    {isApiError && fullError && (
+                        <button
+                            onClick={() => setShowErrorPopup(true)}
+                            className="ml-2 px-2 py-1 text-sm bg-princess-accent-lavender text-princess-text-primary rounded hover:bg-princess-accent-rose transition-colors"
+                        >
+                            Details
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {showErrorPopup && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-princess-surface p-6 rounded-xl max-w-md w-full mx-4">
+                        <h3 className="text-lg font-semibold mb-4 text-princess-text-primary">Error Details</h3>
+                        <p className="text-princess-text-secondary mb-4 whitespace-pre-wrap">{fullError}</p>
+                        <button
+                            onClick={() => setShowErrorPopup(false)}
+                            className="px-4 py-2 bg-princess-accent-lavender text-princess-text-primary rounded hover:bg-princess-accent-rose transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
