@@ -3,6 +3,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent mobile viewport issues */
+html, body {
+  overflow-x: hidden;
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+#root {
+  overflow: hidden;
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Prevent map from taking over viewport on mobile */
+.map-container {
+  position: relative !important;
+  max-height: 100% !important;
+  max-width: 100% !important;
+}
+
 :root {
   /* Princess Color Palette - Using Color Science for Harmony */
   /* Primary Palette - Soft Pastels */

@@ -16,8 +16,6 @@ const AppContent = () => {
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
-    const [initialOrigin, setInitialOrigin] = useState<string>()
-    const [initialDestination, setInitialDestination] = useState<string>()
 
     const mapRef = useRef<MapRef>(null)
     const { routeData, stationData, isLoading, error, searchRoute, clearRoute } = useRoute()
@@ -74,6 +72,12 @@ const AppContent = () => {
     const handleRouteSearch = async (origin: string, destination: string) => {
         // Keep on search view during loading - will switch to map when routeData arrives
         try {
+            // Update URL with search parameters for shareable links
+            const params = new URLSearchParams()
+            params.set('origin', encodeURIComponent(origin))
+            params.set('destination', encodeURIComponent(destination))
+            window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+
             await searchRoute(origin, destination)
         } catch (error) {
             console.error('Route search error:', error)
@@ -84,6 +88,8 @@ const AppContent = () => {
     const handleNewSearch = () => {
         setViewMode('search')
         clearRoute()
+        // Clear URL parameters
+        window.history.replaceState({}, '', window.location.pathname)
     }
 
     const handleRefresh = () => {
@@ -153,15 +159,9 @@ const AppContent = () => {
             const decodedOrigin = decodeURIComponent(origin)
             const decodedDestination = decodeURIComponent(destination)
 
-            setInitialOrigin(decodedOrigin)
-            setInitialDestination(decodedDestination)
             handleRouteSearch(decodedOrigin, decodedDestination)
-        } else {
-            // No URL params, keep form editable
         }
-    }, [])
-
-    // Utility function to decode polyline
+    }, [])    // Utility function to decode polyline
     const decodePolyline = (encoded: string): [number, number][] => {
         const coordinates: [number, number][] = []
         let index = 0
@@ -216,7 +216,7 @@ const AppContent = () => {
 
 
     return (
-        <div className="h-screen overflow-hidden bg-princess-surface">
+        <div className="h-screen overflow-hidden bg-princess-surface" style={{ position: 'relative', height: '100vh' }}>
             {viewMode === 'search' && (
                 <div className="h-full flex items-center justify-center bg-gradient-to-b from-princess-surface to-princess-lavender">
                     <SearchForm
@@ -225,8 +225,6 @@ const AppContent = () => {
                         statusMessage={error || ''}
                         isError={!!error}
                         userLocation={userLocation}
-                        initialOrigin={initialOrigin}
-                        initialDestination={initialDestination}
                     />
                 </div>
             )}

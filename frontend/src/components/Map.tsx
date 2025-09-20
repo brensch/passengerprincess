@@ -230,7 +230,10 @@ const Map = forwardRef<MapRef, MapProps>(({
         if (!mapContainerRef.current || mapRef.current) return
 
         const map = L.map(mapContainerRef.current, {
-            zoomControl: false // Hide zoom controls to prevent app bar overlap on mobile
+            zoomControl: false, // Hide zoom controls to prevent app bar overlap on mobile
+            touchZoom: 'center', // Keep zoom centered to prevent map jumping
+            maxBounds: [[-90, -180], [90, 180]], // Constrain to world bounds
+            maxBoundsViscosity: 1.0 // Make bounds sticky
         }).setView([37.7749, -122.4194], 6)
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {

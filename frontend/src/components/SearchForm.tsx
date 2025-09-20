@@ -7,14 +7,11 @@ interface SearchFormProps {
     statusMessage: string
     isError: boolean
     userLocation: [number, number] | null
-    initialOrigin?: string
-    initialDestination?: string
 }
 
-const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation: _userLocation, initialOrigin, initialDestination }: SearchFormProps) => {
-    const [origin, setOrigin] = useState(initialOrigin || '')
-    const [destination, setDestination] = useState(initialDestination || '')
-    const [isFromUrl, setIsFromUrl] = useState(!!(initialOrigin || initialDestination))
+const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation: _userLocation }: SearchFormProps) => {
+    const [origin, setOrigin] = useState('')
+    const [destination, setDestination] = useState('')
     const [originSuggestions, setOriginSuggestions] = useState<AutocompleteResult[]>([])
     const [destinationSuggestions, setDestinationSuggestions] = useState<AutocompleteResult[]>([])
     const [showOriginSuggestions, setShowOriginSuggestions] = useState(false)
@@ -36,17 +33,19 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         }
     }, [isError])
 
-    // Update state when initial props change (e.g., from URL parameters)
+    // Check URL params once on mount and populate inputs if they exist
     useEffect(() => {
-        if (initialOrigin) {
-            setOrigin(initialOrigin)
-            setIsFromUrl(true)
+        const params = new URLSearchParams(window.location.search)
+        const urlOrigin = params.get('origin')
+        const urlDestination = params.get('destination')
+
+        if (urlOrigin) {
+            setOrigin(decodeURIComponent(urlOrigin))
         }
-        if (initialDestination) {
-            setDestination(initialDestination)
-            setIsFromUrl(true)
+        if (urlDestination) {
+            setDestination(decodeURIComponent(urlDestination))
         }
-    }, [initialOrigin, initialDestination])
+    }, []) // Empty dependency array - only run once on mount
 
     const handleSearch = (e: any) => {
         e.preventDefault()
@@ -65,7 +64,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         setErrorMessage(null)
         setIsApiError(false)
         setFullError(null)
-        setIsFromUrl(false) // User is now typing, so it's no longer from URL
         fetchSuggestions(value, 'origin')
     }
 
@@ -75,7 +73,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         setErrorMessage(null)
         setIsApiError(false)
         setFullError(null)
-        setIsFromUrl(false) // User is now typing, so it's no longer from URL
         fetchSuggestions(value, 'destination')
     }
 
@@ -280,18 +277,9 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                             className={`w-full pl-16 pr-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
                          bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
                          focus:border-transparent transition-all duration-300 
-                         ${(isLoading || isFromUrl) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                            disabled={isLoading || isFromUrl}
+                         ${isLoading ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                            disabled={isLoading}
                         />
-                        {isFromUrl && !isLoading && (
-                            <button
-                                type="button"
-                                onClick={() => setIsFromUrl(false)}
-                                className="absolute right-4 px-2 py-1 text-sm bg-princess-accent-lavender text-princess-text-primary rounded hover:bg-princess-accent-rose transition-colors"
-                            >
-                                Edit
-                            </button>
-                        )}
                     </div>
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
@@ -329,18 +317,9 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                             className={`w-full pl-16 pr-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
                          bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
                          focus:border-transparent transition-all duration-300 
-                         ${(isLoading || isFromUrl) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                            disabled={isLoading || isFromUrl}
+                         ${isLoading ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                            disabled={isLoading}
                         />
-                        {isFromUrl && !isLoading && (
-                            <button
-                                type="button"
-                                onClick={() => setIsFromUrl(false)}
-                                className="absolute right-4 px-2 py-1 text-sm bg-princess-accent-lavender text-princess-text-primary rounded hover:bg-princess-accent-rose transition-colors"
-                            >
-                                Edit
-                            </button>
-                        )}
                     </div>
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
