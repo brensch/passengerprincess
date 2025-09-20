@@ -68,6 +68,7 @@ const FilterModal = ({
     const handleClear = () => {
         setLocalSearchTerm('')
         setLocalCuisineFilters([''])
+        onClose()
     }
 
     if (!isOpen) return null
@@ -119,10 +120,10 @@ const FilterModal = ({
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-princess-border flex gap-3">
+                <div className="p-4 border-t border-princess-border flex gap-2 justify-end">
                     <button
                         onClick={handleClear}
-                        className="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300
+                        className="px-3 py-2 text-xs font-medium rounded-lg transition-all duration-300
                      bg-transparent text-princess-text-primary border-2 border-princess-border
                      hover:bg-princess-surface-soft"
                     >
@@ -130,7 +131,7 @@ const FilterModal = ({
                     </button>
                     <button
                         onClick={handleApply}
-                        className="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300
+                        className="px-3 py-2 text-xs font-medium rounded-lg transition-all duration-300
                      bg-princess-accent-lavender text-princess-text-primary border-none
                      hover:bg-princess-accent-rose"
                     >
