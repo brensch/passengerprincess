@@ -41,27 +41,29 @@ const FilterModal = ({
     }, [stationData])
 
     const handleCuisineToggle = (cuisine: string) => {
+        let newFilters: string[]
         if (cuisine === '') {
             // "All Cuisines" selected
-            setLocalCuisineFilters([''])
+            newFilters = ['']
         } else {
             // Individual cuisine toggle
             if (localCuisineFilters.includes('') || localCuisineFilters.length === 0) {
                 // If "All" is selected or nothing is selected, replace with this cuisine
-                setLocalCuisineFilters([cuisine])
+                newFilters = [cuisine]
             } else if (localCuisineFilters.includes(cuisine)) {
                 // Remove cuisine
-                const newFilters = localCuisineFilters.filter(c => c !== cuisine)
-                setLocalCuisineFilters(newFilters.length === 0 ? [''] : newFilters)
+                newFilters = localCuisineFilters.filter(c => c !== cuisine)
+                newFilters = newFilters.length === 0 ? [''] : newFilters
             } else {
                 // Add cuisine
-                setLocalCuisineFilters([...localCuisineFilters.filter(c => c !== ''), cuisine])
+                newFilters = [...localCuisineFilters.filter(c => c !== ''), cuisine]
             }
         }
+        setLocalCuisineFilters(newFilters)
+        onFilter(localSearchTerm, newFilters)
     }
 
     const handleApply = () => {
-        onFilter(localSearchTerm, localCuisineFilters)
         onClose()
     }
 
@@ -84,7 +86,11 @@ const FilterModal = ({
                     <input
                         type="text"
                         value={localSearchTerm}
-                        onChange={(e) => setLocalSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                            const newTerm = e.target.value
+                            setLocalSearchTerm(newTerm)
+                            onFilter(newTerm, localCuisineFilters)
+                        }}
                         className="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 
                      focus:ring-princess-accent-lavender text-base bg-princess-surface 
                      border border-princess-border mb-4"
