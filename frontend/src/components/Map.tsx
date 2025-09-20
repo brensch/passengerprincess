@@ -117,7 +117,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         }
         content += '<div class="flex flex-col gap-1.5 mt-2">'
         if (finalChargerId) {
-            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-purple-600 hover:to-purple-700 hover:shadow-md">View in List</button>`
+            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-purple-600 hover:to-purple-700 hover:shadow-md">View in Results</button>`
         }
         content += `
             <button onclick="window.open('${supercharger.google_maps_uri}', '_blank')"
