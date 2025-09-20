@@ -126,6 +126,21 @@ const ResultsTable = ({
         )
     }
 
+    // Sort stations by arrival time
+    const sortedStationData = [...stationData].sort((a, b) => {
+        const routeChargerA = routeData?.superchargers.find(
+            s => s.supercharger.place_id === a.chargerInfo.supercharger.place_id
+        )
+        const routeChargerB = routeData?.superchargers.find(
+            s => s.supercharger.place_id === b.chargerInfo.supercharger.place_id
+        )
+
+        const arrivalTimeA = routeChargerA?.arrival_time || 0
+        const arrivalTimeB = routeChargerB?.arrival_time || 0
+
+        return arrivalTimeA - arrivalTimeB
+    })
+
     return (
         <div className={`${className} bg-princess-surface overflow-hidden`}>
             <div className="h-full overflow-y-auto custom-scrollbar">
@@ -147,7 +162,7 @@ const ResultsTable = ({
                         </tr>
                     </thead>
                     <tbody>
-                        {stationData.map((station) => {
+                        {sortedStationData.map((station) => {
                             const { chargerInfo } = station
                             const restaurants = station.restaurants || []
                             const maxRows = Math.max(1, restaurants.length)
@@ -196,7 +211,7 @@ const ResultsTable = ({
                                                         )}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
                                                     >
-                                                        Send to Tesla
+                                                        Send
                                                     </button>
                                                 </div>
                                             </div>
@@ -248,7 +263,7 @@ const ResultsTable = ({
                                                         )}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
                                                     >
-                                                        Send to Tesla
+                                                        Send
                                                     </button>
                                                 </div>
                                             </div>

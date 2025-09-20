@@ -29,7 +29,7 @@ const AppContent = () => {
     } = useFilters(stationData)
     const { setViewportToLocation, setViewportToRoute, updateViewport, restoreSavedViewport } = useViewport()
 
-    console.log('App render - viewMode:', viewMode, 'routeData:', !!routeData)
+
 
     // Add global function for popup buttons
     useEffect(() => {
@@ -100,16 +100,16 @@ const AppContent = () => {
     }
 
     const toggleView = () => {
-        console.log('APP: toggleView called, current viewMode:', viewMode)
+
         if (viewMode === 'results') {
-            console.log('APP: Switching from results to map, restoring saved viewport')
+
             setViewMode('map')
             // Restore the saved viewport with sync enabled
             setTimeout(() => {
                 restoreSavedViewport()
             }, 100)
         } else if (viewMode === 'map') {
-            console.log('APP: Switching from map to results, saving current viewport')
+
             // Save current viewport before going to results
             if (mapRef.current) {
                 const map = mapRef.current.getMap()
@@ -117,7 +117,7 @@ const AppContent = () => {
                     const center = map.getCenter()
                     const zoom = map.getZoom()
                     updateViewport([center.lat, center.lng], zoom)
-                    console.log('APP: Saved viewport:', { center: [center.lat, center.lng], zoom })
+
                 }
             }
             setViewMode('results')
@@ -133,7 +133,7 @@ const AppContent = () => {
                         setUserLocation([position.coords.latitude, position.coords.longitude])
                     },
                     (error) => {
-                        console.log('Geolocation error:', error)
+
                         // If GPS fails, just leave userLocation as null
                     }
                 )
@@ -149,13 +149,13 @@ const AppContent = () => {
         const origin = params.get('origin')
         const destination = params.get('destination')
 
-        console.log('URL params check - origin:', origin, 'destination:', destination)
+
 
         if (origin && destination) {
-            console.log('Found URL params, starting route search')
+
             handleRouteSearch(decodeURIComponent(origin), decodeURIComponent(destination))
         } else {
-            console.log('No URL params, staying in search mode')
+
         }
     }, [])
 
@@ -196,7 +196,7 @@ const AppContent = () => {
     // Set viewport when route data is received
     useEffect(() => {
         if (routeData?.route?.EncodedPolyline) {
-            console.log('APP: Setting viewport to route bounds')
+
             const coordinates = decodePolyline(routeData.route.EncodedPolyline)
             if (coordinates.length > 0) {
                 const polyline = L.polyline(coordinates)
@@ -219,8 +219,6 @@ const AppContent = () => {
                 const containerWidth = window.innerWidth
                 const containerHeight = window.innerHeight
 
-                console.log('APP: Container size:', { width: containerWidth, height: containerHeight })
-
                 // Calculate zoom for both dimensions and take the smaller (more zoomed out)
                 // Add some padding by reducing effective container size
                 const effectiveWidth = containerWidth * 0.9  // 10% padding
@@ -233,20 +231,11 @@ const AppContent = () => {
                 optimalZoom = Math.max(1, Math.min(MAX_ZOOM, Math.floor(optimalZoom)))
 
                 setViewportToRoute(bounds, center, optimalZoom)
-                console.log('APP: Set viewport to route bounds with calculated zoom:', {
-                    center: [center.lat, center.lng],
-                    zoom: optimalZoom,
-                    latDistance: latDistance / 1000, // km
-                    lngDistance: lngDistance / 1000, // km
-                    containerSize: { width: containerWidth, height: containerHeight },
-                    zoomForWidth,
-                    zoomForHeight
-                })
+
             }
         }
     }, [routeData, setViewportToRoute])
 
-    console.log('Rendering - viewMode:', viewMode)
 
     return (
         <div className="h-screen overflow-hidden bg-princess-surface">
@@ -283,7 +272,7 @@ const AppContent = () => {
                                 statusMessage={error || ''}
                                 className="w-full"
                                 onShowSuperchargerPopup={(placeId) => {
-                                    console.log('APP: onShowSuperchargerPopup called with placeId:', placeId)
+
                                     // Find the supercharger in station data
                                     const station = filteredStationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
                                     if (station) {
@@ -296,7 +285,7 @@ const AppContent = () => {
                                     }
                                 }}
                                 onShowRestaurantPopup={(placeId) => {
-                                    console.log('APP: onShowRestaurantPopup called with placeId:', placeId)
+
                                     // Find the restaurant in station data
                                     for (const station of filteredStationData) {
                                         const restaurant = station.restaurants?.find(r => r.place_id === placeId)

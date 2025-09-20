@@ -25,7 +25,6 @@ export const ViewportProvider = ({ children }: ViewportProviderProps) => {
     const [viewport, setViewportState] = useState<Viewport | null>(null)
 
     const setViewport = useCallback((newViewport: Viewport) => {
-        console.log('VIEWPORT: Setting viewport to:', newViewport)
         setViewportState(newViewport)
     }, [])
 
@@ -56,29 +55,24 @@ export const ViewportProvider = ({ children }: ViewportProviderProps) => {
             zoom: viewportZoom,
             shouldSync
         }
-        console.log('VIEWPORT: Setting viewport to route bounds:', newViewport, 'shouldSync:', shouldSync)
         setViewportState(newViewport)
     }, [])
 
     const setViewportToLocation = useCallback((center: [number, number], zoom: number = 18) => {
         const newViewport = { center, zoom, shouldSync: true }
-        console.log('VIEWPORT: Setting viewport to location:', newViewport)
         setViewportState(newViewport)
     }, [])
 
     const updateViewport = useCallback((center: [number, number], zoom: number) => {
         const newViewport = { center, zoom, shouldSync: false } // Don't sync back to map
-        console.log('VIEWPORT: Updating viewport:', newViewport)
         setViewportState(newViewport)
     }, [])
 
     const restoreSavedViewport = useCallback(() => {
         if (viewport) {
             const restoredViewport = { ...viewport, shouldSync: true }
-            console.log('VIEWPORT: Restoring saved viewport with sync:', restoredViewport)
             setViewportState(restoredViewport)
         } else {
-            console.log('VIEWPORT: No saved viewport to restore')
         }
     }, [viewport])
 
