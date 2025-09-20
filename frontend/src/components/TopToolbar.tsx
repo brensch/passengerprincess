@@ -4,7 +4,6 @@ interface TopToolbarProps {
     onNewSearch: () => void
     onToggleView: () => void
     onOpenFilter: () => void
-    onRefresh: () => void
     viewMode: ViewMode
     filterCount: number
 }
@@ -13,7 +12,6 @@ const TopToolbar = ({
     onNewSearch,
     onToggleView,
     onOpenFilter,
-    onRefresh,
     viewMode,
     filterCount
 }: TopToolbarProps) => {
@@ -33,16 +31,6 @@ const TopToolbar = ({
 
             {/* Right side - Action buttons */}
             <div className="flex items-center space-x-3">
-                {/* Refresh button */}
-                <button
-                    onClick={onRefresh}
-                    className="px-2 py-1 text-sm rounded-lg bg-princess-accent-lavender
-                   text-princess-text-primary flex items-center space-x-1"
-                >
-                    <span>🔄</span>
-                    <span>Refresh</span>
-                </button>
-
                 {/* Filter button */}
                 <button
                     onClick={onOpenFilter}

@@ -257,7 +257,6 @@ const AppContent = () => {
                         onNewSearch={handleNewSearch}
                         onToggleView={toggleView}
                         onOpenFilter={() => setIsFilterModalOpen(true)}
-                        onRefresh={handleRefresh}
                         viewMode={viewMode}
                         filterCount={filterCount}
                     />
@@ -308,6 +307,7 @@ const AppContent = () => {
                                 userLocation={userLocation}
                                 searchFilters={searchFilters}
                                 className="w-full"
+                                onRefresh={handleRefresh}
                             />
                         )}
                     </div>

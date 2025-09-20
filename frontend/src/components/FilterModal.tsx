@@ -68,6 +68,7 @@ const FilterModal = ({
     const handleClear = () => {
         setLocalSearchTerm('')
         setLocalCuisineFilters([''])
+        onFilter('', [''])
         onClose()
     }
 

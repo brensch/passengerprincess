@@ -28,6 +28,7 @@ interface MapProps {
     userLocation: [number, number] | null
     searchFilters: SearchFilters
     className?: string
+    onRefresh?: () => void
 }
 
 export interface MapRef {
@@ -52,7 +53,8 @@ const Map = forwardRef<MapRef, MapProps>(({
     stationData,
     userLocation,
     searchFilters,
-    className = ''
+    className = '',
+    onRefresh
 }, ref) => {
     const mapRef = useRef<L.Map | null>(null)
     const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -71,10 +73,22 @@ const Map = forwardRef<MapRef, MapProps>(({
     const viewportMappings = useRef<RestaurantSuperchargerMapping[]>([])
     const { viewport } = useViewport()
 
+    // Warning popup state
+    const [showLocationWarning, setShowLocationWarning] = useState(false)
+
     const formatEpochMsToLocalTime = useCallback((epochMs: number): string => {
         const date = new Date(epochMs)
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }, [])
+
+    const handleGoToUserLocation = useCallback(() => {
+        if (userLocation && mapRef.current) {
+            mapRef.current.setView(userLocation, 15, { animate: true })
+        } else {
+            setShowLocationWarning(true)
+            setTimeout(() => setShowLocationWarning(false), 2000)
+        }
+    }, [userLocation])
 
     const generateSuperchargerPopupContent = useCallback((supercharger: Supercharger, chargerId?: string) => {
         // Check if this supercharger is part of the route
@@ -680,9 +694,49 @@ const Map = forwardRef<MapRef, MapProps>(({
     return (
         <div
             ref={mapContainerRef}
-            className={`map-container ${className}`}
+            className={`map-container ${className} relative`}
             style={{ height: '100%', width: '100%' }}
-        />
+        >
+            {/* Control buttons */}
+            <div className="absolute top-4 right-4 z-[1000] flex flex-col space-y-2">
+                {/* Location button */}
+                <button
+                    onClick={handleGoToUserLocation}
+                    className="px-3 py-2 text-sm rounded-lg 
+                             bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose
+                             text-princess-text-primary shadow-lg hover:shadow-xl 
+                             transition-all duration-200 hover:scale-105 flex items-center space-x-1"
+                    title="Go to your location"
+                >
+                    <span>👸</span>
+                </button>
+
+                {/* Refresh button */}
+                {onRefresh && (
+                    <button
+                        onClick={onRefresh}
+                        className="px-3 py-2 text-sm rounded-lg 
+                                 bg-gradient-to-r from-princess-accent-mint to-princess-accent-peach
+                                 text-princess-text-primary shadow-lg hover:shadow-xl 
+                                 transition-all duration-200 hover:scale-105 flex items-center justify-center"
+                        title="Refresh route"
+                    >
+                        <span>🔄</span>
+                    </button>
+                )}
+            </div>
+
+            {/* Location permission warning */}
+            {showLocationWarning && (
+                <div className="absolute inset-0 z-[1001] flex items-center justify-center pointer-events-none">
+                    <div className="bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose 
+                                  text-princess-text-primary px-6 py-4 rounded-lg shadow-xl border border-princess-border
+                                  animate-fade-in">
+                        You did not grant location permissions
+                    </div>
+                </div>
+            )}
+        </div>
     )
 })
 

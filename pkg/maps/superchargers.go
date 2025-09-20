@@ -15,7 +15,7 @@ import (
 
 const (
 	// SuperchargerSearchRadiusMeters defines the search radius around each circle to look for superchargers
-	SuperchargerSearchRadiusMeters = 5000
+	SuperchargerSearchRadiusMeters = 25000
 )
 
 type superchargerResult struct {
