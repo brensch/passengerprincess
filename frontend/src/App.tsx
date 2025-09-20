@@ -16,6 +16,8 @@ const AppContent = () => {
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+    const [initialOrigin, setInitialOrigin] = useState<string>()
+    const [initialDestination, setInitialDestination] = useState<string>()
 
     const mapRef = useRef<MapRef>(null)
     const { routeData, stationData, isLoading, error, searchRoute, clearRoute } = useRoute()
@@ -131,8 +133,7 @@ const AppContent = () => {
                     (position) => {
                         setUserLocation([position.coords.latitude, position.coords.longitude])
                     },
-                    (error) => {
-
+                    (_error) => {
                         // If GPS fails, just leave userLocation as null
                     }
                 )
@@ -148,13 +149,15 @@ const AppContent = () => {
         const origin = params.get('origin')
         const destination = params.get('destination')
 
-
-
         if (origin && destination) {
+            const decodedOrigin = decodeURIComponent(origin)
+            const decodedDestination = decodeURIComponent(destination)
 
-            handleRouteSearch(decodeURIComponent(origin), decodeURIComponent(destination))
+            setInitialOrigin(decodedOrigin)
+            setInitialDestination(decodedDestination)
+            handleRouteSearch(decodedOrigin, decodedDestination)
         } else {
-
+            // No URL params, keep form editable
         }
     }, [])
 
@@ -222,6 +225,8 @@ const AppContent = () => {
                         statusMessage={error || ''}
                         isError={!!error}
                         userLocation={userLocation}
+                        initialOrigin={initialOrigin}
+                        initialDestination={initialDestination}
                     />
                 </div>
             )}

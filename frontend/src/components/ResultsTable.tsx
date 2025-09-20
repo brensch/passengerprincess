@@ -196,7 +196,7 @@ const ResultsTable = ({
                                                         )}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
                                                     >
-                                                        Send
+                                                        Share
                                                     </button>
                                                 </div>
                                             </div>
@@ -248,7 +248,7 @@ const ResultsTable = ({
                                                         )}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
                                                     >
-                                                        Send
+                                                        Share
                                                     </button>
                                                 </div>
                                             </div>
