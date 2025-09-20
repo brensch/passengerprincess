@@ -263,7 +263,7 @@ const AppContent = () => {
             )}
 
             {(viewMode === 'results' || viewMode === 'map') && (
-                <>
+                <div className="h-screen flex flex-col">
                     <TopToolbar
                         onNewSearch={handleNewSearch}
                         onToggleView={toggleView}
@@ -273,7 +273,7 @@ const AppContent = () => {
                         filterCount={filterCount}
                     />
 
-                    <div className="flex" style={{ height: 'calc(100vh - 50px)', marginTop: '50px' }}>
+                    <div className="flex flex-1 overflow-hidden">
                         {viewMode === 'results' ? (
                             <ResultsTable
                                 stationData={filteredStationData}
@@ -322,7 +322,7 @@ const AppContent = () => {
                             />
                         )}
                     </div>
-                </>
+                </div>
             )}
 
             {/* Floating Help Button - only show on search page */}

@@ -18,9 +18,9 @@ const TopToolbar = ({
     filterCount
 }: TopToolbarProps) => {
     return (
-        <div className="fixed top-0 left-0 right-0 z-50 h-12 flex justify-between items-center px-4 
+        <div className="w-full h-12 flex justify-between items-center px-4 
                     bg-gradient-to-r from-princess-surface via-princess-lavender to-princess-accent-lavender 
-                    backdrop-blur-sm shadow-lg">
+                    border-0 flex-shrink-0">
             {/* Left side - Logo */}
             <button
                 onClick={onNewSearch}
