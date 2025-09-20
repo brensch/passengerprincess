@@ -1,5 +1,6 @@
 import { StationData, RouteResponse } from '../types'
 import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
+import { useState } from 'react'
 
 interface ResultsTableProps {
     stationData: StationData[]
@@ -22,6 +23,26 @@ const ResultsTable = ({
     onShowSuperchargerPopup,
     onShowRestaurantPopup
 }: ResultsTableProps) => {
+    const [tooltipState, setTooltipState] = useState<{ visible: boolean; text: string; x: number; y: number }>({
+        visible: false,
+        text: '',
+        x: 0,
+        y: 0
+    })
+
+    const showTooltip = (event: React.MouseEvent | React.TouchEvent, text: string) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        setTooltipState({
+            visible: true,
+            text,
+            x: rect.left + rect.width / 2,
+            y: rect.top - 10
+        })
+    }
+
+    const hideTooltip = () => {
+        setTooltipState(prev => ({ ...prev, visible: false }))
+    }
 
     const formatEpochMsToLocalTime = (epochMs?: number): string => {
         if (!epochMs || epochMs === 0) {
@@ -250,11 +271,20 @@ const ResultsTable = ({
                                         className="px-1 py-0 text-sm text-pink-700"
                                         data-original-cuisine={restaurant.primary_type_display || 'N/A'}
                                     >
-                                        <span className="inline-flex items-center gap-1">
-                                            <span>{getRestaurantEmoji(restaurant.primary_type)}</span>
-                                            <span dangerouslySetInnerHTML={{
-                                                __html: highlightText(restaurant.primary_type_display || 'N/A', searchTerm)
-                                            }} />
+                                        <span
+                                            className="text-lg cursor-help select-none relative"
+                                            onMouseEnter={(e) => showTooltip(e, restaurant.primary_type_display || 'N/A')}
+                                            onMouseLeave={hideTooltip}
+                                            onTouchStart={(e) => {
+                                                showTooltip(e, restaurant.primary_type_display || 'N/A')
+                                                setTimeout(hideTooltip, 2000) // Auto-hide after 2 seconds on mobile
+                                            }}
+                                            onClick={(e) => {
+                                                showTooltip(e, restaurant.primary_type_display || 'N/A')
+                                                setTimeout(hideTooltip, 2000) // Auto-hide after 2 seconds
+                                            }}
+                                        >
+                                            {getRestaurantEmoji(restaurant.primary_type)}
                                         </span>
                                     </td>
                                 </tr>
@@ -263,6 +293,20 @@ const ResultsTable = ({
                     </tbody>
                 </table>
             </div>
+
+            {/* Custom Tooltip */}
+            {tooltipState.visible && (
+                <div
+                    className="fixed z-50 px-2 py-1 text-sm text-white bg-gray-800 rounded shadow-lg pointer-events-none"
+                    style={{
+                        left: tooltipState.x,
+                        top: tooltipState.y,
+                        transform: 'translateX(-50%) translateY(-100%)'
+                    }}
+                >
+                    {tooltipState.text}
+                </div>
+            )}
         </div>
     )
 }
