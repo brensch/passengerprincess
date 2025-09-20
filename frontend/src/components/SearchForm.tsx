@@ -311,7 +311,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
                    transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100
                    shadow-lg hover:shadow-xl"
                 >
-                    {isLoading ? '✨ Finding your perfect route...' : 'Plan Princess Portage'}
+                    {isLoading ? ' 🧠 Pondering Possible Paths' : 'Plan Princess Portage'}
                 </button>
             </form>
 

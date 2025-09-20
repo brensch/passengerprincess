@@ -1,15 +1,16 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 
 interface Viewport {
-    center: [number, number]
-    zoom: number
+    center?: [number, number]
+    zoom?: number
+    bounds?: L.LatLngBounds
     shouldSync?: boolean // Flag to indicate if map should sync to this viewport
 }
 
 interface ViewportContextType {
     viewport: Viewport | null
     setViewport: (viewport: Viewport) => void
-    setViewportToRoute: (bounds: L.LatLngBounds, center?: L.LatLng, zoom?: number, shouldSync?: boolean) => void
+    setViewportToRoute: (bounds: L.LatLngBounds, shouldSync?: boolean) => void
     setViewportToLocation: (center: [number, number], zoom?: number) => void
     updateViewport: (center: [number, number], zoom: number) => void
     restoreSavedViewport: () => void
@@ -28,31 +29,9 @@ export const ViewportProvider = ({ children }: ViewportProviderProps) => {
         setViewportState(newViewport)
     }, [])
 
-    const setViewportToRoute = useCallback((bounds: L.LatLngBounds, center?: L.LatLng, zoom?: number, shouldSync: boolean = true) => {
-        // Use provided center/zoom if available, otherwise calculate from bounds
-        const viewportCenter = center ? [center.lat, center.lng] as [number, number] : [bounds.getCenter().lat, bounds.getCenter().lng] as [number, number]
-
-        // Calculate appropriate zoom if not provided
-        let viewportZoom = zoom || 10 // Default fallback zoom
-        if (zoom === undefined) {
-            // Calculate zoom level based on bounds size
-            const latDiff = bounds.getNorth() - bounds.getSouth()
-            const lngDiff = bounds.getEast() - bounds.getWest()
-            const maxDiff = Math.max(latDiff, lngDiff)
-
-            if (maxDiff < 0.01) viewportZoom = 15
-            else if (maxDiff < 0.05) viewportZoom = 12
-            else if (maxDiff < 0.1) viewportZoom = 10
-            else if (maxDiff < 0.5) viewportZoom = 8
-            else if (maxDiff < 1) viewportZoom = 7
-            else if (maxDiff < 2) viewportZoom = 6
-            else if (maxDiff < 5) viewportZoom = 5
-            else viewportZoom = 4
-        }
-
+    const setViewportToRoute = useCallback((bounds: L.LatLngBounds, shouldSync: boolean = true) => {
         const newViewport = {
-            center: viewportCenter,
-            zoom: viewportZoom,
+            bounds,
             shouldSync
         }
         setViewportState(newViewport)

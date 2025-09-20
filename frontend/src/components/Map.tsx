@@ -641,15 +641,21 @@ const Map = forwardRef<MapRef, MapProps>(({
     // Sync map view with viewport context only when explicitly requested
     useEffect(() => {
         if (mapRef.current && viewport && viewport.shouldSync) {
-            const currentCenter = mapRef.current.getCenter()
-            const currentZoom = mapRef.current.getZoom()
+            if (viewport.bounds) {
+                // Use fitBounds for route bounds
+                mapRef.current.fitBounds(viewport.bounds, { animate: false, padding: [20, 20] })
+            } else if (viewport.center && viewport.zoom !== undefined) {
+                // Use setView for center/zoom
+                const currentCenter = mapRef.current.getCenter()
+                const currentZoom = mapRef.current.getZoom()
 
-            // Only sync if the map is not already at the target position
-            const centerDiff = Math.abs(currentCenter.lat - viewport.center[0]) + Math.abs(currentCenter.lng - viewport.center[1])
-            const zoomDiff = Math.abs(currentZoom - viewport.zoom)
+                // Only sync if the map is not already at the target position
+                const centerDiff = Math.abs(currentCenter.lat - viewport.center[0]) + Math.abs(currentCenter.lng - viewport.center[1])
+                const zoomDiff = Math.abs(currentZoom - viewport.zoom)
 
-            if (centerDiff > 0.001 || zoomDiff > 0.1) {
-                mapRef.current.setView(viewport.center, viewport.zoom, { animate: false })
+                if (centerDiff > 0.001 || zoomDiff > 0.1) {
+                    mapRef.current.setView(viewport.center, viewport.zoom, { animate: false })
+                }
             }
         }
     }, [viewport])    // Update user location

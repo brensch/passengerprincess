@@ -70,13 +70,12 @@ const AppContent = () => {
     }, [])
 
     const handleRouteSearch = async (origin: string, destination: string) => {
-        setViewMode('results')
-
+        // Keep on search view during loading - will switch to map when routeData arrives
         try {
             await searchRoute(origin, destination)
         } catch (error) {
             console.error('Route search error:', error)
-            setViewMode('search')
+            // Stay on search view if there's an error
         }
     }
 
@@ -196,45 +195,21 @@ const AppContent = () => {
     // Set viewport when route data is received
     useEffect(() => {
         if (routeData?.route?.EncodedPolyline) {
-
             const coordinates = decodePolyline(routeData.route.EncodedPolyline)
             if (coordinates.length > 0) {
                 const polyline = L.polyline(coordinates)
                 const bounds = polyline.getBounds().pad(0.1)
-                const center = bounds.getCenter()
-
-                // Calculate optimal zoom using actual viewport size
-                const EARTH_RADIUS = 6378137 // Earth's radius in meters
-                const MAX_ZOOM = 18
-
-                const latDiff = (bounds.getNorth() - bounds.getSouth()) * Math.PI / 180
-                const lngDiff = (bounds.getEast() - bounds.getWest()) * Math.PI / 180
-
-                // Convert to meters at the center latitude
-                const centerLat = center.lat * Math.PI / 180
-                const latDistance = latDiff * EARTH_RADIUS
-                const lngDistance = lngDiff * EARTH_RADIUS * Math.cos(centerLat)
-
-                // Use actual viewport size instead of hardcoded values
-                const containerWidth = window.innerWidth
-                const containerHeight = window.innerHeight
-
-                // Calculate zoom for both dimensions and take the smaller (more zoomed out)
-                // Add some padding by reducing effective container size
-                const effectiveWidth = containerWidth * 0.9  // 10% padding
-                const effectiveHeight = containerHeight * 0.9 // 10% padding
-
-                const zoomForWidth = Math.log2(effectiveWidth * 156543.03392 * Math.cos(centerLat) / lngDistance)
-                const zoomForHeight = Math.log2(effectiveHeight * 156543.03392 / latDistance)
-
-                let optimalZoom = Math.min(zoomForWidth, zoomForHeight)
-                optimalZoom = Math.max(1, Math.min(MAX_ZOOM, Math.floor(optimalZoom)))
-
-                setViewportToRoute(bounds, center, optimalZoom)
-
+                setViewportToRoute(bounds)
             }
         }
     }, [routeData, setViewportToRoute])
+
+    // Switch to map view when route data becomes available
+    useEffect(() => {
+        if (routeData && viewMode === 'search') {
+            setViewMode('map')
+        }
+    }, [routeData, viewMode])
 
 
     return (
@@ -267,8 +242,6 @@ const AppContent = () => {
                                 stationData={filteredStationData}
                                 routeData={routeData}
                                 searchTerm={searchTerm}
-                                isLoading={isLoading}
-                                statusMessage={error || ''}
                                 className="w-full"
                                 onShowSuperchargerPopup={(placeId) => {
 

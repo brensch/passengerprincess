@@ -6,8 +6,6 @@ interface ResultsTableProps {
     stationData: StationData[]
     routeData: RouteResponse | null
     searchTerm: string
-    isLoading: boolean
-    statusMessage: string
     className?: string
     onShowSuperchargerPopup?: (placeId: string) => void
     onShowRestaurantPopup?: (placeId: string) => void
@@ -17,8 +15,6 @@ const ResultsTable = ({
     stationData,
     routeData,
     searchTerm,
-    isLoading,
-    statusMessage,
     className = '',
     onShowSuperchargerPopup,
     onShowRestaurantPopup
@@ -102,17 +98,6 @@ const ResultsTable = ({
             // Final fallback - open in new tab
             window.open(url, '_blank')
         }
-    }
-
-    if (isLoading) {
-        return (
-            <div className={`${className} flex items-center justify-center bg-princess-surface`}>
-                <div className="text-center">
-                    <div className="text-6xl mb-4">🧠</div>
-                    <div className="text-2xl font-dancing text-princess-text-primary">Pondering Possible Paths</div>
-                </div>
-            </div>
-        )
     }
 
     if (stationData.length === 0) {
