@@ -699,7 +699,8 @@ const Map = forwardRef<MapRef, MapProps>(({
                     html: '👸',
                     iconSize: [36, 36],
                     iconAnchor: [18, 18]
-                })
+                }),
+                zIndexOffset: 10000 // Ensure princess marker appears on top of all other markers
             })
 
             userMarker.bindPopup(`

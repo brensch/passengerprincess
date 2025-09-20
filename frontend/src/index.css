@@ -130,6 +130,8 @@ body, html {
   line-height: 1;
   text-align: center;
   text-shadow: 0 0 3px white, 0 0 5px white;
+  z-index: 10000 !important; /* Ensure princess marker is always on top */
+  position: relative !important;
 }
 
 /* Search highlight styling */
