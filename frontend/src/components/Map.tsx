@@ -151,53 +151,40 @@ const Map = forwardRef<MapRef, MapProps>(({
         },
         getMap: () => mapRef.current,
         showSuperchargerPopup: (placeId: string) => {
-            console.log('MAP: showSuperchargerPopup called with placeId:', placeId)
             if (!mapRef.current) {
-                console.log('MAP: No map instance available')
                 return
             }
 
             // First try to find the marker in viewport data
             const viewportMarkerData = viewportSuperchargers.current.get(placeId)
-            console.log('MAP: Viewport marker data found:', !!viewportMarkerData)
             if (viewportMarkerData?.marker) {
-                console.log('MAP: Using viewport marker, setting view to:', viewportMarkerData.marker.getLatLng())
                 viewportMarkerData.marker.openPopup()
                 return
             }
 
             // If not found in viewport, find the supercharger in station data and create a temporary popup
             const station = stationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
-            console.log('MAP: Station found in station data:', !!station)
             if (station) {
                 const supercharger = station.chargerInfo.supercharger
                 const latLng = L.latLng(supercharger.latitude, supercharger.longitude)
-                console.log('MAP: Creating temporary popup at:', latLng)
 
                 // Create and show a temporary popup immediately
-                const popup = L.popup({
+                L.popup({
                     className: 'custom-popup'
                 })
                     .setLatLng(latLng)
                     .setContent(generateSuperchargerPopupContent(supercharger, station.id))
                     .openOn(mapRef.current)
-                console.log('MAP: Popup created and opened:', !!popup)
-            } else {
-                console.log('MAP: Station not found for placeId:', placeId)
             }
         },
         showRestaurantPopup: (placeId: string) => {
-            console.log('MAP: showRestaurantPopup called with placeId:', placeId)
             if (!mapRef.current) {
-                console.log('MAP: No map instance available')
                 return
             }
 
             // First try to find the marker in viewport data
             const viewportMarkerData = viewportRestaurants.current.get(placeId)
-            console.log('MAP: Viewport restaurant marker found:', !!viewportMarkerData)
             if (viewportMarkerData?.marker) {
-                console.log('MAP: Using viewport restaurant marker, setting view to:', viewportMarkerData.marker.getLatLng())
                 viewportMarkerData.marker.openPopup()
                 return
             }
@@ -206,21 +193,18 @@ const Map = forwardRef<MapRef, MapProps>(({
             for (const station of stationData) {
                 const restaurant = station.restaurants?.find(r => r.place_id === placeId)
                 if (restaurant) {
-                    console.log('MAP: Restaurant found in station data, creating popup at:', restaurant.latitude, restaurant.longitude)
                     const latLng = L.latLng(restaurant.latitude, restaurant.longitude)
 
                     // Create and show a temporary popup immediately
-                    const popup = L.popup({
+                    L.popup({
                         className: 'custom-popup'
                     })
                         .setLatLng(latLng)
                         .setContent(generateRestaurantPopupContent(restaurant))
                         .openOn(mapRef.current)
-                    console.log('MAP: Restaurant popup created and opened:', !!popup)
                     return
                 }
             }
-            console.log('MAP: Restaurant not found for placeId:', placeId)
         }
     }))
 
@@ -285,19 +269,12 @@ const Map = forwardRef<MapRef, MapProps>(({
                 applyViewportFilters(data, bounds)
             }
         } catch (error) {
-            console.error('Failed to load viewport data:', error)
+            // Failed to load viewport data
         }
     }, [])
 
     const applyViewportFilters = useCallback((data: ViewportResponse, bounds: L.LatLngBounds) => {
         if (!layersRef.current || !mapRef.current) return
-
-        console.log('Applying viewport filters:', {
-            searchTerm: searchFilters.searchTerm,
-            cuisineFilters: searchFilters.cuisineFilters,
-            restaurantCount: data.restaurants.length,
-            superchargerCount: data.superchargers.length
-        })
 
         const { viewportSuperchargers: viewportSuperchargersLayer, viewportRestaurants: viewportRestaurantsLayer } = layersRef.current
 
@@ -313,13 +290,9 @@ const Map = forwardRef<MapRef, MapProps>(({
             return nameMatch && cuisineMatch
         })
 
-        console.log('Filtered restaurants:', filteredRestaurants.length, 'out of', data.restaurants.length)
-
         // Determine which superchargers should be visible based on filters
         const hasActiveFilters = searchFilters.searchTerm !== '' ||
             (searchFilters.cuisineFilters.length > 0 && !searchFilters.cuisineFilters.includes(''))
-
-        console.log('Has active filters:', hasActiveFilters)
 
         let visibleSuperchargerIds = new Set<string>()
 
@@ -339,8 +312,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             // No filters, show all superchargers
             data.superchargers.forEach(sc => visibleSuperchargerIds.add(sc.place_id))
         }
-
-        console.log('Visible supercharger IDs:', visibleSuperchargerIds.size)
 
         if (hasActiveFilters && filteredRestaurants.length > 0) {
             // Show only superchargers that have mappings to filtered restaurants OR are on the route
@@ -623,9 +594,7 @@ const Map = forwardRef<MapRef, MapProps>(({
 
     // Update route polyline 
     useEffect(() => {
-        console.log('MAP: Route effect triggered, routeData:', !!routeData)
         if (!routeData || !layersRef.current || !mapRef.current) {
-            console.log('MAP: Route effect early return - routeData:', !!routeData, 'layersRef:', !!layersRef.current, 'mapRef:', !!mapRef.current)
             return
         }
 
@@ -633,7 +602,6 @@ const Map = forwardRef<MapRef, MapProps>(({
         route.clearLayers()
 
         if (routeData.route?.EncodedPolyline) {
-            console.log('MAP: Adding route polyline')
             const coordinates = decodePolyline(routeData.route.EncodedPolyline)
             if (coordinates.length > 0) {
                 // Draw base route
@@ -646,15 +614,12 @@ const Map = forwardRef<MapRef, MapProps>(({
 
                 // Draw traffic segments if available
                 if (routeData.route.travelAdvisory?.speedReadingIntervals) {
-                    console.log('MAP: Adding traffic segments')
                     const trafficSegments = buildTrafficSegments(
                         routeData.route.EncodedPolyline,
                         routeData.route.travelAdvisory.speedReadingIntervals
                     )
                     drawTrafficSegments(trafficSegments, route)
                 }
-
-                console.log('MAP: Route polyline added, not fitting bounds (handled by App)')
             }
         }
     }, [routeData])
@@ -662,7 +627,6 @@ const Map = forwardRef<MapRef, MapProps>(({
     // Sync map view with viewport context only when explicitly requested
     useEffect(() => {
         if (mapRef.current && viewport && viewport.shouldSync) {
-            console.log('MAP: Syncing map view with viewport context:', viewport)
             const currentCenter = mapRef.current.getCenter()
             const currentZoom = mapRef.current.getZoom()
 
@@ -671,10 +635,7 @@ const Map = forwardRef<MapRef, MapProps>(({
             const zoomDiff = Math.abs(currentZoom - viewport.zoom)
 
             if (centerDiff > 0.001 || zoomDiff > 0.1) {
-                console.log('MAP: Actually syncing - centerDiff:', centerDiff, 'zoomDiff:', zoomDiff)
                 mapRef.current.setView(viewport.center, viewport.zoom, { animate: false })
-            } else {
-                console.log('MAP: Skipping sync - map already at target position')
             }
         }
     }, [viewport])    // Update user location
