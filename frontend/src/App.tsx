@@ -281,6 +281,7 @@ const AppContent = () => {
                                 searchFilters={searchFilters}
                                 className="w-full"
                                 onRefresh={handleRefresh}
+                                isLoading={isLoading}
                             />
                         )}
                     </div>

@@ -29,6 +29,7 @@ interface MapProps {
     searchFilters: SearchFilters
     className?: string
     onRefresh?: () => void
+    isLoading?: boolean
 }
 
 export interface MapRef {
@@ -54,7 +55,8 @@ const Map = forwardRef<MapRef, MapProps>(({
     userLocation,
     searchFilters,
     className = '',
-    onRefresh
+    onRefresh,
+    isLoading = false
 }, ref) => {
     const mapRef = useRef<L.Map | null>(null)
     const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -721,13 +723,15 @@ const Map = forwardRef<MapRef, MapProps>(({
                 {onRefresh && (
                     <button
                         onClick={onRefresh}
-                        className="px-3 py-2 text-sm rounded-lg 
+                        disabled={isLoading}
+                        className={`px-3 py-2 text-sm rounded-lg 
                                  bg-gradient-to-r from-princess-accent-mint to-princess-accent-peach
                                  text-princess-text-primary shadow-lg hover:shadow-xl 
-                                 transition-all duration-200 hover:scale-105 flex items-center justify-center"
-                        title="Refresh route"
+                                 transition-all duration-200 hover:scale-105 flex items-center justify-center
+                                 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title={isLoading ? "Refreshing..." : "Refresh route"}
                     >
-                        <span>🔄</span>
+                        <span>{isLoading ? '⏳' : '🔄'}</span>
                     </button>
                 )}
             </div>
@@ -737,7 +741,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                 <div className="absolute inset-0 z-[1001] flex items-center justify-center pointer-events-none">
                     <div className="bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose 
                                   text-princess-text-primary px-6 py-4 rounded-lg shadow-xl border border-princess-border
-                                  animate-fade-in">
+                                  animate-fade-in font-dancing text-2xl">
                         You did not grant location permissions
                     </div>
                 </div>
