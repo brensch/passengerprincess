@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { AutocompleteResult } from '../types'
 
 interface SearchFormProps {
@@ -26,6 +26,12 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
     const originRef = useRef<HTMLInputElement>(null)
     const destinationRef = useRef<HTMLInputElement>(null)
     const debounceRef = useRef<number>()
+
+    useEffect(() => {
+        if (!isError) {
+            setFullError(null)
+        }
+    }, [isError])
 
     const handleSearch = (e: any) => {
         e.preventDefault()
@@ -88,7 +94,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
                 }
             } catch (error) {
                 console.error('Autocomplete error:', error)
-                setErrorMessage('Autocomplete is not working right now. Just type an address and it will probably still work.')
+                setErrorMessage('I couldn\'t fetch suggestions right now. Just type in the address and it will still work.')
                 setIsApiError(true)
                 setFullError(error instanceof Error ? error.message : 'Unknown error')
             }
@@ -335,25 +341,30 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation 
             </form>
 
             {(errorMessage || statusMessage) && (
-                <div className={`mt-6 p-4 rounded-xl text-center font-medium ${errorMessage || isError
+                <div className={`mt-6 p-4 rounded-xl text-center font-medium ${(errorMessage && isApiError) || isError
                     ? 'bg-gradient-to-r from-princess-rose to-princess-blush text-princess-text-primary border border-princess-accent-rose'
                     : 'bg-gradient-to-r from-princess-surface-soft to-princess-lavender text-princess-text-secondary'
                     }`}>
-                    Dear Princess, {errorMessage || statusMessage}
-                    {isApiError && fullError && (
-                        <button
-                            onClick={() => setShowErrorPopup(true)}
-                            className="ml-2 px-2 py-1 text-sm bg-princess-accent-lavender text-princess-text-primary rounded hover:bg-princess-accent-rose transition-colors"
-                        >
-                            Details
-                        </button>
-                    )}
+                    <div className="flex items-center justify-between">
+                        <span>Dear Princess, {errorMessage || (isError ? "I can't route you. Try again in a little bit." : statusMessage)}</span>
+                        {((isApiError || isError) && (fullError || (isError && statusMessage))) && (
+                            <button
+                                onClick={() => {
+                                    if (isError && !fullError) setFullError(statusMessage)
+                                    setShowErrorPopup(true)
+                                }}
+                                className="ml-2 px-2 py-1 text-sm bg-princess-accent-lavender text-princess-text-primary rounded hover:bg-princess-accent-rose transition-colors"
+                            >
+                                Details
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 
             {showErrorPopup && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-princess-surface p-6 rounded-xl max-w-md w-full mx-4">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowErrorPopup(false)}>
+                    <div className="bg-princess-surface p-6 rounded-xl max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <h3 className="text-lg font-semibold mb-4 text-princess-text-primary">Error Details</h3>
                         <p className="text-princess-text-secondary mb-4 whitespace-pre-wrap">{fullError}</p>
                         <button

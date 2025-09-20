@@ -77,6 +77,7 @@ const Map = forwardRef<MapRef, MapProps>(({
 
     // Warning popup state
     const [showLocationWarning, setShowLocationWarning] = useState(false)
+    const [locationPermission, setLocationPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
 
     const formatEpochMsToLocalTime = useCallback((epochMs: number): string => {
         const date = new Date(epochMs)
@@ -699,6 +700,22 @@ const Map = forwardRef<MapRef, MapProps>(({
         }
     }, [className])
 
+    // Check location permission
+    useEffect(() => {
+        if ('permissions' in navigator) {
+            navigator.permissions.query({ name: 'geolocation' }).then(result => {
+                setLocationPermission(result.state as 'unknown' | 'granted' | 'denied')
+                result.addEventListener('change', () => {
+                    setLocationPermission(result.state as 'unknown' | 'granted' | 'denied')
+                })
+            }).catch(() => {
+                setLocationPermission('denied')
+            })
+        } else {
+            setLocationPermission('denied')
+        }
+    }, [])
+
     return (
         <div
             ref={mapContainerRef}
@@ -706,35 +723,37 @@ const Map = forwardRef<MapRef, MapProps>(({
             style={{ height: '100%', width: '100%' }}
         >
             {/* Control buttons */}
-            <div className="absolute top-4 right-4 z-[1000] flex flex-col space-y-2">
-                {/* Location button */}
-                <button
-                    onClick={handleGoToUserLocation}
-                    className="px-3 py-2 text-sm rounded-lg 
-                             bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose
-                             text-princess-text-primary shadow-lg hover:shadow-xl 
-                             transition-all duration-200 hover:scale-105 flex items-center space-x-1"
-                    title="Go to your location"
-                >
-                    <span>👸</span>
-                </button>
-
-                {/* Refresh button */}
-                {onRefresh && (
+            {locationPermission === 'granted' && (
+                <div className="absolute top-4 right-4 z-[1000] flex flex-col space-y-2">
+                    {/* Location button */}
                     <button
-                        onClick={onRefresh}
-                        disabled={isLoading}
-                        className={`px-3 py-2 text-sm rounded-lg 
-                                 bg-gradient-to-r from-princess-accent-mint to-princess-accent-peach
+                        onClick={handleGoToUserLocation}
+                        className="px-3 py-2 text-sm rounded-lg 
+                                 bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose
                                  text-princess-text-primary shadow-lg hover:shadow-xl 
-                                 transition-all duration-200 hover:scale-105 flex items-center justify-center
-                                 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        title={isLoading ? "Refreshing..." : "Refresh route"}
+                                 transition-all duration-200 hover:scale-105 flex items-center space-x-1"
+                        title="Go to your location"
                     >
-                        <span>{isLoading ? '⏳' : '🔄'}</span>
+                        <span>👸</span>
                     </button>
-                )}
-            </div>
+
+                    {/* Refresh button */}
+                    {onRefresh && (
+                        <button
+                            onClick={onRefresh}
+                            disabled={isLoading}
+                            className={`px-3 py-2 text-sm rounded-lg 
+                                     bg-gradient-to-r from-princess-accent-mint to-princess-accent-peach
+                                     text-princess-text-primary shadow-lg hover:shadow-xl 
+                                     transition-all duration-200 hover:scale-105 flex items-center justify-center
+                                     ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={isLoading ? "Refreshing..." : "Refresh route"}
+                        >
+                            <span>{isLoading ? '⏳' : '🔄'}</span>
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Location permission warning */}
             {showLocationWarning && (
