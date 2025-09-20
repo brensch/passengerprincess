@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -46,6 +47,31 @@ func withGzip(fn http.HandlerFunc) http.HandlerFunc {
 		gzw := &gzipResponseWriter{ResponseWriter: w, Writer: gz}
 		fn(gzw, r)
 	}
+}
+
+// getClientIP extracts the client IP address from the request
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first (for proxies)
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		ips := strings.Split(xff, ",")
+		return strings.TrimSpace(ips[0])
+	}
+
+	// Check X-Real-IP header
+	xri := r.Header.Get("X-Real-IP")
+	if xri != "" {
+		return xri
+	}
+
+	// Fall back to RemoteAddr
+	ip := r.RemoteAddr
+	// Remove port if present
+	if strings.Contains(ip, ":") {
+		ip, _, _ = strings.Cut(ip, ":")
+	}
+	return ip
 }
 
 // generateSessionToken creates a random session token for Google Places Autocomplete
@@ -131,8 +157,11 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Get database service
+	service := db.GetDefaultService()
+
 	// Get autocomplete suggestions with session token
-	suggestions, err := maps.GetAutocompleteSuggestions(ctx, googleAPIKey, partial, sessionToken)
+	suggestions, err := maps.GetAutocompleteSuggestions(ctx, service, googleAPIKey, partial, sessionToken, getClientIP(r))
 	if err != nil {
 		log.Printf("Error getting autocomplete suggestions: %v", err)
 		writeJSONError(w, "Failed to get autocomplete suggestions", http.StatusInternalServerError)
@@ -163,6 +192,20 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract client information
+	ipAddress := getClientIP(r)
+	var latitude, longitude *float64
+	if latStr := r.URL.Query().Get("lat"); latStr != "" {
+		if lat, err := strconv.ParseFloat(latStr, 64); err == nil {
+			latitude = &lat
+		}
+	}
+	if lngStr := r.URL.Query().Get("lng"); lngStr != "" {
+		if lng, err := strconv.ParseFloat(lngStr, 64); err == nil {
+			longitude = &lng
+		}
+	}
+
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -171,7 +214,7 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	service := db.GetDefaultService()
 
 	// Get route with superchargers
-	result, err := maps.GetSuperchargersOnRoute(ctx, service, googleAPIKey, origin, destination)
+	result, err := maps.GetSuperchargersOnRoute(ctx, service, googleAPIKey, origin, destination, ipAddress, latitude, longitude)
 	if err != nil {
 		log.Printf("Error getting superchargers on route: %v", err)
 		writeJSONError(w, err.Error(), http.StatusInternalServerError)
@@ -302,6 +345,9 @@ func reverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Get database service
+	service := db.GetDefaultService()
+
 	// Call Google Maps Geocoding API
 	url := "https://maps.googleapis.com/maps/api/geocode/json?latlng=" + latStr + "," + lonStr + "&key=" + googleAPIKey
 
@@ -333,6 +379,19 @@ func reverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error decoding reverse geocoding response: %v", err)
 		writeJSONError(w, "Failed to decode geocoding response", http.StatusInternalServerError)
 		return
+	}
+
+	// Log the API call
+	if service != nil {
+		logEntry := &db.MapsCallLog{
+			SKU:       "geocoding",
+			IPAddress: getClientIP(r),
+			Details:   fmt.Sprintf("Reverse geocoding for lat: %s, lon: %s", latStr, lonStr),
+		}
+		if err := service.MapsCallLog.Create(logEntry); err != nil {
+			// Log error but don't fail the API call
+			log.Printf("Failed to log maps call: %v", err)
+		}
 	}
 
 	if geocodeData.Status != "OK" {

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/brensch/passengerprincess/pkg/db"
 )
 
 // AutocompleteRequest represents the request body for Places API v1 autocomplete
@@ -53,7 +55,7 @@ type AutocompletePrediction struct {
 }
 
 // GetAutocompleteSuggestions fetches place autocomplete suggestions from Google Places API v1
-func GetAutocompleteSuggestions(ctx context.Context, apiKey, input string, sessionToken string) ([]AutocompletePrediction, error) {
+func GetAutocompleteSuggestions(ctx context.Context, broker *db.Service, apiKey, input string, sessionToken string, ipAddress string) ([]AutocompletePrediction, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key is missing")
 	}
@@ -124,6 +126,22 @@ func GetAutocompleteSuggestions(ctx context.Context, apiKey, input string, sessi
 				Types:       suggestion.PlacePrediction.Types,
 			}
 			predictions = append(predictions, prediction)
+		}
+	}
+
+	// Log the API call
+	if broker != nil {
+		logEntry := &db.MapsCallLog{
+			SKU:       "places-autocomplete",
+			IPAddress: ipAddress,
+			Details:   fmt.Sprintf("Autocomplete for input: %s", input),
+		}
+		if len(predictions) > 0 {
+			logEntry.PlaceID = &predictions[0].PlaceID
+		}
+		if err := broker.MapsCallLog.Create(logEntry); err != nil {
+			// Log error but don't fail the API call
+			fmt.Printf("Failed to log maps call: %v\n", err)
 		}
 	}
 

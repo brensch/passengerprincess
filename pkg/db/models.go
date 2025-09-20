@@ -50,6 +50,7 @@ type MapsCallLog struct {
 	Timestamp      time.Time `gorm:"column:timestamp;default:CURRENT_TIMESTAMP" json:"timestamp"`
 	SuperchargerID *string   `gorm:"column:supercharger_id" json:"supercharger_id"`
 	PlaceID        *string   `gorm:"column:place_id" json:"place_id"`
+	IPAddress      string    `gorm:"column:ip_address" json:"ip_address"`
 	Error          string    `gorm:"column:error" json:"error"`
 	Details        string    `gorm:"column:details" json:"details"`
 }
@@ -88,4 +89,6 @@ type RouteCallLog struct {
 	Destination string    `gorm:"column:destination" json:"destination"`
 	Error       string    `gorm:"column:error" json:"error"`
 	IPAddress   string    `gorm:"column:ip_address" json:"ip_address"`
+	Latitude    *float64  `gorm:"column:latitude" json:"latitude"`
+	Longitude   *float64  `gorm:"column:longitude" json:"longitude"`
 }

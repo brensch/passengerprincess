@@ -26,7 +26,7 @@ func TestGetPlacesViaTextSearch(t *testing.T) {
 	}
 
 	// Call the real API
-	places, err := GetPlacesViaTextSearch(context.Background(), apiKey, query, FieldMaskRestaurantTextSearch, targetCircle, true)
+	places, err := GetPlacesViaTextSearch(context.Background(), nil, apiKey, query, FieldMaskRestaurantTextSearch, targetCircle, true, "")
 	if err != nil {
 		t.Fatalf("GetPlaceIDsViaTextSearch failed: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestGetPlacesViaNearbySearch(t *testing.T) {
 	maxResults := 10
 
 	// Call the real API
-	places, err := GetPlacesViaNearbySearch(context.Background(), apiKey, includedTypes, FieldMaskRestaurantNearbySearch, targetCircle, maxResults)
+	places, err := GetPlacesViaNearbySearch(context.Background(), nil, apiKey, includedTypes, FieldMaskRestaurantNearbySearch, targetCircle, maxResults, "")
 	if err != nil {
 		t.Fatalf("GetPlacesViaNearbySearch failed: %v", err)
 	}

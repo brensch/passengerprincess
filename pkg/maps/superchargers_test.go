@@ -45,7 +45,7 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 
 	t.Logf("Finding superchargers on route from %s to %s", start, end)
 
-	result, err := GetSuperchargersOnRoute(context.Background(), broker, apiKey, start, end)
+	result, err := GetSuperchargersOnRoute(context.Background(), broker, apiKey, start, end, "", nil, nil)
 	if err != nil {
 		t.Fatalf("GetSuperchargersOnRoute failed: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestGetSuperchargersOnRoute(t *testing.T) {
 	t.Logf("Successfully generated supercharger_route_visualization.html")
 
 	t.Logf("running again to check caching...")
-	resultCached, err := GetSuperchargersOnRoute(context.Background(), broker, apiKey, start, end)
+	resultCached, err := GetSuperchargersOnRoute(context.Background(), broker, apiKey, start, end, "", nil, nil)
 	if err != nil {
 		t.Fatalf("GetSuperchargersOnRoute failed: %v", err)
 	}

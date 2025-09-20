@@ -8,6 +8,8 @@ import (
 	"io"
 	"math"
 	"net/http"
+
+	"github.com/brensch/passengerprincess/pkg/db"
 )
 
 // Making the endpoint and client package-level variables allows us to
@@ -124,7 +126,7 @@ func circleToRectangle(circle Circle) Rectangle {
 
 // GetPlacesViaNearbySearch queries the Google Places API (Nearby Search - New) to find all places
 // of specified types within a circular search area.
-func GetPlacesViaNearbySearch(ctx context.Context, apiKey string, includedTypes []string, fieldMask string, targetCircle Circle, maxResults int) ([]*PlaceDetails, error) {
+func GetPlacesViaNearbySearch(ctx context.Context, broker *db.Service, apiKey string, includedTypes []string, fieldMask string, targetCircle Circle, maxResults int, ipAddress string) ([]*PlaceDetails, error) {
 	maxResults = 20
 	reqBody := nearbyRequestBody{
 		IncludedTypes: includedTypes,
@@ -182,12 +184,29 @@ func GetPlacesViaNearbySearch(ctx context.Context, apiKey string, includedTypes 
 		places = append(places, p)
 	}
 
+	// Log the API call
+	if broker != nil {
+		sku := determineSKU(placesNearbyEndpoint, fieldMask)
+		logEntry := &db.MapsCallLog{
+			SKU:       sku,
+			IPAddress: ipAddress,
+			Details:   fmt.Sprintf("Nearby search for types: %v, center: %.6f,%.6f, radius: %.0f", includedTypes, targetCircle.Center.Latitude, targetCircle.Center.Longitude, targetCircle.Radius),
+		}
+		if len(places) > 0 {
+			logEntry.PlaceID = &places[0].ID
+		}
+		if err := broker.MapsCallLog.Create(logEntry); err != nil {
+			// Log error but don't fail the API call
+			fmt.Printf("Failed to log maps call: %v\n", err)
+		}
+	}
+
 	return places, nil
 }
 
 // GetPlacesViaTextSearch queries the Google Places API (Text Search - New) to find all places
 // matching a query within a specified circular search area. It now takes a 'circle' struct directly.
-func GetPlacesViaTextSearch(ctx context.Context, apiKey, query, fieldMask string, targetCircle Circle, strict bool) ([]*PlaceDetails, error) {
+func GetPlacesViaTextSearch(ctx context.Context, broker *db.Service, apiKey, query, fieldMask string, targetCircle Circle, strict bool, ipAddress string) ([]*PlaceDetails, error) {
 	reqBody := requestBody{
 		TextQuery: query,
 	}
@@ -251,7 +270,25 @@ func GetPlacesViaTextSearch(ctx context.Context, apiKey, query, fieldMask string
 			allPlaces = append(allPlaces, p)
 		}
 
+		// Log the API call
+		if broker != nil {
+			sku := determineSKU(placesAPIEndpoint, fieldMask)
+			logEntry := &db.MapsCallLog{
+				SKU:       sku,
+				IPAddress: ipAddress,
+				Details:   fmt.Sprintf("Text search for query: %s, center: %.6f,%.6f, radius: %.0f, page: %d", query, targetCircle.Center.Latitude, targetCircle.Center.Longitude, targetCircle.Radius, i+1),
+			}
+			if len(apiResp.Places) > 0 {
+				logEntry.PlaceID = &apiResp.Places[0].ID
+			}
+			if err := broker.MapsCallLog.Create(logEntry); err != nil {
+				// Log error but don't fail the API call
+				fmt.Printf("Failed to log maps call: %v\n", err)
+			}
+		}
+
 		// If there's no next page token, we are done
+		fmt.Println(len(apiResp.Places), apiResp.NextPageToken)
 		if apiResp.NextPageToken == "" {
 			break
 		}
@@ -264,7 +301,7 @@ func GetPlacesViaTextSearch(ctx context.Context, apiKey, query, fieldMask string
 }
 
 // GetPlaceDetails retrieves essential place information from Google Places API given a place ID
-func GetPlaceDetails(ctx context.Context, apiKey, placeID, fieldMask string) (*PlaceDetails, error) {
+func GetPlaceDetails(ctx context.Context, broker *db.Service, apiKey, placeID, fieldMask string, ipAddress string) (*PlaceDetails, error) {
 	url := fmt.Sprintf("%s/%s", placeDetailsEndpoint, placeID)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -294,6 +331,21 @@ func GetPlaceDetails(ctx context.Context, apiKey, placeID, fieldMask string) (*P
 	err = json.Unmarshal(bodyBytes, &placeDetails)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response json: %w", err)
+	}
+
+	// Log the API call
+	if broker != nil {
+		sku := determineSKU(placeDetailsEndpoint, fieldMask)
+		logEntry := &db.MapsCallLog{
+			SKU:       sku,
+			PlaceID:   &placeID,
+			IPAddress: ipAddress,
+			Details:   fmt.Sprintf("Place details for place ID: %s", placeID),
+		}
+		if err := broker.MapsCallLog.Create(logEntry); err != nil {
+			// Log error but don't fail the API call
+			fmt.Printf("Failed to log maps call: %v\n", err)
+		}
 	}
 
 	return &placeDetails, nil

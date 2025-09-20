@@ -415,7 +415,7 @@ func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []P
 	}
 }
 
-func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination string) (*SuperchargersOnRouteResult, error) {
+func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination, ipAddress string, latitude, longitude *float64) (*SuperchargersOnRouteResult, error) {
 	totalStart := time.Now()
 	defer func() {
 		log.Printf("GetSuperchargersOnRoute total time: %v", time.Since(totalStart))
@@ -423,7 +423,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 
 	// Get route data (now enhanced with traffic information when available)
 	routeStart := time.Now()
-	route, err := GetRoute(apiKey, origin, destination)
+	route, err := GetRoute(ctx, broker, apiKey, origin, destination, ipAddress, latitude, longitude)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get route: %w", err)
 	}
@@ -476,7 +476,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		searchWg.Add(1)
 		go func(c Circle) {
 			defer searchWg.Done()
-			places, err := GetPlacesViaTextSearch(ctx, apiKey, "tesla supercharger", "places.id", c, false)
+			places, err := GetPlacesViaTextSearch(ctx, broker, apiKey, "tesla supercharger", "places.id", c, false, ipAddress)
 			searchResultsChan <- searchResult{places: places, err: err}
 		}(circle)
 	}
@@ -506,7 +506,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			superCharger, restaurants, err := GetSuperchargerWithCache(ctx, broker, apiKey, id)
+			superCharger, restaurants, err := GetSuperchargerWithCache(ctx, broker, apiKey, id, ipAddress)
 			resultsChan <- superchargerResult{supercharger: superCharger, restaurants: restaurants, err: err}
 		}(id)
 	}
@@ -543,7 +543,7 @@ const (
 
 // GetSuperchargerWithCache retrieves place details with database caching
 // First checks the database, then falls back to API if not found
-func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string) (*db.Supercharger, []db.RestaurantWithDistance, error) {
+func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string, ipAddress string) (*db.Supercharger, []db.RestaurantWithDistance, error) {
 	// First try to get from database
 	supercharger, err := broker.Supercharger.GetByID(placeID)
 	if err == nil {
@@ -560,7 +560,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 
 	// Not found in database, fetch from API
 	// this field map ensure the essentials tier
-	superchargerDetails, err := GetPlaceDetails(ctx, apiKey, placeID, FieldMaskSuperchargerDetails)
+	superchargerDetails, err := GetPlaceDetails(ctx, broker, apiKey, placeID, FieldMaskSuperchargerDetails, ipAddress)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -587,13 +587,13 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		return supercharger, []db.RestaurantWithDistance{}, nil
 	}
 
-	restaurants, err := GetPlacesViaTextSearch(ctx, apiKey, "food", FieldMaskRestaurantTextSearch, Circle{
+	restaurants, err := GetPlacesViaTextSearch(ctx, broker, apiKey, "food", FieldMaskRestaurantTextSearch, Circle{
 		Center: Point{
 			Latitude:  superchargerDetails.Location.Latitude,
 			Longitude: superchargerDetails.Location.Longitude,
 		},
 		Radius: 500, // 500 meter radius
-	}, true)
+	}, true, ipAddress)
 	if err != nil {
 		return nil, nil, err
 	}

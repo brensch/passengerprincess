@@ -1,6 +1,7 @@
 package maps
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -17,7 +18,7 @@ func TestGetRoute(t *testing.T) {
 	origin := "Framingham, MA"
 	destination := "Boston, MA"
 
-	result, err := GetRoute(apiKey, origin, destination)
+	result, err := GetRoute(context.Background(), nil, apiKey, origin, destination, "", nil, nil)
 	if err != nil {
 		t.Fatalf("GetRoute failed: %v", err)
 	}

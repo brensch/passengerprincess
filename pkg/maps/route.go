@@ -2,6 +2,7 @@ package maps
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/brensch/passengerprincess/pkg/db"
 )
 
 const (
@@ -102,13 +105,13 @@ type SpeedReadingInterval struct {
 
 // GetRoute takes an API key and two location strings, then returns
 // information about the route with traffic-aware routing.
-func GetRoute(apiKey, origin, destination string) (*RouteInfo, error) {
+func GetRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination, ipAddress string, latitude, longitude *float64) (*RouteInfo, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key is missing. Please set the GOOGLE_MAPS_API_KEY environment variable")
 	}
 
 	// Get enhanced route data with traffic information
-	enhancedRoute, err := getEnhancedRouteData(apiKey, origin, destination)
+	enhancedRoute, err := getEnhancedRouteData(ctx, broker, apiKey, origin, destination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get route: %w", err)
 	}
@@ -121,6 +124,32 @@ func GetRoute(apiKey, origin, destination string) (*RouteInfo, error) {
 
 	// Parse the duration string
 	durationSeconds := parseDurationString(route.Duration)
+
+	// Log the route call
+	if broker != nil {
+		logEntry := &db.RouteCallLog{
+			Origin:      origin,
+			Destination: destination,
+			IPAddress:   ipAddress,
+			Latitude:    latitude,
+			Longitude:   longitude,
+		}
+		if err := broker.RouteCallLog.Create(logEntry); err != nil {
+			// Log error but don't fail the API call
+			fmt.Printf("Failed to log route call: %v\n", err)
+		}
+
+		// Also log the Maps API call
+		mapsLogEntry := &db.MapsCallLog{
+			SKU:       "routes-compute-routes",
+			IPAddress: ipAddress,
+			Details:   fmt.Sprintf("Route from %s to %s", origin, destination),
+		}
+		if err := broker.MapsCallLog.Create(mapsLogEntry); err != nil {
+			// Log error but don't fail the API call
+			fmt.Printf("Failed to log maps call: %v\n", err)
+		}
+	}
 
 	return &RouteInfo{
 		DistanceMeters:  route.DistanceMeters,
@@ -158,7 +187,7 @@ func parseWaypoint(location string) Waypoint {
 }
 
 // getEnhancedRouteData fetches traffic-aware route data from Google Routes API
-func getEnhancedRouteData(apiKey, origin, destination string) (*EnhancedRouteResponse, error) {
+func getEnhancedRouteData(ctx context.Context, broker *db.Service, apiKey, origin, destination string) (*EnhancedRouteResponse, error) {
 	// Parse origin and destination waypoints
 	originWaypoint := parseWaypoint(origin)
 	destinationWaypoint := parseWaypoint(destination)
@@ -180,7 +209,7 @@ func getEnhancedRouteData(apiKey, origin, destination string) (*EnhancedRouteRes
 	}
 
 	apiURL := "https://routes.googleapis.com/directions/v2:computeRoutes"
-	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, err
 	}
