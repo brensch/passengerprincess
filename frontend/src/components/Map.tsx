@@ -241,7 +241,29 @@ const Map = forwardRef<MapRef, MapProps>(({
             maxClusterRadius: 50,
             disableClusteringAtZoom: 15,
             spiderfyOnMaxZoom: true,
-            showCoverageOnHover: false
+            showCoverageOnHover: false,
+            iconCreateFunction: function (cluster) {
+                const childCount = cluster.getChildCount()
+                let size = 40
+
+                // Scale size based on number of markers
+                if (childCount < 10) {
+                    size = 40
+                } else if (childCount < 50) {
+                    size = 50
+                } else if (childCount < 100) {
+                    size = 60
+                } else {
+                    size = 70
+                }
+
+                return L.divIcon({
+                    html: '<div style="background-color: #FFB3C6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #6B4D7C; font-weight: bold; font-size: 12px;">' + childCount + '</div>',
+                    className: 'custom-cluster-icon',
+                    iconSize: [size, size],
+                    iconAnchor: [size / 2, size / 2]
+                })
+            }
         })
 
         const layers = {
@@ -425,8 +447,8 @@ const Map = forwardRef<MapRef, MapProps>(({
                     icon: L.divIcon({
                         className: 'emoji-icon charger-icon',
                         html: '⚡',
-                        iconSize: isRouteCharger ? [30, 30] : [24, 24],
-                        iconAnchor: isRouteCharger ? [15, 15] : [12, 12]
+                        iconSize: isRouteCharger ? [36, 36] : [30, 30],
+                        iconAnchor: isRouteCharger ? [18, 18] : [15, 15]
                     })
                 })
 
