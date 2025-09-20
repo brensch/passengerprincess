@@ -251,3 +251,30 @@ mark {
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* Mobile-specific styles to prevent layout issues */
+@media (max-width: 768px) {
+  .leaflet-container {
+    /* Ensure map container respects parent bounds on mobile */
+    max-height: 100vh !important;
+    max-width: 100vw !important;
+    /* Ensure map stays below other UI elements */
+    z-index: 1 !important;
+  }
+  
+  /* Hide any potential map controls that could interfere */
+  .leaflet-control-zoom {
+    display: none !important;
+  }
+  
+  /* Ensure map doesn't overflow its container */
+  .map-container {
+    overflow: hidden !important;
+    position: relative !important;
+  }
+  
+  /* Prevent map from taking up more space than allocated */
+  .leaflet-container .leaflet-control-container {
+    pointer-events: auto;
+  }
+}

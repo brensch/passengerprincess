@@ -229,7 +229,9 @@ const Map = forwardRef<MapRef, MapProps>(({
     useEffect(() => {
         if (!mapContainerRef.current || mapRef.current) return
 
-        const map = L.map(mapContainerRef.current).setView([37.7749, -122.4194], 6)
+        const map = L.map(mapContainerRef.current, {
+            zoomControl: false // Hide zoom controls to prevent app bar overlap on mobile
+        }).setView([37.7749, -122.4194], 6)
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
