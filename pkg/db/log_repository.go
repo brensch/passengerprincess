@@ -50,7 +50,14 @@ func (r *MapsCallLogRepository) GetByTimeRange(start, end time.Time, limit, offs
 // GetBySKU retrieves logs by SKU
 func (r *MapsCallLogRepository) GetBySKU(sku string, limit, offset int) ([]MapsCallLog, error) {
 	var logs []MapsCallLog
-	query := r.db.Where("sku = ?", sku).Order("timestamp DESC")
+	var query *gorm.DB
+
+	if sku == "" {
+		// If sku is empty, get all logs
+		query = r.db.Order("timestamp DESC")
+	} else {
+		query = r.db.Where("sku = ?", sku).Order("timestamp DESC")
+	}
 
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -219,7 +226,14 @@ func (r *RouteCallLogRepository) GetByTimeRange(start, end time.Time, limit, off
 // GetByIPAddress retrieves logs by IP address
 func (r *RouteCallLogRepository) GetByIPAddress(ipAddress string, limit, offset int) ([]RouteCallLog, error) {
 	var logs []RouteCallLog
-	query := r.db.Where("ip_address = ?", ipAddress).Order("timestamp DESC")
+	var query *gorm.DB
+
+	if ipAddress == "" {
+		// If ipAddress is empty, get all logs
+		query = r.db.Order("timestamp DESC")
+	} else {
+		query = r.db.Where("ip_address = ?", ipAddress).Order("timestamp DESC")
+	}
 
 	if limit > 0 {
 		query = query.Limit(limit)

@@ -288,7 +288,6 @@ func GetPlacesViaTextSearch(ctx context.Context, broker *db.Service, apiKey, que
 		}
 
 		// If there's no next page token, we are done
-		fmt.Println(len(apiResp.Places), apiResp.NextPageToken)
 		if apiResp.NextPageToken == "" {
 			break
 		}

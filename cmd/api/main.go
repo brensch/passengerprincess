@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -108,6 +109,7 @@ func main() {
 	http.HandleFunc("/route", withGzip(routeHandler))
 	http.HandleFunc("/superchargers/viewport", withGzip(viewportHandler))
 	http.HandleFunc("/reverse-geocode", withGzip(reverseGeocodeHandler))
+	http.HandleFunc("/stats", statsHandler)
 
 	// Start the server.
 	port := "8040"
@@ -428,4 +430,138 @@ func reverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
 		"address": geocodeData.Results[0].FormattedAddress,
 		"status":  "success",
 	})
+}
+
+// statsHandler handles requests for API usage statistics
+func statsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get database service
+	service := db.GetDefaultService()
+
+	// Get data for last 30 days
+	// thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
+
+	// Get total API calls in last 30 days
+	totalCalls, err := service.MapsCallLog.Count()
+	if err != nil {
+		log.Printf("Error getting total calls: %v", err)
+		writeJSONError(w, "Failed to get statistics", http.StatusInternalServerError)
+		return
+	}
+
+	// Get all logs (simplified approach)
+	allLogs, err := service.MapsCallLog.GetBySKU("", 10000, 0)
+	if err != nil {
+		log.Printf("Error getting all logs: %v", err)
+		allLogs = []db.MapsCallLog{}
+	}
+
+	log.Printf("Retrieved %d total logs", len(allLogs))
+
+	// Aggregate by IP
+	ipStats := make(map[string]int)
+	skuStats := make(map[string]int)
+	for _, log := range allLogs {
+		ipStats[log.IPAddress]++
+		skuStats[log.SKU]++
+	}
+
+	// Create sorted list of SKUs
+	var sortedSKUs []string
+	for sku := range skuStats {
+		sortedSKUs = append(sortedSKUs, sku)
+	}
+	sort.Strings(sortedSKUs)
+
+	// Create sorted list of IPs
+	var sortedIPs []string
+	for ip := range ipStats {
+		sortedIPs = append(sortedIPs, ip)
+	}
+	sort.Strings(sortedIPs)
+
+	// Get last 50 route calls
+	routeLogs, err := service.RouteCallLog.GetByIPAddress("", 50, 0)
+	if err != nil {
+		log.Printf("Error getting route logs: %v", err)
+		routeLogs = []db.RouteCallLog{}
+	}
+
+	// Generate HTML response
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Usage Statistics</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2 { color: #333; }
+        table { border-collapse: collapse; width: 100%%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .summary { background-color: #e8f4f8; padding: 10px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>API Usage Statistics</h1>
+    
+    <div class="summary">
+        <h2>Summary (Last 30 Days)</h2>
+        <p><strong>Total API Calls:</strong> %d</p>
+        <p><strong>Unique IPs:</strong> %d</p>
+    </div>
+
+    <h2>API Calls by SKU</h2>
+    <table>
+        <tr><th>SKU</th><th>Count</th></tr>`,
+		totalCalls, len(ipStats))
+
+	for _, sku := range sortedSKUs {
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%d</td></tr>", sku, skuStats[sku])
+	}
+
+	fmt.Fprintf(w, `
+    </table>
+
+    <h2>API Calls by IP Address</h2>
+    <table>
+        <tr><th>IP Address</th><th>Count</th></tr>`)
+
+	for _, ip := range sortedIPs {
+		count := ipStats[ip]
+		if ip == "" {
+			ip = "(empty)"
+		}
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%d</td></tr>", ip, count)
+	}
+
+	fmt.Fprintf(w, `
+    </table>
+
+    <h2>Last 50 Route Requests</h2>
+    <table>
+        <tr><th>Timestamp</th><th>Origin</th><th>Destination</th><th>IP Address</th><th>Latitude</th><th>Longitude</th></tr>`)
+
+	for _, route := range routeLogs {
+		lat := ""
+		lon := ""
+		if route.Latitude != nil {
+			lat = fmt.Sprintf("%.6f", *route.Latitude)
+		}
+		if route.Longitude != nil {
+			lon = fmt.Sprintf("%.6f", *route.Longitude)
+		}
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
+			route.Timestamp.Format("2006-01-02 15:04:05"), route.Origin, route.Destination, route.IPAddress, lat, lon)
+	}
+
+	fmt.Fprintf(w, `
+    </table>
+</body>
+</html>`)
 }
