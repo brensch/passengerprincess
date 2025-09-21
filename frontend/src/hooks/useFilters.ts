@@ -14,7 +14,7 @@ export function useFilters(stationData: StationData[]) {
         if (!stationData.length) return []
 
         return stationData.map(station => {
-            const matchingRestaurants = station.restaurants.filter(restaurant => {
+            const matchingRestaurants = station.restaurants?.filter(restaurant => {
                 const nameMatch = !searchTerm ||
                     restaurant.name.toLowerCase().includes(searchTerm.toLowerCase())
                 const cuisineMatch = cuisineFilters.includes('') ||
@@ -24,7 +24,7 @@ export function useFilters(stationData: StationData[]) {
                         (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase())
                     )
                 return nameMatch && cuisineMatch
-            })
+            }) || []
 
             if (matchingRestaurants.length > 0) {
                 return { ...station, restaurants: matchingRestaurants }

@@ -78,3 +78,5 @@ node_modules/
 test-databases/
 
 *.db*
+
+dist/

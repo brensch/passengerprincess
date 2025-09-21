@@ -31,7 +31,7 @@ const FilterModal = ({
         // Extract unique cuisines from station data
         const cuisines = new Set<string>()
         stationData.forEach(station => {
-            station.restaurants.forEach(restaurant => {
+            station.restaurants?.forEach(restaurant => {
                 if (restaurant.primary_type_display) {
                     cuisines.add(restaurant.primary_type_display.trim())
                 }

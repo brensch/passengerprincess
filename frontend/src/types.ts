@@ -65,9 +65,9 @@ export interface RouteResponse {
 
 // Viewport API response types
 export interface ViewportResponse {
-    superchargers: Supercharger[]
-    restaurants: Restaurant[]
-    mappings: RestaurantSuperchargerMapping[]
+    superchargers?: Supercharger[]
+    restaurants?: Restaurant[]
+    mappings?: RestaurantSuperchargerMapping[]
 }
 
 // UI types
@@ -89,9 +89,9 @@ export interface StationData {
     id: string
     chargerInfo: {
         supercharger: Supercharger
-        restaurants: RestaurantWithDistance[]
+        restaurants?: RestaurantWithDistance[]
         distance_along_route?: number
         distance_from_route?: number
     }
-    restaurants: RestaurantWithDistance[]
+    restaurants?: RestaurantWithDistance[]
 }

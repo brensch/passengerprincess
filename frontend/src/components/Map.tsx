@@ -262,12 +262,12 @@ const Map = forwardRef<MapRef, MapProps>(({
         const bounds = mapRef.current.getBounds()
 
         // --- 1. Determine Target Visibility from current data and filters ---
-        const filteredRestaurants = viewportData.restaurants.filter(restaurant =>
+        const filteredRestaurants = viewportData.restaurants?.filter(restaurant =>
             (!searchFilters.searchTerm || restaurant.name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase())) &&
             (searchFilters.cuisineFilters.length === 0 || searchFilters.cuisineFilters.includes('') || searchFilters.cuisineFilters.some(cuisine =>
                 cuisine !== '' && (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase())
             ))
-        )
+        ) || []
 
         const hasActiveFilters = searchFilters.searchTerm !== '' || (searchFilters.cuisineFilters.length > 0 && !searchFilters.cuisineFilters.includes(''))
 
@@ -275,20 +275,20 @@ const Map = forwardRef<MapRef, MapProps>(({
         if (hasActiveFilters) {
             const filteredRestaurantIds = new Set(filteredRestaurants.map(r => r.place_id))
             const linkedSuperchargerIds = new Set<string>()
-            viewportData.mappings.forEach(mapping => {
+            viewportData.mappings?.forEach(mapping => {
                 if (filteredRestaurantIds.has(mapping.restaurant_id)) {
                     linkedSuperchargerIds.add(mapping.supercharger_id)
                 }
             })
             const routeSuperchargerIds = new Set(stationData.map(s => s.chargerInfo.supercharger.place_id))
 
-            viewportData.superchargers.forEach(sc => {
+            viewportData.superchargers?.forEach(sc => {
                 if (bounds.contains(L.latLng(sc.latitude, sc.longitude)) && (linkedSuperchargerIds.has(sc.place_id) || routeSuperchargerIds.has(sc.place_id))) {
                     targetVisibleSuperchargerIds.add(sc.place_id)
                 }
             })
         } else {
-            viewportData.superchargers.forEach(sc => {
+            viewportData.superchargers?.forEach(sc => {
                 if (bounds.contains(L.latLng(sc.latitude, sc.longitude))) {
                     targetVisibleSuperchargerIds.add(sc.place_id)
                 }
@@ -307,7 +307,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         // --- 2. Create and cache any markers that don't exist yet ---
         const routeSuperchargerMap = new globalThis.Map(routeData?.superchargers.map(rs => [rs.supercharger.place_id, rs]) || [])
 
-        viewportData.superchargers.forEach(supercharger => {
+        viewportData.superchargers?.forEach(supercharger => {
             if (!viewportSuperchargers.current.has(supercharger.place_id)) {
                 const isRouteCharger = routeSuperchargerMap.has(supercharger.place_id)
                 const marker = L.marker([supercharger.latitude, supercharger.longitude], {
@@ -329,9 +329,9 @@ const Map = forwardRef<MapRef, MapProps>(({
             }
         })
 
-        viewportData.restaurants.forEach(restaurant => {
+        viewportData.restaurants?.forEach(restaurant => {
             if (!viewportRestaurants.current.has(restaurant.place_id)) {
-                const routeRestaurant = stationData.some(s => s.restaurants.some(r => r.place_id === restaurant.place_id))
+                const routeRestaurant = stationData.some(s => s.restaurants?.some(r => r.place_id === restaurant.place_id))
                 const marker = L.marker([restaurant.latitude, restaurant.longitude], {
                     icon: L.divIcon({
                         className: 'emoji-icon restaurant-icon',
