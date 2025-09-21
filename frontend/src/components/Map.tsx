@@ -205,9 +205,10 @@ const Map = forwardRef<MapRef, MapProps>(({
         const map = L.map(mapContainerRef.current, {
             zoomControl: false,
             touchZoom: 'center',
+            tap: false,
             maxBounds: [[-90, -180], [90, 180]],
             maxBoundsViscosity: 1.0
-        }).setView([37.7749, -122.4194], 6)
+        } as any).setView([37.7749, -122.4194], 6)
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
