@@ -207,7 +207,15 @@ const Map = forwardRef<MapRef, MapProps>(({
             touchZoom: 'center',
             tap: false,
             maxBounds: [[-90, -180], [90, 180]],
-            maxBoundsViscosity: 1.0
+            maxBoundsViscosity: 1.0,
+            // Additional mobile-specific options to prevent fullscreen behavior
+            dragging: true,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            scrollWheelZoom: true,
+            // Prevent tap from triggering browser UI changes
+            tapTolerance: 15
         } as any).setView([37.7749, -122.4194], 6)
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
@@ -412,10 +420,20 @@ const Map = forwardRef<MapRef, MapProps>(({
         if (!map) return
 
         let viewportTimeout: ReturnType<typeof setTimeout>
+        let lastViewportTime = 0
+        
         const debouncedViewportUpdate = () => {
+            // Prevent rapid-fire viewport updates that could be caused by mobile tap artifacts
+            const now = Date.now()
+            if (now - lastViewportTime < 1000) { // Minimum 1 second between viewport updates
+                return
+            }
+            lastViewportTime = now
+            
             clearTimeout(viewportTimeout)
-            viewportTimeout = setTimeout(fetchViewportData, 300)
+            viewportTimeout = setTimeout(fetchViewportData, 500) // Increased debounce time
         }
+        
         map.on('moveend zoomend', debouncedViewportUpdate)
         setTimeout(fetchViewportData, 100) // Initial load
 

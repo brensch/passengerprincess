@@ -9,12 +9,16 @@ html, body {
   position: relative;
   height: 100%;
   width: 100%;
+  /* Use the stable viewport height that doesn't change when browser UI hides/shows */
+  height: 100vh;
+  height: 100svh; /* Small viewport height for stable layout on mobile */
 }
 
 #root {
   overflow: hidden;
   position: relative;
   height: 100vh;
+  height: 100svh; /* Small viewport height for stable layout on mobile */
   width: 100vw;
 }
 
@@ -27,6 +31,9 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  /* Additional mobile fixes */
+  overflow: hidden;
+  touch-action: pan-x pan-y; /* Allow panning but prevent other gestures */
 }
 
 :root {
@@ -282,12 +289,32 @@ mark {
 
 /* Mobile-specific styles to prevent layout issues */
 @media (max-width: 768px) {
+  /* Prevent mobile browser from hiding UI on tap */
+  html {
+    height: 100vh;
+    height: 100svh; /* Small viewport height for stable layout */
+    touch-action: manipulation; /* Optimize touch for panning/zooming only */
+  }
+
+  body {
+    height: 100vh;
+    height: 100svh; /* Small viewport height for stable layout */
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100vh;
+    height: 100svh;
+  }
+
   .leaflet-container {
     /* Ensure map container respects parent bounds on mobile */
-    max-height: 100vh !important;
-    max-width: 100vw !important;
+    max-height: 100% !important;
+    max-width: 100% !important;
     /* Ensure map stays below other UI elements */
     z-index: 1 !important;
+    /* Prevent fullscreen behaviors */
+    touch-action: pan-x pan-y !important;
   }
   
   /* Hide any potential map controls that could interfere */
@@ -299,10 +326,22 @@ mark {
   .map-container {
     overflow: hidden !important;
     position: relative !important;
+    /* Prevent browser from expanding map */
+    height: 100% !important;
+    max-height: 100% !important;
+    touch-action: pan-x pan-y !important;
   }
   
   /* Prevent map from taking up more space than allocated */
   .leaflet-container .leaflet-control-container {
     pointer-events: auto;
+  }
+
+  /* Ensure app layout stays consistent */
+  .h-screen {
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
   }
 }
