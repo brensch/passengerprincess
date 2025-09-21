@@ -29,8 +29,6 @@ const AppContent = () => {
     } = useFilters(stationData)
     const { setViewportToLocation, setViewportToRoute, updateViewport, restoreSavedViewport } = useViewport()
 
-
-
     // Add global function for popup buttons
     useEffect(() => {
         window.showChargerInResults = (chargerId: string) => {
@@ -38,22 +36,18 @@ const AppContent = () => {
 
             // Wait for the view to update, then scroll to the charger
             setTimeout(() => {
-                // Find all rows for this charger (including all restaurant rows)
                 const targetRows = document.querySelectorAll(`tr[data-charger-id="${chargerId}"]`) as NodeListOf<HTMLElement>
                 if (targetRows.length > 0) {
-                    // Highlight all rows for this charger
                     targetRows.forEach(row => {
                         row.style.backgroundColor = '#fbbf24' // amber-400
                         row.style.transition = 'background-color 0.3s ease'
                     })
 
-                    // Jump directly to the first row (no smooth scrolling)
                     targetRows[0].scrollIntoView({
                         behavior: 'auto',
                         block: 'center'
                     })
 
-                    // Remove highlight after 2 seconds
                     setTimeout(() => {
                         targetRows.forEach(row => {
                             row.style.backgroundColor = ''
@@ -70,61 +64,46 @@ const AppContent = () => {
     }, [])
 
     const handleRouteSearch = async (origin: string, destination: string) => {
-        // Keep on search view during loading - will switch to map when routeData arrives
         try {
-            // Update URL with search parameters for shareable links
             const params = new URLSearchParams()
             params.set('origin', encodeURIComponent(origin))
             params.set('destination', encodeURIComponent(destination))
             window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
-
             await searchRoute(origin, destination)
         } catch (error) {
             console.error('Route search error:', error)
-            // Stay on search view if there's an error
         }
     }
 
     const handleNewSearch = () => {
         setViewMode('search')
         clearRoute()
-        // Clear URL parameters
         window.history.replaceState({}, '', window.location.pathname)
     }
 
     const handleRefresh = () => {
         if (!userLocation || !routeData) return
-
-        // Get the destination from the current URL params or use a default
         const params = new URLSearchParams(window.location.search)
         const destination = params.get('destination')
-
         if (destination && userLocation) {
-            // Use actual coordinates as origin and refresh the route
             const originCoords = `${userLocation[0]},${userLocation[1]}`
             handleRouteSearch(originCoords, decodeURIComponent(destination))
         }
     }
 
     const toggleView = () => {
-
         if (viewMode === 'results') {
-
             setViewMode('map')
-            // Restore the saved viewport with sync enabled
             setTimeout(() => {
                 restoreSavedViewport()
             }, 100)
         } else if (viewMode === 'map') {
-
-            // Save current viewport before going to results
             if (mapRef.current) {
                 const map = mapRef.current.getMap()
                 if (map) {
                     const center = map.getCenter()
                     const zoom = map.getZoom()
                     updateViewport([center.lat, center.lng], zoom)
-
                 }
             }
             setViewMode('results')
@@ -145,7 +124,6 @@ const AppContent = () => {
                 )
             }
         }
-
         getUserLocation()
     }, [])
 
@@ -154,42 +132,35 @@ const AppContent = () => {
         const params = new URLSearchParams(window.location.search)
         const origin = params.get('origin')
         const destination = params.get('destination')
-
         if (origin && destination) {
             const decodedOrigin = decodeURIComponent(origin)
             const decodedDestination = decodeURIComponent(destination)
-
             handleRouteSearch(decodedOrigin, decodedDestination)
         }
-    }, [])    // Utility function to decode polyline
+    }, [])
+
+    // Utility function to decode polyline
     const decodePolyline = (encoded: string): [number, number][] => {
         const coordinates: [number, number][] = []
-        let index = 0
-        let lat = 0
-        let lng = 0
-
+        let index = 0, lat = 0, lng = 0
         while (index < encoded.length) {
-            // Decode latitude
-            let result = 0
-            let shift = 0
-            let byte: number
+            let b, shift = 0, result = 0
             do {
-                byte = encoded.charCodeAt(index++) - 63
-                result |= (byte & 0x1F) << shift
+                b = encoded.charCodeAt(index++) - 63
+                result |= (b & 0x1f) << shift
                 shift += 5
-            } while (byte >= 0x20)
-            lat += (result & 1) ? ~(result >> 1) : (result >> 1)
-
-            // Decode longitude
-            result = 0
+            } while (b >= 0x20)
+            const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1))
+            lat += dlat
             shift = 0
+            result = 0
             do {
-                byte = encoded.charCodeAt(index++) - 63
-                result |= (byte & 0x1F) << shift
+                b = encoded.charCodeAt(index++) - 63
+                result |= (b & 0x1f) << shift
                 shift += 5
-            } while (byte >= 0x20)
-            lng += (result & 1) ? ~(result >> 1) : (result >> 1)
-
+            } while (b >= 0x20)
+            const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1))
+            lng += dlng
             coordinates.push([lat / 1e5, lng / 1e5])
         }
         return coordinates
@@ -214,9 +185,8 @@ const AppContent = () => {
         }
     }, [routeData, viewMode])
 
-
     return (
-        <div className="h-screen overflow-hidden bg-princess-surface" style={{ position: 'relative', height: '100vh' }}>
+        <div className="h-screen overflow-hidden bg-princess-surface relative">
             {viewMode === 'search' && (
                 <div className="h-full flex items-center justify-center bg-gradient-to-b from-princess-surface to-princess-lavender">
                     <SearchForm
@@ -230,76 +200,75 @@ const AppContent = () => {
             )}
 
             {(viewMode === 'results' || viewMode === 'map') && (
-                <div className="h-screen flex flex-col">
-                    <TopToolbar
-                        onNewSearch={handleNewSearch}
-                        onToggleView={toggleView}
-                        onOpenFilter={() => setIsFilterModalOpen(true)}
-                        viewMode={viewMode}
-                        filterCount={filterCount}
-                    />
+                <>
+                    <div className="absolute top-0 left-0 right-0 z-10 h-16 bg-princess-surface">
+                        <TopToolbar
+                            onNewSearch={handleNewSearch}
+                            onToggleView={toggleView}
+                            onOpenFilter={() => setIsFilterModalOpen(true)}
+                            viewMode={viewMode}
+                            filterCount={filterCount}
+                        />
+                    </div>
 
-                    <div className="flex flex-1 overflow-hidden">
-                        {viewMode === 'results' ? (
-                            <ResultsTable
-                                stationData={filteredStationData}
-                                routeData={routeData}
-                                searchTerm={searchTerm}
-                                className="w-full"
-                                onShowSuperchargerPopup={(placeId) => {
-
-                                    // Find the supercharger in station data
-                                    const station = filteredStationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
-                                    if (station) {
-                                        const supercharger = station.chargerInfo.supercharger
-                                        setViewportToLocation([supercharger.latitude, supercharger.longitude], 18)
-                                        setViewMode('map')
-                                        setTimeout(() => {
-                                            mapRef.current?.showSuperchargerPopup(placeId)
-                                        }, 100)
-                                    }
-                                }}
-                                onShowRestaurantPopup={(placeId) => {
-
-                                    // Find the restaurant in station data
-                                    for (const station of filteredStationData) {
-                                        const restaurant = station.restaurants?.find(r => r.place_id === placeId)
-                                        if (restaurant) {
-                                            setViewportToLocation([restaurant.latitude, restaurant.longitude], 18)
+                    <div className="h-full w-full pt-16">
+                        <div className="h-full w-full overflow-hidden">
+                            {viewMode === 'results' ? (
+                                <ResultsTable
+                                    stationData={filteredStationData}
+                                    routeData={routeData}
+                                    searchTerm={searchTerm}
+                                    className="w-full"
+                                    onShowSuperchargerPopup={(placeId) => {
+                                        const station = filteredStationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
+                                        if (station) {
+                                            const supercharger = station.chargerInfo.supercharger
+                                            setViewportToLocation([supercharger.latitude, supercharger.longitude], 18)
                                             setViewMode('map')
                                             setTimeout(() => {
-                                                mapRef.current?.showRestaurantPopup(placeId)
+                                                mapRef.current?.showSuperchargerPopup(placeId)
                                             }, 100)
-                                            return
                                         }
-                                    }
-                                }}
-                            />
-                        ) : (
-                            <Map
-                                ref={mapRef}
-                                routeData={routeData}
-                                stationData={filteredStationData}
-                                userLocation={userLocation}
-                                searchFilters={searchFilters}
-                                className="w-full"
-                                onRefresh={handleRefresh}
-                                isLoading={isLoading}
-                            />
-                        )}
+                                    }}
+                                    onShowRestaurantPopup={(placeId) => {
+                                        for (const station of filteredStationData) {
+                                            const restaurant = station.restaurants?.find(r => r.place_id === placeId)
+                                            if (restaurant) {
+                                                setViewportToLocation([restaurant.latitude, restaurant.longitude], 18)
+                                                setViewMode('map')
+                                                setTimeout(() => {
+                                                    mapRef.current?.showRestaurantPopup(placeId)
+                                                }, 100)
+                                                return
+                                            }
+                                        }
+                                    }}
+                                />
+                            ) : (
+                                <Map
+                                    ref={mapRef}
+                                    routeData={routeData}
+                                    stationData={filteredStationData}
+                                    userLocation={userLocation}
+                                    searchFilters={searchFilters}
+                                    className="w-full"
+                                    onRefresh={handleRefresh}
+                                    isLoading={isLoading}
+                                />
+                            )}
+                        </div>
                     </div>
-                </div>
+                </>
             )}
 
-            {/* Floating Help Button - only show on search page */}
             {viewMode === 'search' && (
                 <button
                     onClick={() => setIsHelpModalOpen(true)}
                     className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose 
-                             text-princess-text-primary text-3xl rounded-full shadow-lg hover:shadow-xl
-                             hover:from-princess-accent-rose hover:to-princess-accent-lavender
-                             transition-all duration-300 transform hover:scale-110 z-50
-                             border-2 border-princess-border backdrop-blur-sm"
+                               text-princess-text-primary text-3xl rounded-full shadow-lg hover:shadow-xl
+                               hover:from-princess-accent-rose hover:to-princess-accent-lavender
+                               transition-all duration-300 transform hover:scale-110 z-50
+                               border-2 border-princess-border backdrop-blur-sm"
                     title="Help"
                 >
                     ❓
@@ -332,3 +301,4 @@ const App = () => {
 }
 
 export default App
+
