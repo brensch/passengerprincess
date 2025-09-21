@@ -10,10 +10,12 @@ export function useFilters(stationData: StationData[]) {
         cuisineFilters
     }), [searchTerm, cuisineFilters])
 
-    const filteredStationData = useMemo(() => {
+    const filteredStationData = useMemo((): StationData[] => {
         if (!stationData.length) return []
 
-        return stationData.map(station => {
+        const filteredStations: StationData[] = []
+
+        for (const station of stationData) {
             const matchingRestaurants = station.restaurants?.filter(restaurant => {
                 const nameMatch = !searchTerm ||
                     restaurant.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -27,10 +29,11 @@ export function useFilters(stationData: StationData[]) {
             }) || []
 
             if (matchingRestaurants.length > 0) {
-                return { ...station, restaurants: matchingRestaurants }
+                filteredStations.push({ ...station, restaurants: matchingRestaurants })
             }
-            return null
-        }).filter((station): station is StationData => station !== null)
+        }
+
+        return filteredStations
     }, [stationData, searchTerm, cuisineFilters])
 
     const updateFilters = useCallback((term: string, cuisines: string[]) => {

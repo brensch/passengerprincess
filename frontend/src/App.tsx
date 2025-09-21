@@ -249,10 +249,10 @@ const AppContent = () => {
                                 onShowSuperchargerPopup={(placeId) => {
 
                                     // Find the supercharger in station data
-                                    const station = filteredStationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
+                                    const station = filteredStationData.find(s => s?.chargerInfo.supercharger.place_id === placeId)
                                     if (station) {
                                         const supercharger = station.chargerInfo.supercharger
-                                        setViewportToLocation([supercharger.latitude, supercharger.longitude], 18)
+                                        setViewportToLocation([supercharger.latitude, supercharger.longitude], 15)
                                         setViewMode('map')
                                         setTimeout(() => {
                                             mapRef.current?.showSuperchargerPopup(placeId)
@@ -263,9 +263,10 @@ const AppContent = () => {
 
                                     // Find the restaurant in station data
                                     for (const station of filteredStationData) {
+                                        if (!station) continue
                                         const restaurant = station.restaurants?.find(r => r.place_id === placeId)
                                         if (restaurant) {
-                                            setViewportToLocation([restaurant.latitude, restaurant.longitude], 18)
+                                            setViewportToLocation([restaurant.latitude, restaurant.longitude], 15)
                                             setViewMode('map')
                                             setTimeout(() => {
                                                 mapRef.current?.showRestaurantPopup(placeId)
