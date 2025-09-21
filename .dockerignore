@@ -1,0 +1,46 @@
+# Git files
+.git
+.gitignore
+
+# IDE files
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+main
+*.exe
+
+# Node.js
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Frontend build output (we build it in Docker)
+frontend/dist
+frontend/.next
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+db/
+test-databases/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Documentation
+README.md
+*.md
+
+# Docker files (avoid copying them into the build context)
+Dockerfile
+docker-compose.yml
+.dockerignore
