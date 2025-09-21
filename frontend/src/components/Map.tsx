@@ -19,6 +19,7 @@ L.Icon.Default.mergeOptions({
 declare global {
     interface Window {
         showChargerInResults?: (chargerId: string) => void
+        zoomToSupercharger?: (lat: number, lng: number) => void
     }
 }
 
@@ -98,11 +99,13 @@ const Map = forwardRef<MapRef, MapProps>(({
         const finalChargerId = chargerId || routeStation?.id
         const viewportSuperchargerData = viewportSuperchargers.current.get(supercharger.place_id)
         const etaInfo = viewportSuperchargerData?.etaInfo
+        const restaurantCount = routeStation?.restaurants?.length || 0
 
         let content = `
             <div class="font-sans max-w-xs p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
                 <h3 class="font-semibold text-lg mb-1 text-princess-text-primary">${supercharger.name}</h3>
                 <p class="text-sm text-princess-text-secondary mb-1">${supercharger.address}</p>
+                <p class="text-sm text-princess-text-primary mb-1">🍽️ ${restaurantCount} food spots nearby</p>
         `
         if (etaInfo) {
             const distFromRoute = (etaInfo.distance_from_route || 0) / 1609.34
@@ -120,6 +123,7 @@ const Map = forwardRef<MapRef, MapProps>(({
             content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-purple-600 hover:to-purple-700 hover:shadow-md">View in Results</button>`
         }
         content += `
+            <button onclick="zoomToSupercharger(${supercharger.latitude}, ${supercharger.longitude})" class="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-blue-600 hover:to-blue-700 hover:shadow-md">Zoom</button>
             <button onclick="window.open('${supercharger.google_maps_uri}', '_blank')"
                     class="px-3 py-1.5 bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-orange-500 hover:to-orange-600 hover:shadow-md">
                 Open in Maps

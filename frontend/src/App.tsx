@@ -63,11 +63,17 @@ const AppContent = () => {
             }, 100)
         }
 
+        window.zoomToSupercharger = (lat: number, lng: number) => {
+            setViewportToLocation([lat, lng], 15)
+            setViewMode('map')
+        }
+
         return () => {
             // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete (window as any).showChargerInResults
+            delete (window as any).zoomToSupercharger
         }
-    }, [])
+    }, [filteredStationData, setViewportToLocation, setViewMode])
 
     const handleRouteSearch = async (origin: string, destination: string) => {
         // Keep on search view during loading - will switch to map when routeData arrives
