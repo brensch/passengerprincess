@@ -12,7 +12,6 @@ interface SearchFormProps {
 }
 
 const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation: _userLocation, initialOrigin = '', initialDestination = '' }: SearchFormProps) => {
-    const [debugMessages, setDebugMessages] = useState<string[]>([])
     const [origin, setOrigin] = useState('')
     const [destination, setDestination] = useState('')
     const [originSuggestions, setOriginSuggestions] = useState<AutocompleteResult[]>([])
@@ -33,42 +32,40 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     const debounceRef = useRef<NodeJS.Timeout | number>()
 
     useEffect(() => {
-        const dropdowns = document.querySelectorAll('.mobile-dropdown');
+        const dropdowns = document.querySelectorAll('.mobile-dropdown')
 
-        const handleTouchStart = (e: Event) => {
-            setDebugMessages(prev => [`touchstart on dropdown`, ...prev]);
-        };
+        const handleTouchStart = (_e: Event) => {
+            // Debug: touchstart on dropdown
+        }
 
         const handleTouchMove = (e: Event) => {
-            setDebugMessages(prev => [`touchmove on dropdown. stopping propagation and preventing default.`, ...prev]);
-            e.stopPropagation();
-            e.preventDefault();
-        };
 
-        const handleTouchEnd = (e: Event) => {
-            setDebugMessages(prev => [`touchend on dropdown`, ...prev]);
-        };
+        }
+
+        const handleTouchEnd = (_e: Event) => {
+            // Debug: touchend on dropdown
+        }
 
         dropdowns.forEach(dropdown => {
-            dropdown.addEventListener('touchstart', handleTouchStart);
-            dropdown.addEventListener('touchmove', handleTouchMove);
-            dropdown.addEventListener('touchend', handleTouchEnd);
-        });
+            dropdown.addEventListener('touchstart', handleTouchStart)
+            dropdown.addEventListener('touchmove', handleTouchMove)
+            dropdown.addEventListener('touchend', handleTouchEnd)
+        })
 
         // Add a listener to the window to see if page is scrolling
         const handleWindowScroll = () => {
-            setDebugMessages(prev => [`window scrolled`, ...prev]);
-        };
-        window.addEventListener('scroll', handleWindowScroll);
+            // Debug: window scrolled
+        }
+        window.addEventListener('scroll', handleWindowScroll)
 
         return () => {
             dropdowns.forEach(dropdown => {
-                dropdown.removeEventListener('touchstart', handleTouchStart);
-                dropdown.removeEventListener('touchmove', handleTouchMove);
-                dropdown.removeEventListener('touchend', handleTouchEnd);
-            });
-            window.removeEventListener('scroll', handleWindowScroll);
-        };
+                dropdown.removeEventListener('touchstart', handleTouchStart)
+                dropdown.removeEventListener('touchmove', handleTouchMove)
+                dropdown.removeEventListener('touchend', handleTouchEnd)
+            })
+            window.removeEventListener('scroll', handleWindowScroll)
+        }
     }, [showOriginSuggestions, showDestinationSuggestions])
 
     useEffect(() => {
@@ -370,13 +367,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
     return (
         <div className="w-full max-w-2xl p-8">
-            <div style={{ position: 'fixed', top: '10px', left: '10px', right: '10px', backgroundColor: 'rgba(0, 0, 0, 0.8)', color: 'white', padding: '10px', zIndex: 9999, maxHeight: '150px', overflowY: 'auto', border: '1px solid white', borderRadius: '5px' }}>
-                <button onClick={() => setDebugMessages([])} style={{ position: 'absolute', top: '5px', right: '5px', background: 'white', color: 'black', border: 'none', padding: '2px 5px', borderRadius: '3px', cursor: 'pointer' }}>Clear</button>
-                <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Debug Info:</div>
-                {debugMessages.map((msg, i) => (
-                    <div key={i} style={{ fontSize: '12px' }}>{msg}</div>
-                ))}
-            </div>
             <div className="text-center mb-8">
                 <h1 className="text-6xl font-dancing text-princess-text-primary mb-4">
                     Passenger Princess Protector
