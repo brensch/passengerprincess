@@ -80,20 +80,35 @@ const Map = forwardRef<MapRef, MapProps>(({
     // Warning popup state
     const [showLocationWarning, setShowLocationWarning] = useState(false)
     const [locationPermission, setLocationPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
+    const [showPermissionModal, setShowPermissionModal] = useState(false)
 
     const formatEpochMsToLocalTime = useCallback((epochMs: number): string => {
         const date = new Date(epochMs)
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }, [])
 
+    const handleRefresh = useCallback(() => {
+        if (locationPermission !== 'granted') {
+            setShowPermissionModal(true)
+            setTimeout(() => setShowPermissionModal(false), 3000)
+            return
+        }
+        if (onRefresh) onRefresh()
+    }, [onRefresh, locationPermission])
+
     const handleGoToUserLocation = useCallback(() => {
+        if (locationPermission !== 'granted') {
+            setShowPermissionModal(true)
+            setTimeout(() => setShowPermissionModal(false), 3000)
+            return
+        }
         if (userLocation && mapRef.current) {
             mapRef.current.setView(userLocation, 15, { animate: true })
         } else {
             setShowLocationWarning(true)
             setTimeout(() => setShowLocationWarning(false), 2000)
         }
-    }, [userLocation])
+    }, [userLocation, locationPermission])
 
     const generateSuperchargerPopupContent = useCallback((supercharger: Supercharger, chargerId?: string) => {
         const routeStation = stationData.find(s => s.chargerInfo.supercharger.place_id === supercharger.place_id)
@@ -542,22 +557,27 @@ const Map = forwardRef<MapRef, MapProps>(({
                     <span className="text-2xl animate-pulse">🧠</span>
                 </div>
             )}
-            {locationPermission === 'granted' && (
-                <div className="absolute top-4 right-4 z-[1000] flex flex-col space-y-2">
-                    <button onClick={handleGoToUserLocation} className="px-3 py-2 text-sm rounded-lg bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose text-princess-text-primary shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center space-x-1" title="Go to your location">
-                        <span>👸</span>
+            <div className="absolute top-4 right-4 z-[1000] flex flex-col space-y-2">
+                <button onClick={handleGoToUserLocation} className="px-3 py-2 text-sm rounded-lg bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose text-princess-text-primary shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center space-x-1" title="Go to your location">
+                    <span>👸</span>
+                </button>
+                {onRefresh && (
+                    <button onClick={handleRefresh} disabled={isLoading} className={`px-3 py-2 text-sm rounded-lg bg-gradient-to-r from-princess-accent-mint to-princess-accent-peach text-princess-text-primary shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`} title={isLoading ? "Refreshing..." : "Refresh route"}>
+                        <span>{isLoading ? '⏳' : '🔄'}</span>
                     </button>
-                    {onRefresh && (
-                        <button onClick={onRefresh} disabled={isLoading} className={`px-3 py-2 text-sm rounded-lg bg-gradient-to-r from-princess-accent-mint to-princess-accent-peach text-princess-text-primary shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center justify-center ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`} title={isLoading ? "Refreshing..." : "Refresh route"}>
-                            <span>{isLoading ? '⏳' : '🔄'}</span>
-                        </button>
-                    )}
-                </div>
-            )}
+                )}
+            </div>
             {showLocationWarning && (
                 <div className="absolute inset-0 z-[1001] flex items-center justify-center pointer-events-none">
                     <div className="bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose text-princess-text-primary px-6 py-4 rounded-lg shadow-xl border border-princess-border animate-fade-in font-dancing text-2xl">
                         You did not grant location permissions
+                    </div>
+                </div>
+            )}
+            {showPermissionModal && (
+                <div className="absolute inset-0 z-[1001] flex items-center justify-center pointer-events-none">
+                    <div className="bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose text-princess-text-primary px-6 py-4 rounded-lg shadow-xl border border-princess-border animate-fade-in font-dancing text-3xl max-w-[80vw]">
+                        I can't find your location. Enable location permissions please Princess
                     </div>
                 </div>
             )}
