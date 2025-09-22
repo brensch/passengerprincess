@@ -40,6 +40,42 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         }
     }, [isError])
 
+    // Handle virtual keyboard on mobile devices - ensure dropdowns scroll properly
+    useEffect(() => {
+        const handleViewportChange = () => {
+            // On mobile devices, ensure dropdowns can scroll when virtual keyboard appears
+            const isMobile = window.innerWidth < 768
+            if (isMobile) {
+                // Add a small delay to ensure keyboard is fully rendered
+                setTimeout(() => {
+                    // Find any open mobile dropdown and ensure it's scrollable
+                    const dropdowns = document.querySelectorAll('.mobile-dropdown')
+                    dropdowns.forEach((dropdown) => {
+                        const element = dropdown as HTMLElement
+                        // Force a reflow to ensure scrolling works properly
+                        element.style.transform = 'translateZ(0)'
+                        element.scrollTop = element.scrollTop // Force scroll recalculation
+                    })
+                }, 200)
+            }
+        }
+
+        window.addEventListener('resize', handleViewportChange)
+        // Also listen for orientationchange which is more reliable on mobile
+        window.addEventListener('orientationchange', handleViewportChange)
+        
+        // Listen for keyboard events specifically
+        window.addEventListener('focusin', handleViewportChange)
+        window.addEventListener('focusout', handleViewportChange)
+
+        return () => {
+            window.removeEventListener('resize', handleViewportChange)
+            window.removeEventListener('orientationchange', handleViewportChange)
+            window.removeEventListener('focusin', handleViewportChange)
+            window.removeEventListener('focusout', handleViewportChange)
+        }
+    }, [showOriginSuggestions, showDestinationSuggestions])
+
     // Check URL params once on mount and populate inputs if they exist
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -358,7 +394,13 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown">
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
+                          overscroll-contain touch-pan-y"
+                          style={{ 
+                            WebkitOverflowScrolling: 'touch',
+                            touchAction: 'pan-y',
+                            overscrollBehavior: 'contain'
+                          }}>
                             {originSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
@@ -367,6 +409,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
+                                    onTouchStart={() => handleSuggestionClick(suggestion, 'origin')}
                                     onMouseDown={() => handleSuggestionClick(suggestion, 'origin')}
                                 >
                                     {suggestion.description}
@@ -398,7 +441,13 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown">
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
+                          overscroll-contain touch-pan-y"
+                          style={{ 
+                            WebkitOverflowScrolling: 'touch',
+                            touchAction: 'pan-y',
+                            overscrollBehavior: 'contain'
+                          }}>
                             {destinationSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
@@ -407,6 +456,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
+                                    onTouchStart={() => handleSuggestionClick(suggestion, 'destination')}
                                     onMouseDown={() => handleSuggestionClick(suggestion, 'destination')}
                                 >
                                     {suggestion.description}

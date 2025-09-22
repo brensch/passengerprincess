@@ -94,6 +94,39 @@ body, html {
   -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
   overscroll-behavior: contain;
   touch-action: pan-y; /* Allow vertical scrolling */
+  /* Enhanced Android scrolling fixes */
+  -webkit-transform: translateZ(0); /* Force hardware acceleration */
+  transform: translateZ(0);
+  scrollbar-width: thin; /* Firefox */
+  /* Use absolute positioning but with better z-index */
+  z-index: 9999; /* Ensure it stays above keyboard */
+  /* Prevent the dropdown from being affected by keyboard resize */
+  position: absolute !important;
+}
+
+/* Android-specific fixes for virtual keyboard */
+@supports (-webkit-touch-callout: none) {
+  .mobile-dropdown {
+    /* Additional iOS-specific handling */
+    -webkit-overflow-scrolling: touch;
+    isolation: isolate;
+  }
+}
+
+/* Enhanced touch interaction for dropdown items */
+.mobile-dropdown > div {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* Prevent double-tap to zoom */
+}
+
+/* Prevent body scroll when dropdown is active on mobile */
+@media (max-width: 768px) {
+  body:has(.mobile-dropdown:hover),
+  body:has(.mobile-dropdown:focus-within) {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
 }
 
 /* Leaflet CSS overrides */
