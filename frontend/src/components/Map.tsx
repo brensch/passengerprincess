@@ -445,26 +445,14 @@ const Map = forwardRef<MapRef, MapProps>(({
         const map = mapRef.current
         if (!map) return
 
-        let viewportTimeout: ReturnType<typeof setTimeout>
-        let lastViewportTime = 0
-
         const debouncedViewportUpdate = () => {
-            // Prevent rapid-fire viewport updates that could be caused by mobile tap artifacts
-            const now = Date.now()
-            if (now - lastViewportTime < 1000) { // Minimum 1 second between viewport updates
-                return
-            }
-            lastViewportTime = now
-
-            clearTimeout(viewportTimeout)
-            viewportTimeout = setTimeout(fetchViewportData, 500) // Increased debounce time
+            fetchViewportData()
         }
 
         map.on('moveend zoomend', debouncedViewportUpdate)
         setTimeout(fetchViewportData, 100) // Initial load
 
         return () => {
-            clearTimeout(viewportTimeout)
             map.off('moveend zoomend', debouncedViewportUpdate)
         }
     }, [fetchViewportData])
