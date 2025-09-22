@@ -93,12 +93,15 @@ body, html {
 .mobile-dropdown {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  touch-action: pan-y; /* Allow vertical scrolling */
 }
 
 /* Ensure dropdowns are properly scrollable on mobile */
 @media (max-width: 768px) {
   .mobile-dropdown {
     max-height: 200px; /* Ensure reasonable max height on mobile */
+    /* Additional mobile scrolling fixes */
+    -webkit-overflow-scrolling: touch;
   }
 }
 
