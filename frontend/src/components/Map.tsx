@@ -126,13 +126,8 @@ const Map = forwardRef<MapRef, MapProps>(({
             }
         }
 
-        // Get restaurant count - prefer from stationData for route stations, fallback to mappings
-        let restaurantCount = 0
-        if (routeStation) {
-            restaurantCount = routeStation.restaurants?.length || 0
-        } else {
-            restaurantCount = viewportMappings.current.filter(m => m.supercharger_id === supercharger.place_id).length
-        }
+        // Get restaurant count - always use total count from mappings, not filtered count
+        let restaurantCount = viewportMappings.current.filter(m => m.supercharger_id === supercharger.place_id).length
 
         const container = document.createElement('div')
         container.style.width = popupWidth
