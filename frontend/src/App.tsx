@@ -25,6 +25,7 @@ const AppContent = () => {
         searchTerm,
         cuisineFilters,
         updateFilters,
+        clearFilters,
         filterCount
     } = useFilters(stationData)
     const { setViewportToLocation, setViewportToRoute, updateViewport, restoreSavedViewport } = useViewport()
@@ -94,6 +95,7 @@ const AppContent = () => {
     const handleNewSearch = () => {
         setViewMode('search')
         clearRoute()
+        clearFilters()
         // Clear URL parameters
         window.history.replaceState({}, '', window.location.pathname)
     }

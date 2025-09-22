@@ -120,12 +120,12 @@ const Map = forwardRef<MapRef, MapProps>(({
         }
         content += '<div class="flex flex-col gap-1.5 mt-2">'
         if (finalChargerId) {
-            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-purple-600 hover:to-purple-700 hover:shadow-md">View in Results</button>`
+            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-princess-lavender text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">View in Results</button>`
         }
         content += `
-            <button onclick="zoomToSupercharger(${supercharger.latitude}, ${supercharger.longitude})" class="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-blue-600 hover:to-blue-700 hover:shadow-md">Zoom</button>
+            <button onclick="zoomToSupercharger(${supercharger.latitude}, ${supercharger.longitude})" class="px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">Zoom</button>
             <button onclick="window.open('${supercharger.google_maps_uri}', '_blank')"
-                    class="px-3 py-1.5 bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-orange-500 hover:to-orange-600 hover:shadow-md">
+                    class="px-3 py-1.5 bg-princess-peach text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">
                 Open in Maps
             </button>
         </div>
@@ -148,7 +148,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                 ${restaurant.rating ? `<p class="text-sm mb-1 text-princess-text-primary">Rating: ${'⭐'.repeat(Math.floor(restaurant.rating))} (${restaurant.rating})</p>` : ''}
                 ${distanceText ? `<p class="text-sm text-princess-text-secondary mb-1">${distanceText}</p>` : ''}
                 <button onclick="window.open('${restaurant.google_maps_uri}', '_blank')"
-                        class="mt-2 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md text-sm font-medium transition-all duration-200 hover:from-green-600 hover:to-green-700 hover:shadow-md">
+                        class="mt-2 px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">
                     Open in Maps
                 </button>
             </div>

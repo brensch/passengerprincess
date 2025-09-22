@@ -27,7 +27,7 @@ const HelpModal = ({ isOpen, onClose }: HelpModalProps) => {
                         onClick={onClose}
                         className="px-6 py-2 font-medium rounded-lg transition-all duration-300
                      text-princess-text-secondary bg-princess-surface-soft border border-princess-border
-                     hover:bg-princess-accent-lavender hover:text-princess-text-primary"
+                     hover:bg-princess-lavender hover:text-princess-text-primary"
                     >
                         Got it!
                     </button>
