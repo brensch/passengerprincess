@@ -5,9 +5,10 @@ interface FilterModalProps {
     isOpen: boolean
     onClose: () => void
     selectedPlaces: string[]
+    selectedContainingPlaces: string[]
     typedPlace: string
     selectedCuisines: string[]
-    onFilter: (selectedPlaces: string[], typedPlace: string, selectedCuisines: string[]) => void
+    onFilter: (selectedPlaces: string[], selectedContainingPlaces: string[], typedPlace: string, selectedCuisines: string[]) => void
     stationData: StationData[]
 }
 
@@ -15,12 +16,14 @@ const FilterModal = ({
     isOpen,
     onClose,
     selectedPlaces,
+    selectedContainingPlaces,
     typedPlace,
     selectedCuisines,
     onFilter,
     stationData
 }: FilterModalProps) => {
     const [localSelectedPlaces, setLocalSelectedPlaces] = useState<string[]>(selectedPlaces)
+    const [localSelectedContainingPlaces, setLocalSelectedContainingPlaces] = useState<string[]>(selectedContainingPlaces)
     const [localTypedPlace, setLocalTypedPlace] = useState(typedPlace)
     const [localSelectedCuisines, setLocalSelectedCuisines] = useState<string[]>(selectedCuisines)
     const [availableCuisines, setAvailableCuisines] = useState<string[]>([])
@@ -36,9 +39,10 @@ const FilterModal = ({
 
     useEffect(() => {
         setLocalSelectedPlaces(selectedPlaces)
+        setLocalSelectedContainingPlaces(selectedContainingPlaces)
         setLocalTypedPlace(typedPlace)
         setLocalSelectedCuisines(selectedCuisines)
-    }, [selectedPlaces, typedPlace, selectedCuisines])
+    }, [selectedPlaces, selectedContainingPlaces, typedPlace, selectedCuisines])
 
     useEffect(() => {
         // Extract cuisine and restaurant counts from station data
@@ -46,15 +50,20 @@ const FilterModal = ({
         const restaurantCountsMap: Record<string, number> = {}
         const restToCuis: Record<string, string[]> = {}
         const cuisineToRests: Record<string, string[]> = {}
+        const seenPlaceIds = new Set<string>()
         stationData.forEach(station => {
             station.restaurants?.forEach(restaurant => {
                 if (restaurant.primary_type_display) {
                     const type = restaurant.primary_type_display.trim()
                     cuisineCountsMap[type] = (cuisineCountsMap[type] || 0) + 1
                 }
-                if (restaurant.name) {
+                if (restaurant.name && restaurant.place_id) {
                     const name = restaurant.name.trim()
-                    restaurantCountsMap[name] = (restaurantCountsMap[name] || 0) + 1
+                    const placeId = restaurant.place_id
+                    if (!seenPlaceIds.has(placeId)) {
+                        seenPlaceIds.add(placeId)
+                        restaurantCountsMap[name] = (restaurantCountsMap[name] || 0) + 1
+                    }
                     // Add to maps
                     if (restaurant.primary_type_display) {
                         const type = restaurant.primary_type_display.trim()
@@ -99,26 +108,42 @@ const FilterModal = ({
         setLocalSelectedPlaces(newPlaces)
         setLocalTypedPlace('')
         setShowPlaceSuggestions(false)
-        onFilter(newPlaces, '', localSelectedCuisines)
+        onFilter(newPlaces, localSelectedContainingPlaces, '', localSelectedCuisines)
     }
 
     const handlePlaceRemove = (place: string) => {
         const newPlaces = localSelectedPlaces.filter(p => p !== place)
         setLocalSelectedPlaces(newPlaces)
-        onFilter(newPlaces, localTypedPlace, localSelectedCuisines)
+        onFilter(newPlaces, localSelectedContainingPlaces, localTypedPlace, localSelectedCuisines)
+    }
+
+    const handleContainingPlaceSelect = (place: string) => {
+        if (!localSelectedContainingPlaces.includes(place)) {
+            const newContainingPlaces = [...localSelectedContainingPlaces, place]
+            setLocalSelectedContainingPlaces(newContainingPlaces)
+            setLocalTypedPlace('')
+            setShowPlaceSuggestions(false)
+            onFilter(localSelectedPlaces, newContainingPlaces, '', localSelectedCuisines)
+        }
+    }
+
+    const handleContainingPlaceRemove = (place: string) => {
+        const newContainingPlaces = localSelectedContainingPlaces.filter(p => p !== place)
+        setLocalSelectedContainingPlaces(newContainingPlaces)
+        onFilter(localSelectedPlaces, newContainingPlaces, localTypedPlace, localSelectedCuisines)
     }
 
     const handleCuisineSelect = (cuisine: string) => {
         const newCuisines = localSelectedCuisines.includes(cuisine) ? localSelectedCuisines : [...localSelectedCuisines, cuisine]
         setLocalSelectedCuisines(newCuisines)
         setShowCuisineSuggestions(false)
-        onFilter(localSelectedPlaces, localTypedPlace, newCuisines)
+        onFilter(localSelectedPlaces, localSelectedContainingPlaces, localTypedPlace, newCuisines)
     }
 
     const handleCuisineRemove = (cuisine: string) => {
         const newCuisines = localSelectedCuisines.filter(c => c !== cuisine)
         setLocalSelectedCuisines(newCuisines)
-        onFilter(localSelectedPlaces, localTypedPlace, newCuisines)
+        onFilter(localSelectedPlaces, localSelectedContainingPlaces, localTypedPlace, newCuisines)
     }
 
     const handleApply = () => {
@@ -127,9 +152,10 @@ const FilterModal = ({
 
     const handleClear = () => {
         setLocalSelectedPlaces([])
+        setLocalSelectedContainingPlaces([])
         setLocalTypedPlace('')
         setLocalSelectedCuisines([])
-        onFilter([], '', [])
+        onFilter([], [], '', [])
         onClose()
     }
 
@@ -155,7 +181,7 @@ const FilterModal = ({
                                 onChange={(e) => {
                                     const value = e.target.value
                                     setLocalTypedPlace(value)
-                                    onFilter(localSelectedPlaces, value, localSelectedCuisines)
+                                    onFilter(localSelectedPlaces, localSelectedContainingPlaces, value, localSelectedCuisines)
                                     if (value.trim() === '') {
                                         setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
                                         setShowPlaceSuggestions(true)
@@ -191,15 +217,12 @@ const FilterModal = ({
                                                 {name} ({restaurantCounts[name]})
                                             </div>
                                         ))}
-                                        {placeSuggestions.length === 0 && localTypedPlace.trim() !== '' && !restaurantNames.includes(localTypedPlace) && (
+                                        {localTypedPlace.trim() !== '' && (
                                             <div
-                                                onClick={() => handlePlaceSelect(localTypedPlace)}
+                                                onClick={() => handleContainingPlaceSelect(localTypedPlace)}
                                                 className="p-2 hover:bg-princess-surface-soft rounded cursor-pointer text-princess-text-secondary border-t border-princess-border mt-2"
                                             >
-                                                Add custom: {localTypedPlace}
-                                                <div className="text-xs text-princess-text-secondary mt-1">
-                                                    Note: This place may not be along the route, but you can search for it.
-                                                </div>
+                                                Add "{localTypedPlace}" (matches containing)
                                             </div>
                                         )}
                                     </div>
@@ -212,6 +235,12 @@ const FilterModal = ({
                                 <div key={place} className="flex items-center bg-princess-accent-lavender text-princess-text-primary px-2 py-1 rounded-xl text-xs">
                                     {place}
                                     <button onClick={() => handlePlaceRemove(place)} className="ml-2 text-princess-text-primary">×</button>
+                                </div>
+                            ))}
+                            {localSelectedContainingPlaces.map(place => (
+                                <div key={place} className="flex items-center bg-princess-peach text-princess-text-primary px-2 py-1 rounded-xl text-xs">
+                                    {place} (contains)
+                                    <button onClick={() => handleContainingPlaceRemove(place)} className="ml-2 text-princess-text-primary">×</button>
                                 </div>
                             ))}
                         </div>

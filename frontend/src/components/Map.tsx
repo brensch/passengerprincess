@@ -291,16 +291,15 @@ const Map = forwardRef<MapRef, MapProps>(({
         const bounds = mapRef.current.getBounds()
 
         // --- 1. Determine Target Visibility from current data and filters ---
-        const allRestaurantNames = new Set(viewportData.restaurants?.map(r => r.name) || [])
         const filteredRestaurants = viewportData.restaurants?.filter(restaurant => {
-            const nameMatch = searchFilters.selectedPlaces.length > 0 ? searchFilters.selectedPlaces.includes(restaurant.name) : (searchFilters.typedPlace === '' || (searchFilters.typedPlace && !allRestaurantNames.has(searchFilters.typedPlace) && restaurant.name.toLowerCase().includes(searchFilters.typedPlace.toLowerCase())))
+            const nameMatch = searchFilters.selectedPlaces.some(p => restaurant.name === p) || searchFilters.selectedContainingPlaces.some(p => restaurant.name.toLowerCase().includes(p.toLowerCase())) || (searchFilters.selectedPlaces.length === 0 && searchFilters.selectedContainingPlaces.length === 0 && (searchFilters.typedPlace === '' || restaurant.name.toLowerCase().includes(searchFilters.typedPlace.toLowerCase())))
             const cuisineMatch = searchFilters.selectedCuisines.length === 0 || searchFilters.selectedCuisines.some(cuisine =>
                 (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase())
             )
             return nameMatch && cuisineMatch
         }) || []
 
-        const hasActiveFilters = searchFilters.selectedPlaces.length > 0 || searchFilters.typedPlace !== '' || searchFilters.selectedCuisines.length > 0
+        const hasActiveFilters = searchFilters.selectedPlaces.length > 0 || searchFilters.selectedContainingPlaces.length > 0 || searchFilters.typedPlace !== '' || searchFilters.selectedCuisines.length > 0
 
         const targetVisibleSuperchargerIds = new Set<string>()
         if (hasActiveFilters) {

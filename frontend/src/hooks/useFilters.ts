@@ -3,14 +3,16 @@ import { StationData, SearchFilters } from '../types'
 
 export function useFilters(stationData: StationData[]) {
     const [selectedPlaces, setSelectedPlaces] = useState<string[]>([])
+    const [selectedContainingPlaces, setSelectedContainingPlaces] = useState<string[]>([])
     const [typedPlace, setTypedPlace] = useState('')
     const [selectedCuisines, setSelectedCuisines] = useState<string[]>([])
 
     const searchFilters: SearchFilters = useMemo(() => ({
         selectedPlaces,
+        selectedContainingPlaces,
         typedPlace,
         selectedCuisines
-    }), [selectedPlaces, typedPlace, selectedCuisines])
+    }), [selectedPlaces, selectedContainingPlaces, typedPlace, selectedCuisines])
 
     const filteredStationData = useMemo((): StationData[] => {
         if (!stationData.length) return []
@@ -27,7 +29,7 @@ export function useFilters(stationData: StationData[]) {
 
         for (const station of stationData) {
             const matchingRestaurants = station.restaurants?.filter(restaurant => {
-                const nameMatch = selectedPlaces.length > 0 ? selectedPlaces.includes(restaurant.name) : (typedPlace === '' || (typedPlace && !allRestaurantNames.has(typedPlace) && restaurant.name.toLowerCase().includes(typedPlace.toLowerCase())))
+                const nameMatch = selectedPlaces.some(p => restaurant.name === p) || selectedContainingPlaces.some(p => restaurant.name.toLowerCase().includes(p.toLowerCase())) || (selectedPlaces.length === 0 && selectedContainingPlaces.length === 0 && (typedPlace === '' || restaurant.name.toLowerCase().includes(typedPlace.toLowerCase())))
                 const cuisineMatch = selectedCuisines.length === 0 ||
                     selectedCuisines.some(cuisine =>
                         (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase())
@@ -41,16 +43,18 @@ export function useFilters(stationData: StationData[]) {
         }
 
         return filteredStations
-    }, [stationData, selectedPlaces, typedPlace, selectedCuisines])
+    }, [stationData, selectedPlaces, selectedContainingPlaces, typedPlace, selectedCuisines])
 
-    const updateFilters = useCallback((selPlaces: string[], typPlace: string, selCuisines: string[]) => {
+    const updateFilters = useCallback((selPlaces: string[], selContainingPlaces: string[], typPlace: string, selCuisines: string[]) => {
         setSelectedPlaces(selPlaces)
+        setSelectedContainingPlaces(selContainingPlaces)
         setTypedPlace(typPlace)
         setSelectedCuisines(selCuisines)
     }, [])
 
     const clearFilters = useCallback(() => {
         setSelectedPlaces([])
+        setSelectedContainingPlaces([])
         setTypedPlace('')
         setSelectedCuisines([])
     }, [])
@@ -58,17 +62,19 @@ export function useFilters(stationData: StationData[]) {
     const filterCount = useMemo(() => {
         let count = 0
         count += selectedPlaces.length
+        count += selectedContainingPlaces.length
         if (typedPlace.trim() !== '') {
             count += 1
         }
         count += selectedCuisines.length
         return count
-    }, [selectedPlaces, typedPlace, selectedCuisines])
+    }, [selectedPlaces, selectedContainingPlaces, typedPlace, selectedCuisines])
 
     return {
         searchFilters,
         filteredStationData,
         selectedPlaces,
+        selectedContainingPlaces,
         typedPlace,
         selectedCuisines,
         updateFilters,

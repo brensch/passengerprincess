@@ -25,6 +25,7 @@ const AppContent = () => {
         searchFilters,
         filteredStationData,
         selectedPlaces,
+        selectedContainingPlaces,
         typedPlace,
         selectedCuisines,
         updateFilters,
@@ -358,6 +359,7 @@ const AppContent = () => {
                 isOpen={isFilterModalOpen}
                 onClose={() => setIsFilterModalOpen(false)}
                 selectedPlaces={selectedPlaces}
+                selectedContainingPlaces={selectedContainingPlaces}
                 typedPlace={typedPlace}
                 selectedCuisines={selectedCuisines}
                 onFilter={updateFilters}

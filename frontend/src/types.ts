@@ -73,6 +73,7 @@ export interface ViewportResponse {
 // UI types
 export interface SearchFilters {
     selectedPlaces: string[]
+    selectedContainingPlaces: string[]
     typedPlace: string
     selectedCuisines: string[]
 }
