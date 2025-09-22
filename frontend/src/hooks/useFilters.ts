@@ -27,8 +27,7 @@ export function useFilters(stationData: StationData[]) {
 
         for (const station of stationData) {
             const matchingRestaurants = station.restaurants?.filter(restaurant => {
-                const nameMatch = (typedPlace && !allRestaurantNames.has(typedPlace) && restaurant.name.toLowerCase().includes(typedPlace.toLowerCase())) ||
-                    selectedPlaces.includes(restaurant.name)
+                const nameMatch = selectedPlaces.length > 0 ? selectedPlaces.includes(restaurant.name) : (typedPlace === '' || (typedPlace && !allRestaurantNames.has(typedPlace) && restaurant.name.toLowerCase().includes(typedPlace.toLowerCase())))
                 const cuisineMatch = selectedCuisines.length === 0 ||
                     selectedCuisines.some(cuisine =>
                         (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase())
