@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Supercharger, Restaurant } from '../types'
 import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
+import { globalViewportData } from './Map'
 
 interface SuperchargerPopupProps {
     supercharger: Supercharger
@@ -9,7 +10,6 @@ interface SuperchargerPopupProps {
         distance_from_route: number
         distance_along_route: number
     }
-    restaurantCount: number
     chargerId?: string
     onViewInResults?: (chargerId: string) => void
     onZoom?: (lat: number, lng: number) => void
@@ -31,7 +31,21 @@ const formatEpochMsToLocalTime = (epochMs: number): string => {
 
 const PopupContent: React.FC<PopupContentProps> = (props) => {
     if (props.type === 'supercharger') {
-        const { supercharger, etaInfo, restaurantCount, chargerId, onViewInResults, onZoom } = props
+        const { supercharger, etaInfo, chargerId, onViewInResults, onZoom } = props
+
+        const [restaurantCount, setRestaurantCount] = useState(() =>
+            globalViewportData.mappings.filter(m => m.supercharger_id === supercharger.place_id).length
+        )
+
+        useEffect(() => {
+            const updateCount = () => {
+                setRestaurantCount(globalViewportData.mappings.filter(m => m.supercharger_id === supercharger.place_id).length)
+            }
+            globalViewportData.listeners.push(updateCount)
+            return () => {
+                globalViewportData.listeners = globalViewportData.listeners.filter(l => l !== updateCount)
+            }
+        }, [supercharger.place_id])
 
         return (
             <div className="font-sans p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
@@ -79,6 +93,7 @@ const PopupContent: React.FC<PopupContentProps> = (props) => {
         )
     } else {
         const { restaurant, distanceText } = props
+
         const emoji = getRestaurantEmoji(restaurant.primary_type)
 
         return (

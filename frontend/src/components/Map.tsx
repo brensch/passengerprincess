@@ -9,6 +9,13 @@ import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
 import PopupContent from './PopupContent'
 import { createRoot } from 'react-dom/client'
 
+const globalViewportData = {
+    mappings: [] as RestaurantSuperchargerMapping[],
+    listeners: [] as (() => void)[]
+}
+
+export { globalViewportData }
+
 const popupWidth = '200px'
 // Fix for default markers in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -77,7 +84,7 @@ const Map = forwardRef<MapRef, MapProps>(({
     const lastBoundsRef = useRef<string | null>(null)
     const viewportSuperchargers = useRef<Map<string, ViewportSuperchargerData>>(new globalThis.Map())
     const viewportRestaurants = useRef<Map<string, { data: Restaurant, marker: L.Marker }>>(new globalThis.Map())
-    const viewportMappings = useRef<RestaurantSuperchargerMapping[]>([])
+    const [viewportMappings, setViewportMappings] = useState<RestaurantSuperchargerMapping[]>([])
     const { viewport } = useViewport()
 
     // Warning popup state
@@ -126,9 +133,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             }
         }
 
-        // Get restaurant count - always use total count from mappings, not filtered count
-        let restaurantCount = viewportMappings.current.filter(m => m.supercharger_id === supercharger.place_id).length
-
         const container = document.createElement('div')
         container.style.width = popupWidth
         container.style.maxWidth = popupWidth
@@ -138,7 +142,6 @@ const Map = forwardRef<MapRef, MapProps>(({
                 type="supercharger"
                 supercharger={supercharger}
                 etaInfo={etaInfo}
-                restaurantCount={restaurantCount}
                 chargerId={finalChargerId}
                 onViewInResults={finalChargerId ? (id) => window.showChargerInResults?.(id) : undefined}
                 onZoom={(lat, lng) => window.zoomToSupercharger?.(lat, lng)}
@@ -148,7 +151,7 @@ const Map = forwardRef<MapRef, MapProps>(({
     }, [stationData, routeData])
 
     const generateRestaurantPopupContent = useCallback((restaurant: Restaurant) => {
-        const mapping = viewportMappings.current.find(m => m.restaurant_id === restaurant.place_id)
+        const mapping = viewportMappings.find(m => m.restaurant_id === restaurant.place_id)
         let distanceText = ''
         if (mapping) {
             const walkingDistance = (mapping.distance / 1609.34 * 5280).toFixed(0) // Convert miles to feet
@@ -167,7 +170,7 @@ const Map = forwardRef<MapRef, MapProps>(({
             />
         )
         return container
-    }, [])
+    }, [viewportMappings, stationData])
 
     useImperativeHandle(ref, () => ({
         fitBounds: (bounds: L.LatLngBounds) => {
@@ -426,7 +429,9 @@ const Map = forwardRef<MapRef, MapProps>(({
             const data: ViewportResponse = await response.json()
             if (response.ok && mapRef.current?.getBounds().toBBoxString() === boundsStr) {
                 setViewportData(data)
-                viewportMappings.current = data.mappings || []
+                setViewportMappings(data.mappings || [])
+                globalViewportData.mappings = data.mappings || []
+                globalViewportData.listeners.forEach(l => l())
             }
         } catch (error) {
             console.error("Failed to load viewport data:", error)
