@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { StationData } from '../types'
 import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
-import { useMobileInputFocus } from '../hooks/useMobileInputFocus'
 
 interface FilterModalProps {
     isOpen: boolean
@@ -42,7 +41,6 @@ const FilterModal = ({
 
     const placeInputRef = useRef<HTMLInputElement>(null)
     const cuisineInputRef = useRef<HTMLInputElement>(null)
-    const { registerInput, unregisterInput } = useMobileInputFocus()
 
     useEffect(() => {
         setLocalSelectedPlaces(selectedPlaces)
@@ -50,25 +48,6 @@ const FilterModal = ({
         setLocalTypedPlace(typedPlace)
         setLocalSelectedCuisines(selectedCuisines)
     }, [selectedPlaces, selectedContainingPlaces, typedPlace, selectedCuisines])
-
-    // Register input for mobile focus handling
-    useEffect(() => {
-        if (placeInputRef.current) {
-            registerInput(placeInputRef.current)
-        }
-        if (cuisineInputRef.current) {
-            registerInput(cuisineInputRef.current)
-        }
-
-        return () => {
-            if (placeInputRef.current) {
-                unregisterInput(placeInputRef.current)
-            }
-            if (cuisineInputRef.current) {
-                unregisterInput(cuisineInputRef.current)
-            }
-        }
-    }, [registerInput, unregisterInput])
 
     useEffect(() => {
         // Extract cuisine and restaurant counts from station data

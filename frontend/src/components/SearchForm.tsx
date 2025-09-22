@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { AutocompleteResult } from '../types'
-import { useMobileInputFocus } from '../hooks/useMobileInputFocus'
 
 interface SearchFormProps {
     onSearch: (origin: string, destination: string) => void
@@ -31,51 +30,12 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     const originRef = useRef<HTMLInputElement>(null)
     const destinationRef = useRef<HTMLInputElement>(null)
     const debounceRef = useRef<NodeJS.Timeout | number>()
-    const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-    const { registerInput, unregisterInput } = useMobileInputFocus()
 
     useEffect(() => {
         if (!isError) {
             setFullError(null)
         }
     }, [isError])
-
-    // Handle virtual keyboard on mobile devices - ensure dropdowns scroll properly
-    useEffect(() => {
-        const handleViewportChange = () => {
-            // On mobile devices, ensure dropdowns can scroll when virtual keyboard appears
-            const isMobile = window.innerWidth < 768
-            if (isMobile) {
-                // Add a small delay to ensure keyboard is fully rendered
-                setTimeout(() => {
-                    // Find any open mobile dropdown and ensure it's scrollable
-                    const dropdowns = document.querySelectorAll('.mobile-dropdown')
-                    dropdowns.forEach((dropdown) => {
-                        const element = dropdown as HTMLElement
-                        // Force a reflow to ensure scrolling works properly
-                        element.style.transform = 'translateZ(0)'
-                        element.scrollTop = element.scrollTop // Force scroll recalculation
-                    })
-                }, 200)
-            }
-        }
-
-        window.addEventListener('resize', handleViewportChange)
-        // Also listen for orientationchange which is more reliable on mobile
-        window.addEventListener('orientationchange', handleViewportChange)
-
-        // Listen for keyboard events specifically
-        window.addEventListener('focusin', handleViewportChange)
-        window.addEventListener('focusout', handleViewportChange)
-
-        return () => {
-            window.removeEventListener('resize', handleViewportChange)
-            window.removeEventListener('orientationchange', handleViewportChange)
-            window.removeEventListener('focusin', handleViewportChange)
-            window.removeEventListener('focusout', handleViewportChange)
-        }
-    }, [showOriginSuggestions, showDestinationSuggestions])
 
     // Check URL params once on mount and populate inputs if they exist
     useEffect(() => {
@@ -94,35 +54,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
             setDestination(initialDestination)
         }
     }, []) // Empty dependency array - only run once on mount
-
-    // Register inputs for mobile focus handling 
-    useEffect(() => {
-        if (originRef.current) {
-            registerInput(originRef.current)
-        }
-        if (destinationRef.current) {
-            registerInput(destinationRef.current)
-        }
-
-        return () => {
-            if (originRef.current) {
-                unregisterInput(originRef.current)
-            }
-            if (destinationRef.current) {
-                unregisterInput(destinationRef.current)
-            }
-        }
-    }, [registerInput, unregisterInput])
-
-    // Update inputs when initial props change (for back/forward navigation)
-    useEffect(() => {
-        if (initialOrigin) {
-            setOrigin(initialOrigin)
-        }
-        if (initialDestination) {
-            setDestination(initialDestination)
-        }
-    }, [initialOrigin, initialDestination])
 
     const handleSearch = (e: any) => {
         e.preventDefault()
@@ -237,27 +168,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                 // Clear session token after selection to complete the session
                 setDestinationSessionToken(null)
             }
-        }
-    }
-
-    // Enhanced touch handling for mobile dropdown scrolling
-    const handleSuggestionTouch = (suggestion: AutocompleteResult, type: 'origin' | 'destination') => {
-        // Clear any existing timeout
-        if (touchTimeoutRef.current) {
-            clearTimeout(touchTimeoutRef.current)
-        }
-        
-        // Set a delayed selection
-        touchTimeoutRef.current = setTimeout(() => {
-            handleSuggestionClick(suggestion, type)
-            touchTimeoutRef.current = null
-        }, 200) // Slightly longer delay to better detect scrolling
-    }
-
-    const cancelPendingTouch = () => {
-        if (touchTimeoutRef.current) {
-            clearTimeout(touchTimeoutRef.current)
-            touchTimeoutRef.current = null
         }
     }
 
@@ -415,16 +325,14 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
-                        <div 
-                            className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                              rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown"
-                            onTouchMove={(e) => {
-                                // Cancel pending selection if user is scrolling
-                                cancelPendingTouch()
-                                // Allow scrolling within the dropdown
-                                e.stopPropagation()
-                            }}
-                        >
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
+                          overscroll-contain touch-pan-y"
+                            style={{
+                                WebkitOverflowScrolling: 'touch',
+                                touchAction: 'pan-y',
+                                overscrollBehavior: 'contain'
+                            }}>
                             {originSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
@@ -433,7 +341,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
-                                    onTouchStart={() => handleSuggestionTouch(suggestion, 'origin')}
                                     onMouseDown={() => handleSuggestionClick(suggestion, 'origin')}
                                 >
                                     {suggestion.description}
@@ -464,16 +371,14 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
-                        <div 
-                            className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                              rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown"
-                            onTouchMove={(e) => {
-                                // Cancel pending selection if user is scrolling
-                                cancelPendingTouch()
-                                // Allow scrolling within the dropdown
-                                e.stopPropagation()
-                            }}
-                        >
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
+                          overscroll-contain touch-pan-y"
+                            style={{
+                                WebkitOverflowScrolling: 'touch',
+                                touchAction: 'pan-y',
+                                overscrollBehavior: 'contain'
+                            }}>
                             {destinationSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
@@ -482,7 +387,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
-                                    onTouchStart={() => handleSuggestionTouch(suggestion, 'destination')}
                                     onMouseDown={() => handleSuggestionClick(suggestion, 'destination')}
                                 >
                                     {suggestion.description}
