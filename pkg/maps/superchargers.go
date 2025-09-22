@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -639,6 +640,11 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Distance:   dist,
 		})
 	}
+
+	// Sort restaurants by distance
+	sort.Slice(dbRestaurants, func(i, j int) bool {
+		return dbRestaurants[i].Distance < dbRestaurants[j].Distance
+	})
 
 	// Store in database for future use
 	supercharger = &db.Supercharger{

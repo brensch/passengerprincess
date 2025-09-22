@@ -380,6 +380,28 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Sort restaurants by distance to nearest supercharger
+	restaurantDistances := make(map[string]float64)
+	for _, mapping := range mappings {
+		if currentDist, exists := restaurantDistances[mapping.RestaurantID]; !exists || mapping.Distance < currentDist {
+			restaurantDistances[mapping.RestaurantID] = mapping.Distance
+		}
+	}
+	sort.Slice(restaurants, func(i, j int) bool {
+		distI, existsI := restaurantDistances[restaurants[i].PlaceID]
+		distJ, existsJ := restaurantDistances[restaurants[j].PlaceID]
+		if !existsI && !existsJ {
+			return false // keep original order if no distances
+		}
+		if !existsI {
+			return false // restaurants without distance come after
+		}
+		if !existsJ {
+			return true // restaurants with distance come first
+		}
+		return distI < distJ
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
