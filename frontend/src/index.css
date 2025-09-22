@@ -89,6 +89,14 @@ body, html {
   background: var(--princess-accent-rose);
 }
 
+/* Highlight text styling */
+mark {
+  background-color: var(--princess-lavender);
+  color: var(--princess-text-primary);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
 /* Leaflet CSS overrides */
 .leaflet-container {
   font-family: inherit;

@@ -48,7 +48,7 @@ const AppContent = () => {
                 if (targetRows.length > 0) {
                     // Highlight all rows for this charger
                     targetRows.forEach(row => {
-                        row.style.backgroundColor = '#fbbf24' // amber-400
+                        row.style.backgroundColor = '#FFE6D9' // pastel peach/orange
                         row.style.transition = 'background-color 0.3s ease'
                     })
 
