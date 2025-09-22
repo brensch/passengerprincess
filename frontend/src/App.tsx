@@ -278,7 +278,7 @@ const AppContent = () => {
             )}
 
             {(viewMode === 'results' || viewMode === 'map') && (
-                <div className="h-screen flex flex-col">
+                <div className="h-full flex flex-col">
                     <TopToolbar
                         onNewSearch={handleNewSearch}
                         onToggleView={toggleView}

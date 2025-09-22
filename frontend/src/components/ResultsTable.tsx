@@ -128,7 +128,7 @@ const ResultsTable = ({
 
     return (
         <div className={`${className} bg-princess-surface overflow-hidden`}>
-            <div className="h-full overflow-y-auto custom-scrollbar">
+            <div className="h-full overflow-y-auto custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <table id="chargers-table" className="w-full text-sm border-collapse">
                     <thead className="bg-princess-surface-soft sticky top-0 z-10">
                         <tr className="border-b-2 border-princess-border">
@@ -185,6 +185,7 @@ const ResultsTable = ({
                                                     <button
                                                         onClick={() => onShowSuperchargerPopup?.(chargerInfo.supercharger.place_id)}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-lavender text-princess-text-primary hover:bg-princess-accent-rose transition-colors border border-princess-border"
+                                                        style={{ touchAction: 'manipulation' }}
                                                     >
                                                         Map
                                                     </button>
@@ -195,6 +196,7 @@ const ResultsTable = ({
                                                             chargerInfo.supercharger.google_maps_uri
                                                         )}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
+                                                        style={{ touchAction: 'manipulation' }}
                                                     >
                                                         Share
                                                     </button>
@@ -237,6 +239,7 @@ const ResultsTable = ({
                                                     <button
                                                         onClick={() => onShowSuperchargerPopup?.(chargerInfo.supercharger.place_id)}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-lavender text-princess-text-primary hover:bg-princess-accent-rose transition-colors border border-princess-border"
+                                                        style={{ touchAction: 'manipulation' }}
                                                     >
                                                         Map
                                                     </button>
@@ -247,6 +250,7 @@ const ResultsTable = ({
                                                             chargerInfo.supercharger.google_maps_uri
                                                         )}
                                                         className="text-xs px-2 py-0.5 rounded bg-princess-accent-mint text-princess-text-primary hover:bg-princess-accent-peach transition-colors border border-princess-border"
+                                                        style={{ touchAction: 'manipulation' }}
                                                     >
                                                         Share
                                                     </button>
@@ -258,6 +262,7 @@ const ResultsTable = ({
                                         <button
                                             onClick={() => onShowRestaurantPopup?.(restaurant.place_id)}
                                             className="text-left text-pink-600 hover:text-pink-800 cursor-pointer restaurant-link underline decoration-princess-accent-rose hover:decoration-princess-text-primary transition-all duration-300"
+                                            style={{ touchAction: 'manipulation' }}
                                             dangerouslySetInnerHTML={{
                                                 __html: highlightText(restaurant.name, searchTerm)
                                             }}
@@ -273,6 +278,7 @@ const ResultsTable = ({
                                     >
                                         <span
                                             className="text-lg cursor-help select-none relative"
+                                            style={{ touchAction: 'manipulation' }}
                                             onMouseEnter={(e) => showTooltip(e, restaurant.primary_type_display || 'N/A')}
                                             onMouseLeave={hideTooltip}
                                             onTouchStart={(e) => {
