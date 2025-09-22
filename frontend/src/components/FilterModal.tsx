@@ -21,6 +21,11 @@ const FilterModal = ({
     const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm)
     const [localCuisineFilters, setLocalCuisineFilters] = useState<string[]>(cuisineFilters)
     const [availableCuisines, setAvailableCuisines] = useState<string[]>([])
+    const [cuisineCounts, setCuisineCounts] = useState<Record<string, number>>({})
+    const [restaurantCounts, setRestaurantCounts] = useState<Record<string, number>>({})
+    const [restaurantNames, setRestaurantNames] = useState<string[]>([])
+    const [suggestions, setSuggestions] = useState<string[]>([])
+    const [showSuggestions, setShowSuggestions] = useState(false)
 
     useEffect(() => {
         setLocalSearchTerm(searchTerm)
@@ -28,16 +33,25 @@ const FilterModal = ({
     }, [searchTerm, cuisineFilters])
 
     useEffect(() => {
-        // Extract unique cuisines from station data
-        const cuisines = new Set<string>()
+        // Extract cuisine and restaurant counts from station data
+        const cuisineCountsMap: Record<string, number> = {}
+        const restaurantCountsMap: Record<string, number> = {}
         stationData.forEach(station => {
             station.restaurants?.forEach(restaurant => {
                 if (restaurant.primary_type_display) {
-                    cuisines.add(restaurant.primary_type_display.trim())
+                    const type = restaurant.primary_type_display.trim()
+                    cuisineCountsMap[type] = (cuisineCountsMap[type] || 0) + 1
+                }
+                if (restaurant.name) {
+                    const name = restaurant.name.trim()
+                    restaurantCountsMap[name] = (restaurantCountsMap[name] || 0) + 1
                 }
             })
         })
-        setAvailableCuisines(Array.from(cuisines).sort())
+        setCuisineCounts(cuisineCountsMap)
+        setAvailableCuisines(Object.keys(cuisineCountsMap).sort())
+        setRestaurantCounts(restaurantCountsMap)
+        setRestaurantNames(Object.keys(restaurantCountsMap).sort((a, b) => restaurantCountsMap[b] - restaurantCountsMap[a]))
     }, [stationData])
 
     const handleCuisineToggle = (cuisine: string) => {
@@ -82,29 +96,74 @@ const FilterModal = ({
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
             <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-princess-surface border-2 border-princess-border flex flex-col h-[80vh]">
-                <div className="p-6 flex-1 overflow-y-auto min-h-0">
-                    <input
-                        type="text"
-                        value={localSearchTerm}
-                        onChange={(e) => {
-                            const newTerm = e.target.value
-                            setLocalSearchTerm(newTerm)
-                            onFilter(newTerm, localCuisineFilters)
-                        }}
-                        className="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 
-                     focus:ring-princess-accent-lavender text-base bg-princess-surface 
-                     border border-princess-border mb-4"
-                        placeholder="Pick places please"
-                    />
+                <div className="flex flex-col h-full">
+                    <div className="p-6 pb-4">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={localSearchTerm}
+                                onChange={(e) => {
+                                    const value = e.target.value
+                                    setLocalSearchTerm(value)
+                                    onFilter(value, localCuisineFilters)
+                                    if (value.trim() === '') {
+                                        setSuggestions(restaurantNames.slice(0, 10))
+                                        setShowSuggestions(true)
+                                    } else {
+                                        setSuggestions(restaurantNames.filter(name =>
+                                            name.toLowerCase().includes(value.toLowerCase())
+                                        ).slice(0, 10))
+                                        setShowSuggestions(true)
+                                    }
+                                }}
+                                onFocus={() => {
+                                    setShowSuggestions(true)
+                                    if (localSearchTerm.trim() === '') {
+                                        setSuggestions(restaurantNames.slice(0, 10))
+                                    }
+                                }}
+                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                className="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 
+                         focus:ring-princess-accent-lavender text-base bg-princess-surface 
+                         border border-princess-border"
+                                placeholder="Pick places please"
+                            />
 
-                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                            {showSuggestions && (
+                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-10 shadow-lg">
+                                    <div className="p-2">
+                                        {suggestions.map(name => (
+                                            <div
+                                                key={name}
+                                                onClick={() => {
+                                                    setLocalSearchTerm(name)
+                                                    onFilter(name, localCuisineFilters)
+                                                    setShowSuggestions(false)
+                                                }}
+                                                className="p-2 hover:bg-princess-surface-soft rounded cursor-pointer"
+                                            >
+                                                {name} ({restaurantCounts[name]})
+                                            </div>
+                                        ))}
+                                        <div className="text-xs text-princess-text-secondary p-2 border-t border-princess-border mt-2">
+                                            only showing suggestions from along route
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="border-t border-princess-border"></div>
+
+                    <div className="flex-1 overflow-y-auto px-6 pt-4">
                         <div className="flex flex-wrap gap-2 p-1">
                             <button
                                 onClick={() => handleCuisineToggle('')}
                                 className={`px-2 py-1 rounded-xl text-xs font-medium transition-all duration-200 
                         border touch-manipulation select-none ${localCuisineFilters.includes('') || localCuisineFilters.length === 0
                                         ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
-                                        : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft active:scale-95'
+                                        : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft'
                                     }`}
                             >
                                 All Cuisines
@@ -117,33 +176,33 @@ const FilterModal = ({
                                     className={`px-2 py-1 rounded-xl text-xs font-medium transition-all duration-200 
                           border touch-manipulation select-none ${localCuisineFilters.includes(cuisine)
                                             ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
-                                            : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft active:scale-95'
+                                            : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft'
                                         }`}
                                 >
-                                    {cuisine}
+                                    {cuisine} ({cuisineCounts[cuisine]})
                                 </button>
                             ))}
                         </div>
                     </div>
-                </div>
 
-                <div className="p-4 border-t border-princess-border flex gap-2 justify-end">
-                    <button
-                        onClick={handleClear}
-                        className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
+                    <div className="p-4 border-t border-princess-border flex gap-2 justify-end">
+                        <button
+                            onClick={handleClear}
+                            className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
                      bg-transparent text-princess-text-primary border-2 border-princess-border
                      hover:bg-princess-surface-soft"
-                    >
-                        Clear All
-                    </button>
-                    <button
-                        onClick={handleApply}
-                        className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
+                        >
+                            Clear All
+                        </button>
+                        <button
+                            onClick={handleApply}
+                            className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
                      bg-princess-accent-lavender text-princess-text-primary border border-princess-accent-lavender
                      hover:bg-princess-accent-rose"
-                    >
-                        Perfect
-                    </button>
+                        >
+                            Perfect
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
