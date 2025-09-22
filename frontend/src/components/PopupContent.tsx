@@ -85,9 +85,6 @@ const PopupContent: React.FC<PopupContentProps> = (props) => {
             <div className="font-sans p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
                 <h3 className="font-semibold text-lg mb-1 text-princess-text-primary">{restaurant.name}</h3>
                 <p className="text-sm text-princess-text-secondary mb-1">{emoji} {restaurant.primary_type_display || 'Restaurant'}</p>
-                {restaurant.rating && (
-                    <p className="text-sm mb-1 text-princess-text-primary">Rating: {'⭐'.repeat(Math.floor(restaurant.rating))} ({restaurant.rating})</p>
-                )}
                 {distanceText && (
                     <p className="text-sm text-princess-text-secondary mb-1">{distanceText}</p>
                 )}
