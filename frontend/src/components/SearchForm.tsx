@@ -58,7 +58,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         }
     }, []) // Empty dependency array - only run once on mount
 
-    // Register inputs for mobile focus handling
+    // Register inputs for mobile focus handling 
     useEffect(() => {
         if (originRef.current) {
             registerInput(originRef.current)
