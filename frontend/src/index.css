@@ -98,6 +98,10 @@ body, html {
   -webkit-transform: translateZ(0); /* Force hardware acceleration */
   transform: translateZ(0);
   scrollbar-width: thin; /* Firefox */
+  /* Additional Android Chrome fixes */
+  will-change: scroll-position;
+  /* Prevent any interference with touch events */
+  pointer-events: auto;
   /* Use absolute positioning but with better z-index */
   z-index: 9999; /* Ensure it stays above keyboard */
   /* Prevent the dropdown from being affected by keyboard resize */

@@ -409,7 +409,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
-                                    onTouchStart={() => handleSuggestionClick(suggestion, 'origin')}
                                     onMouseDown={() => handleSuggestionClick(suggestion, 'origin')}
                                 >
                                     {suggestion.description}
@@ -456,7 +455,6 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
-                                    onTouchStart={() => handleSuggestionClick(suggestion, 'destination')}
                                     onMouseDown={() => handleSuggestionClick(suggestion, 'destination')}
                                 >
                                     {suggestion.description}
