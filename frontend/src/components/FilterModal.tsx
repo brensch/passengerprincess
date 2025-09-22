@@ -101,7 +101,7 @@ const FilterModal = ({
                         <div className="flex flex-wrap gap-2 p-1">
                             <button
                                 onClick={() => handleCuisineToggle('')}
-                                className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 
+                                className={`px-2 py-1 rounded-xl text-xs font-medium transition-all duration-200 
                         border touch-manipulation select-none ${localCuisineFilters.includes('') || localCuisineFilters.length === 0
                                         ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
                                         : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft active:scale-95'
@@ -114,7 +114,7 @@ const FilterModal = ({
                                 <button
                                     key={cuisine}
                                     onClick={() => handleCuisineToggle(cuisine)}
-                                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 
+                                    className={`px-2 py-1 rounded-xl text-xs font-medium transition-all duration-200 
                           border touch-manipulation select-none ${localCuisineFilters.includes(cuisine)
                                             ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
                                             : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft active:scale-95'
@@ -130,7 +130,7 @@ const FilterModal = ({
                 <div className="p-4 border-t border-princess-border flex gap-2 justify-end">
                     <button
                         onClick={handleClear}
-                        className="px-3 py-2 text-xs font-medium rounded-lg transition-all duration-300
+                        className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
                      bg-transparent text-princess-text-primary border-2 border-princess-border
                      hover:bg-princess-surface-soft"
                     >
@@ -138,7 +138,7 @@ const FilterModal = ({
                     </button>
                     <button
                         onClick={handleApply}
-                        className="px-3 py-2 text-xs font-medium rounded-lg transition-all duration-300
+                        className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
                      bg-princess-accent-lavender text-princess-text-primary border border-princess-accent-lavender
                      hover:bg-princess-accent-rose"
                     >
