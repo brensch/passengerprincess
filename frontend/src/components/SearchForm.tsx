@@ -40,8 +40,9 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         };
 
         const handleTouchMove = (e: Event) => {
-            setDebugMessages(prev => [`touchmove on dropdown. stopping propagation.`, ...prev]);
+            setDebugMessages(prev => [`touchmove on dropdown. stopping propagation and preventing default.`, ...prev]);
             e.stopPropagation();
+            e.preventDefault();
         };
 
         const handleTouchEnd = (e: Event) => {
