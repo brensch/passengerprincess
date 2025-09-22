@@ -20,6 +20,8 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false)
     const [selectedOriginIndex, setSelectedOriginIndex] = useState(-1)
     const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(-1)
+    const [originSessionToken, setOriginSessionToken] = useState<string | null>(null)
+    const [destinationSessionToken, setDestinationSessionToken] = useState<string | null>(null)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [isApiError, setIsApiError] = useState(false)
     const [fullError, setFullError] = useState<string | null>(null)
@@ -27,7 +29,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
     const originRef = useRef<HTMLInputElement>(null)
     const destinationRef = useRef<HTMLInputElement>(null)
-    const debounceRef = useRef<number>()
+    const debounceRef = useRef<NodeJS.Timeout | number>()
 
     useEffect(() => {
         if (!isError) {
@@ -80,6 +82,12 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         setErrorMessage(null)
         setIsApiError(false)
         setFullError(null)
+
+        // Clear session token if input is cleared or significantly changed
+        if (value.trim() === '') {
+            setOriginSessionToken(null)
+        }
+
         fetchSuggestions(value, 'origin')
     }
 
@@ -89,6 +97,12 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         setErrorMessage(null)
         setIsApiError(false)
         setFullError(null)
+
+        // Clear session token if input is cleared or significantly changed
+        if (value.trim() === '') {
+            setDestinationSessionToken(null)
+        }
+
         fetchSuggestions(value, 'destination')
     }
 
@@ -110,10 +124,28 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
         debounceRef.current = setTimeout(async () => {
             try {
-                const response = await fetch(`/autocomplete?partial=${encodeURIComponent(query)}`)
+                // Get the current session token for this input type
+                const currentSessionToken = type === 'origin' ? originSessionToken : destinationSessionToken
+
+                // Build URL with session token if available
+                let url = `/autocomplete?partial=${encodeURIComponent(query)}`
+                if (currentSessionToken) {
+                    url += `&session_token=${currentSessionToken}`
+                }
+
+                const response = await fetch(url)
                 const data = await response.json()
 
                 if (response.ok && data.predictions) {
+                    // Store the new session token for subsequent requests
+                    if (data.session_token) {
+                        if (type === 'origin') {
+                            setOriginSessionToken(data.session_token)
+                        } else {
+                            setDestinationSessionToken(data.session_token)
+                        }
+                    }
+
                     if (type === 'origin') {
                         setOriginSuggestions(data.predictions)
                         setShowOriginSuggestions(true)
@@ -138,9 +170,13 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
             if (type === 'origin') {
                 setOrigin(suggestion.description)
                 setShowOriginSuggestions(false)
+                // Clear session token after selection to complete the session
+                setOriginSessionToken(null)
             } else {
                 setDestination(suggestion.description)
                 setShowDestinationSuggestions(false)
+                // Clear session token after selection to complete the session
+                setDestinationSessionToken(null)
             }
         }
     }
@@ -366,9 +402,14 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                    hover:from-princess-accent-rose hover:to-princess-accent-lavender
                    disabled:opacity-50 disabled:cursor-not-allowed
                    transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100
-                   shadow-lg hover:shadow-xl"
+                   shadow-lg hover:shadow-xl flex items-center justify-center"
                 >
-                    {isLoading ? ' 🧠 Pondering Possible Paths' : 'Plan Princess Portage'}
+                    {isLoading ? (
+                        <>
+                            <div className="w-5 h-5 border-2 border-princess-text-primary border-t-transparent rounded-full animate-spin mr-2"></div>
+                            Pondering Possible Paths
+                        </>
+                    ) : 'Plan Princess Portage'}
                 </button>
             </form>
 
