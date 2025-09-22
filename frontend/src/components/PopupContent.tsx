@@ -29,6 +29,15 @@ const formatEpochMsToLocalTime = (epochMs: number): string => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+const shareLocation = (title: string, text: string, url: string) => {
+    if (navigator.share) {
+        navigator.share({ title, text, url })
+    } else {
+        navigator.clipboard.writeText(url)
+        alert('Link copied to clipboard')
+    }
+}
+
 const PopupContent: React.FC<PopupContentProps> = (props) => {
     if (props.type === 'supercharger') {
         const { supercharger, etaInfo, chargerId, onViewInResults, onZoom } = props
@@ -88,6 +97,12 @@ const PopupContent: React.FC<PopupContentProps> = (props) => {
                     >
                         Open in Maps
                     </button>
+                    <button
+                        onClick={() => shareLocation(supercharger.name, `Check out this supercharger: ${supercharger.address}`, supercharger.google_maps_uri)}
+                        className="px-3 py-1.5 bg-princess-blush text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200"
+                    >
+                        Share
+                    </button>
                 </div>
             </div>
         )
@@ -103,12 +118,20 @@ const PopupContent: React.FC<PopupContentProps> = (props) => {
                 {distanceText && (
                     <p className="text-sm text-princess-text-secondary mb-1">{distanceText}</p>
                 )}
-                <button
-                    onClick={() => window.open(restaurant.google_maps_uri, '_blank')}
-                    className="mt-2 px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200"
-                >
-                    Open in Maps
-                </button>
+                <div className="flex flex-row flex-wrap gap-1.5 mt-2">
+                    <button
+                        onClick={() => window.open(restaurant.google_maps_uri, '_blank')}
+                        className="px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200"
+                    >
+                        Open in Maps
+                    </button>
+                    <button
+                        onClick={() => shareLocation(restaurant.name, `Check out this restaurant: ${restaurant.address}`, restaurant.google_maps_uri)}
+                        className="px-3 py-1.5 bg-princess-blush text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200"
+                    >
+                        Share
+                    </button>
+                </div>
             </div>
         )
     }
