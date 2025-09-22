@@ -79,8 +79,8 @@ const FilterModal = ({
         const seenPlaceIds = new Set<string>()
         stationData.forEach(station => {
             station.restaurants?.forEach(restaurant => {
-                if (restaurant.primary_type) {
-                    const type = restaurant.primary_type.trim()
+                if (restaurant.primary_type_display) {
+                    const type = restaurant.primary_type_display.trim()
                     cuisineCountsMap[type] = (cuisineCountsMap[type] || 0) + 1
                 }
                 if (restaurant.name && restaurant.place_id) {
@@ -91,8 +91,8 @@ const FilterModal = ({
                         restaurantCountsMap[name] = (restaurantCountsMap[name] || 0) + 1
                     }
                     // Add to maps
-                    if (restaurant.primary_type) {
-                        const type = restaurant.primary_type.trim()
+                    if (restaurant.primary_type_display) {
+                        const type = restaurant.primary_type_display.trim()
                         if (!cuisineToRests[type]) cuisineToRests[type] = []
                         if (!cuisineToRests[type].includes(name)) {
                             cuisineToRests[type].push(name)
@@ -117,7 +117,17 @@ const FilterModal = ({
         Object.keys(restToCuis).forEach(name => {
             const cuisines = restToCuis[name]
             if (cuisines.length > 0) {
-                emojisMap[name] = getRestaurantEmoji(cuisines[0])
+                // For emoji mapping, we need to find the primary_type (raw) for this restaurant
+                // since the emoji mapping is based on raw types, not display types
+                let rawType = ''
+                stationData.forEach(station => {
+                    station.restaurants?.forEach(restaurant => {
+                        if (restaurant.name?.trim() === name && restaurant.primary_type) {
+                            rawType = restaurant.primary_type
+                        }
+                    })
+                })
+                emojisMap[name] = getRestaurantEmoji(rawType || cuisines[0])
             }
         })
         setRestaurantEmojis(emojisMap)
@@ -329,7 +339,18 @@ const FilterModal = ({
                                                 onClick={() => handleCuisineSelect(cuisine)}
                                                 className="p-2 hover:bg-princess-surface-soft rounded cursor-pointer"
                                             >
-                                                {getRestaurantEmoji(cuisine)} {cuisine} ({cuisineCounts[cuisine]})
+                                                {(() => {
+                                                    // Find the raw primary_type for this display cuisine to get the right emoji
+                                                    let rawType = ''
+                                                    stationData.forEach(station => {
+                                                        station.restaurants?.forEach(restaurant => {
+                                                            if (restaurant.primary_type_display?.trim() === cuisine && restaurant.primary_type) {
+                                                                rawType = restaurant.primary_type
+                                                            }
+                                                        })
+                                                    })
+                                                    return getRestaurantEmoji(rawType || cuisine)
+                                                })()} {cuisine} ({cuisineCounts[cuisine]})
                                             </div>
                                         ))}
                                     </div>
