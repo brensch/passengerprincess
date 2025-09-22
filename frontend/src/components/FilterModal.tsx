@@ -146,7 +146,7 @@ const FilterModal = ({
                                             </div>
                                         ))}
                                         <div className="text-xs text-princess-text-secondary p-2 border-t border-princess-border mt-2">
-                                            only showing suggestions from along route
+                                            Only showing suggestions from along route. You can type a value not here and it will appear on the map in places not along your current route if you're really keen for that restaurant.
                                         </div>
                                     </div>
                                 </div>
