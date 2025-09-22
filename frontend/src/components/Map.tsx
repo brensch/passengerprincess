@@ -95,31 +95,73 @@ const Map = forwardRef<MapRef, MapProps>(({
 
     // Warning popup state
     const [showLocationWarning, setShowLocationWarning] = useState(false)
-    const [locationPermission, setLocationPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
     const [showPermissionModal, setShowPermissionModal] = useState(false)
 
     const handleRefresh = useCallback(() => {
-        if (locationPermission !== 'granted') {
-            setShowPermissionModal(true)
-            setTimeout(() => setShowPermissionModal(false), 3000)
-            return
-        }
-        if (onRefresh) onRefresh()
-    }, [onRefresh, locationPermission])
-
-    const handleGoToUserLocation = useCallback(() => {
-        if (locationPermission !== 'granted') {
-            setShowPermissionModal(true)
-            setTimeout(() => setShowPermissionModal(false), 3000)
-            return
-        }
-        if (userLocation && mapRef.current) {
-            mapRef.current.setView(userLocation, 15, { animate: true })
-        } else {
+        if (!navigator.geolocation) {
             setShowLocationWarning(true)
             setTimeout(() => setShowLocationWarning(false), 2000)
+            return
         }
-    }, [userLocation, locationPermission])
+
+        if (userLocation && onRefresh) {
+            onRefresh()
+            return
+        }
+
+        // If we don't have user location, request it first
+        navigator.geolocation.getCurrentPosition(
+            () => {
+                // Location obtained, now refresh
+                if (onRefresh) onRefresh()
+            },
+            (error) => {
+                if (error.code === error.PERMISSION_DENIED) {
+                    setShowPermissionModal(true)
+                    setTimeout(() => setShowPermissionModal(false), 3000)
+                } else {
+                    setShowLocationWarning(true)
+                    setTimeout(() => setShowLocationWarning(false), 2000)
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000 // 5 minutes
+            }
+        )
+    }, [onRefresh, userLocation])
+
+    const handleGoToUserLocation = useCallback(() => {
+        if (!navigator.geolocation) {
+            setShowLocationWarning(true)
+            setTimeout(() => setShowLocationWarning(false), 2000)
+            return
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords
+                if (mapRef.current) {
+                    mapRef.current.setView([latitude, longitude], 15, { animate: true })
+                }
+            },
+            (error) => {
+                if (error.code === error.PERMISSION_DENIED) {
+                    setShowPermissionModal(true)
+                    setTimeout(() => setShowPermissionModal(false), 3000)
+                } else {
+                    setShowLocationWarning(true)
+                    setTimeout(() => setShowLocationWarning(false), 2000)
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000 // 5 minutes
+            }
+        )
+    }, [])
 
     const generateSuperchargerPopupContent = useCallback((supercharger: Supercharger, chargerId?: string) => {
         const routeStation = stationData.find(s => s.chargerInfo.supercharger.place_id === supercharger.place_id)
@@ -635,18 +677,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             setTimeout(() => mapRef.current?.invalidateSize(), 100)
         }
     }, [className])
-
-    // Check location permission
-    useEffect(() => {
-        if ('permissions' in navigator) {
-            navigator.permissions.query({ name: 'geolocation' }).then(result => {
-                setLocationPermission(result.state as 'granted' | 'denied')
-                result.onchange = () => setLocationPermission(result.state as 'granted' | 'denied')
-            }).catch(() => setLocationPermission('denied'))
-        } else {
-            setLocationPermission('denied')
-        }
-    }, [])
 
     return (
         <div ref={mapContainerRef} className={`map-container ${className} relative`} style={{ height: '100%', width: '100%' }}>
