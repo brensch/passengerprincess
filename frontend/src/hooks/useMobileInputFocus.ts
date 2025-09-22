@@ -11,7 +11,7 @@ export const useMobileInputFocus = () => {
                 setTimeout(() => {
                     target.scrollIntoView({
                         behavior: 'smooth',
-                        block: 'center',
+                        block: 'start',
                         inline: 'nearest'
                     })
                 }, 300)

@@ -358,7 +358,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50">
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown">
                             {originSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
@@ -398,7 +398,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50">
+                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown">
                             {destinationSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}

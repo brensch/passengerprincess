@@ -246,7 +246,7 @@ const FilterModal = ({
                             </div>
 
                             {showPlaceSuggestions && (
-                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-10 shadow-lg">
+                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-10 shadow-lg mobile-dropdown">
                                     <div className="p-2">
                                         {placeSuggestions.map(name => (
                                             <div

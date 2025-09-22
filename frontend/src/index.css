@@ -89,12 +89,17 @@ body, html {
   background: var(--princess-accent-rose);
 }
 
-/* Highlight text styling */
-mark {
-  background-color: var(--princess-lavender);
-  color: var(--princess-text-primary);
-  padding: 0 2px;
-  border-radius: 2px;
+/* Mobile dropdown scrolling fix */
+.mobile-dropdown {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Ensure dropdowns are properly scrollable on mobile */
+@media (max-width: 768px) {
+  .mobile-dropdown {
+    max-height: 200px; /* Ensure reasonable max height on mobile */
+  }
 }
 
 /* Leaflet CSS overrides */
