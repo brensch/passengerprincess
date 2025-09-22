@@ -142,7 +142,7 @@ const FilterModal = ({
                      bg-princess-accent-lavender text-princess-text-primary border border-princess-accent-lavender
                      hover:bg-princess-accent-rose"
                     >
-                        Perfect!
+                        Perfect
                     </button>
                 </div>
             </div>

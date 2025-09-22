@@ -12,15 +12,14 @@ const HelpModal = ({ isOpen, onClose }: HelpModalProps) => {
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
             <div className="rounded-xl p-8 max-w-md mx-4 shadow-2xl bg-princess-surface border-2 border-princess-border">
-                <h3 className="text-2xl font-semibold mb-4 font-dancing text-princess-text-primary">
-                    ✨ PPP's Purported Purpose ✨
+                <h3 className="text-4xl font-semibold mb-4 font-dancing text-princess-text-primary">
+                    PPP's Purported Purpose
                 </h3>
-                <div className="text-sm space-y-3 text-princess-text-secondary">
-                    <p>⚡ Get Superchargers on your route</p>
-                    <p>🗺️ ETAs and traffic according to google maps</p>
-                    <p>🌭 See restaurants within walking distance</p>
-                    <p>🔎 Filter restaurants by cuisine type or name</p>
-                    <p>👸 Pick your pitstop perfectly</p>
+                <div className="text-l space-y-3 text-princess-text-secondary">
+                    <p>🔌 Peruse Superchargers on your route</p>
+                    <p>🕰️ Provided ETAs from Google Maps</p>
+                    <p>🌭 Pick a restaurant within walking distance</p>
+                    <p>🔎 Pare down choices by name or cuisine</p>
                 </div>
                 <div className="flex justify-end mt-6">
                     <button
@@ -29,7 +28,7 @@ const HelpModal = ({ isOpen, onClose }: HelpModalProps) => {
                      text-princess-text-secondary bg-princess-surface-soft border border-princess-border
                      hover:bg-princess-lavender hover:text-princess-text-primary"
                     >
-                        Got it!
+                        Proceed
                     </button>
                 </div>
             </div>
