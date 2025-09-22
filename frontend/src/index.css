@@ -99,15 +99,11 @@ body, html {
 /* Android-specific fixes */
 @media screen and (max-width: 768px) {
   .mobile-dropdown {
-    -webkit-overflow-scrolling: auto; /* Android prefers auto over touch */
-    /* Ensure proper touch handling on Android */
+    -webkit-overflow-scrolling: auto;
     touch-action: manipulation;
-    /* Android sometimes needs explicit height */
-    height: auto;
-    min-height: 0;
-    /* Try overflow: auto instead of overflow-y: auto for Android */
-    overflow: auto !important;
-    overflow-y: auto !important;
+    overflow: scroll !important; /* Force scroll instead of auto on Android */
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
   }
 }
 
