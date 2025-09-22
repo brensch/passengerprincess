@@ -95,30 +95,33 @@ const FilterModal = ({
     }, [availableCuisines, cuisineToRestaurants, localSelectedPlaces])
 
     const handlePlaceSelect = (place: string) => {
-        if (!localSelectedPlaces.includes(place)) {
-            setLocalSelectedPlaces([...localSelectedPlaces, place])
-        }
+        const newPlaces = localSelectedPlaces.includes(place) ? localSelectedPlaces : [...localSelectedPlaces, place]
+        setLocalSelectedPlaces(newPlaces)
         setLocalTypedPlace('')
         setShowPlaceSuggestions(false)
+        onFilter(newPlaces, '', localSelectedCuisines)
     }
 
     const handlePlaceRemove = (place: string) => {
-        setLocalSelectedPlaces(localSelectedPlaces.filter(p => p !== place))
+        const newPlaces = localSelectedPlaces.filter(p => p !== place)
+        setLocalSelectedPlaces(newPlaces)
+        onFilter(newPlaces, localTypedPlace, localSelectedCuisines)
     }
 
     const handleCuisineSelect = (cuisine: string) => {
-        if (!localSelectedCuisines.includes(cuisine)) {
-            setLocalSelectedCuisines([...localSelectedCuisines, cuisine])
-        }
+        const newCuisines = localSelectedCuisines.includes(cuisine) ? localSelectedCuisines : [...localSelectedCuisines, cuisine]
+        setLocalSelectedCuisines(newCuisines)
         setShowCuisineSuggestions(false)
+        onFilter(localSelectedPlaces, localTypedPlace, newCuisines)
     }
 
     const handleCuisineRemove = (cuisine: string) => {
-        setLocalSelectedCuisines(localSelectedCuisines.filter(c => c !== cuisine))
+        const newCuisines = localSelectedCuisines.filter(c => c !== cuisine)
+        setLocalSelectedCuisines(newCuisines)
+        onFilter(localSelectedPlaces, localTypedPlace, newCuisines)
     }
 
     const handleApply = () => {
-        onFilter(localSelectedPlaces, localTypedPlace, localSelectedCuisines)
         onClose()
     }
 
@@ -152,6 +155,7 @@ const FilterModal = ({
                                 onChange={(e) => {
                                     const value = e.target.value
                                     setLocalTypedPlace(value)
+                                    onFilter(localSelectedPlaces, value, localSelectedCuisines)
                                     if (value.trim() === '') {
                                         setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
                                         setShowPlaceSuggestions(true)
