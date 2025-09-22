@@ -166,7 +166,7 @@ const FilterModal = ({
             className="fixed inset-0 flex items-center justify-center z-[1200] bg-black bg-opacity-50 backdrop-blur-sm"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-princess-surface border-2 border-princess-border flex flex-col max-h-[80vh]">
+            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose flex flex-col max-h-[80vh]">
                 <div className="flex flex-col h-full">
                     <div className="p-6 pb-4">
                         <h2 className="text-3xl font-semibold my-0 font-dancing">Pick Places Please</h2>
@@ -232,13 +232,13 @@ const FilterModal = ({
                         {/* Chips for selected places */}
                         <div className="flex flex-wrap gap-2 mt-4">
                             {localSelectedPlaces.map(place => (
-                                <div key={place} className="flex items-center bg-princess-accent-lavender text-princess-text-primary px-2 py-1 rounded-xl text-xs">
+                                <div key={place} className="flex items-center bg-princess-accent-lavender text-princess-text-primary px-3 py-1.5 rounded-full text-xs border-2 border-princess-rose">
                                     {place}
                                     <button onClick={() => handlePlaceRemove(place)} className="ml-2 text-princess-text-primary">×</button>
                                 </div>
                             ))}
                             {localSelectedContainingPlaces.map(place => (
-                                <div key={place} className="flex items-center bg-princess-peach text-princess-text-primary px-2 py-1 rounded-xl text-xs">
+                                <div key={place} className="flex items-center bg-princess-peach text-princess-text-primary px-3 py-1.5 rounded-full text-xs border-2 border-princess-rose">
                                     {place} (contains)
                                     <button onClick={() => handleContainingPlaceRemove(place)} className="ml-2 text-princess-text-primary">×</button>
                                 </div>
@@ -295,7 +295,7 @@ const FilterModal = ({
                         {/* Chips for selected cuisines */}
                         <div className="flex flex-wrap gap-2 mt-4">
                             {localSelectedCuisines.map(cuisine => (
-                                <div key={cuisine} className="flex items-center bg-princess-accent-lavender text-princess-text-primary px-2 py-1 rounded-xl text-xs">
+                                <div key={cuisine} className="flex items-center bg-princess-accent-lavender text-princess-text-primary px-3 py-1.5 rounded-full text-xs border-2 border-princess-rose">
                                     {cuisine}
                                     <button onClick={() => handleCuisineRemove(cuisine)} className="ml-2 text-princess-text-primary">×</button>
                                 </div>
