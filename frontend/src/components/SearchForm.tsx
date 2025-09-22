@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { AutocompleteResult } from '../types'
+import { useMobileInputFocus } from '../hooks/useMobileInputFocus'
 
 interface SearchFormProps {
     onSearch: (origin: string, destination: string) => void
@@ -31,6 +32,8 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     const destinationRef = useRef<HTMLInputElement>(null)
     const debounceRef = useRef<NodeJS.Timeout | number>()
 
+    const { registerInput, unregisterInput } = useMobileInputFocus()
+
     useEffect(() => {
         if (!isError) {
             setFullError(null)
@@ -54,6 +57,25 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
             setDestination(initialDestination)
         }
     }, []) // Empty dependency array - only run once on mount
+
+    // Register inputs for mobile focus handling
+    useEffect(() => {
+        if (originRef.current) {
+            registerInput(originRef.current)
+        }
+        if (destinationRef.current) {
+            registerInput(destinationRef.current)
+        }
+
+        return () => {
+            if (originRef.current) {
+                unregisterInput(originRef.current)
+            }
+            if (destinationRef.current) {
+                unregisterInput(destinationRef.current)
+            }
+        }
+    }, [registerInput, unregisterInput])
 
     // Update inputs when initial props change (for back/forward navigation)
     useEffect(() => {

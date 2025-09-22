@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { StationData } from '../types'
 import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
+import { useMobileInputFocus } from '../hooks/useMobileInputFocus'
 
 interface FilterModalProps {
     isOpen: boolean
@@ -39,12 +40,35 @@ const FilterModal = ({
     const [cuisineToRestaurants, setCuisineToRestaurants] = useState<Record<string, string[]>>({})
     const [restaurantEmojis, setRestaurantEmojis] = useState<Record<string, string>>({})
 
+    const placeInputRef = useRef<HTMLInputElement>(null)
+    const cuisineInputRef = useRef<HTMLInputElement>(null)
+    const { registerInput, unregisterInput } = useMobileInputFocus()
+
     useEffect(() => {
         setLocalSelectedPlaces(selectedPlaces)
         setLocalSelectedContainingPlaces(selectedContainingPlaces)
         setLocalTypedPlace(typedPlace)
         setLocalSelectedCuisines(selectedCuisines)
     }, [selectedPlaces, selectedContainingPlaces, typedPlace, selectedCuisines])
+
+    // Register input for mobile focus handling
+    useEffect(() => {
+        if (placeInputRef.current) {
+            registerInput(placeInputRef.current)
+        }
+        if (cuisineInputRef.current) {
+            registerInput(cuisineInputRef.current)
+        }
+
+        return () => {
+            if (placeInputRef.current) {
+                unregisterInput(placeInputRef.current)
+            }
+            if (cuisineInputRef.current) {
+                unregisterInput(cuisineInputRef.current)
+            }
+        }
+    }, [registerInput, unregisterInput])
 
     useEffect(() => {
         // Extract cuisine and restaurant counts from station data
@@ -190,6 +214,7 @@ const FilterModal = ({
                             <div className="flex items-center">
                                 <span className="absolute left-4 text-2xl pointer-events-none">🔎</span>
                                 <input
+                                    ref={placeInputRef}
                                     type="text"
                                     value={localTypedPlace}
                                     onChange={(e) => {
@@ -269,6 +294,7 @@ const FilterModal = ({
                             <div className="flex items-center">
                                 <span className="absolute left-4 text-2xl pointer-events-none">🍴</span>
                                 <input
+                                    ref={cuisineInputRef}
                                     type="text"
                                     onChange={(e) => {
                                         const value = e.target.value
