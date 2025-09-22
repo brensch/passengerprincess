@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"math"
 	"strings"
 	"sync"
@@ -415,19 +416,19 @@ func processSuperchargers(resultsChan <-chan superchargerResult, routePoints []P
 	}
 }
 
-func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination, ipAddress string, latitude, longitude *float64) (*SuperchargersOnRouteResult, error) {
+func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination, ipAddress string, latitude, longitude *float64, requestID string) (*SuperchargersOnRouteResult, error) {
 	totalStart := time.Now()
 	defer func() {
-		log.Printf("GetSuperchargersOnRoute total time: %v", time.Since(totalStart))
+		slog.Info("GetSuperchargersOnRoute completed", "duration_ms", time.Since(totalStart).Milliseconds())
 	}()
 
 	// Get route data (now enhanced with traffic information when available)
 	routeStart := time.Now()
-	route, err := GetRoute(ctx, broker, apiKey, origin, destination, ipAddress, latitude, longitude)
+	route, err := GetRoute(ctx, broker, apiKey, origin, destination, ipAddress, latitude, longitude, requestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get route: %w", err)
 	}
-	log.Printf("Get route time: %v", time.Since(routeStart))
+	slog.Debug("Get route completed", "duration_ms", time.Since(routeStart).Milliseconds(), "request_id", requestID)
 
 	// Decode the polyline to get route points
 	decodeStart := time.Now()
@@ -435,19 +436,19 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode polyline: %w", err)
 	}
-	log.Printf("Decode polyline time: %v", time.Since(decodeStart))
+	slog.Debug("Decode polyline completed", "duration_ms", time.Since(decodeStart).Milliseconds())
 
 	// Build spatial index for fast distance calculations
 	indexStart := time.Now()
 	polylineIndex := buildPolylineIndex(routePoints, 0.01) // 0.01 degrees ≈ 1.11km grid size
-	log.Printf("Build spatial index time: %v", time.Since(indexStart))
+	slog.Debug("Build spatial index completed", "duration_ms", time.Since(indexStart).Milliseconds())
 
 	// Build cumulative profile for accurate ETAs if we have enhanced route data
 	cumulativeStart := time.Now()
 	var cumulativePoints []CumPoint
 	// Simplified: no detailed steps available, so cumulativePoints remains empty
 	// ETA will be calculated based on total duration and distance from route
-	log.Printf("Build cumulative profile time: %v", time.Since(cumulativeStart))
+	slog.Debug("Build cumulative profile completed", "duration_ms", time.Since(cumulativeStart).Milliseconds())
 
 	// Get search circles
 	circlesStart := time.Now()
@@ -455,7 +456,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Get search circles time: %v", time.Since(circlesStart))
+	slog.Debug("Get search circles completed", "duration_ms", time.Since(circlesStart).Milliseconds())
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -476,7 +477,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		searchWg.Add(1)
 		go func(c Circle) {
 			defer searchWg.Done()
-			places, err := GetPlacesViaTextSearch(ctx, broker, apiKey, "tesla supercharger", "places.id", c, false, ipAddress)
+			places, err := GetPlacesViaTextSearch(ctx, broker, apiKey, "tesla supercharger", "places.id", c, false, ipAddress, requestID)
 			searchResultsChan <- searchResult{places: places, err: err}
 		}(circle)
 	}
@@ -496,7 +497,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 			seenPlaceIDs[place.ID] = struct{}{}
 		}
 	}
-	log.Printf("Get supercharger IDs time: %v", time.Since(searchStart))
+	slog.Debug("Get supercharger IDs completed", "duration_ms", time.Since(searchStart).Milliseconds())
 
 	// Fetch details concurrently
 	fetchStart := time.Now()
@@ -506,7 +507,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			superCharger, restaurants, err := GetSuperchargerWithCache(ctx, broker, apiKey, id, ipAddress)
+			superCharger, restaurants, err := GetSuperchargerWithCache(ctx, broker, apiKey, id, ipAddress, requestID)
 			resultsChan <- superchargerResult{supercharger: superCharger, restaurants: restaurants, err: err}
 		}(id)
 	}
@@ -516,7 +517,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 		close(resultsChan)
 	}()
 
-	log.Printf("Fetch supercharger details time: %v", time.Since(fetchStart))
+	slog.Debug("Fetch supercharger details completed", "duration_ms", time.Since(fetchStart).Milliseconds())
 
 	// Process results and calculate ETAs
 	processStart := time.Now()
@@ -524,7 +525,7 @@ func GetSuperchargersOnRoute(ctx context.Context, broker *db.Service, apiKey, or
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("process superchargers time: %v", time.Since(processStart))
+	slog.Debug("Process superchargers completed", "duration_ms", time.Since(processStart).Milliseconds())
 
 	return &SuperchargersOnRouteResult{
 		Route:         route,
@@ -543,11 +544,17 @@ const (
 
 // GetSuperchargerWithCache retrieves place details with database caching
 // First checks the database, then falls back to API if not found
-func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string, ipAddress string) (*db.Supercharger, []db.RestaurantWithDistance, error) {
+func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, placeID string, ipAddress string, requestID string) (*db.Supercharger, []db.RestaurantWithDistance, error) {
 	// First try to get from database
+	start := time.Now()
 	supercharger, err := broker.Supercharger.GetByID(placeID)
+	duration := time.Since(start)
+	slog.Info("Database call completed", "operation", "GetByID", "request_id", requestID, "duration_ms", duration.Milliseconds())
 	if err == nil {
+		start = time.Now()
 		restaurants, err := broker.Supercharger.GetRestaurantsForSupercharger(placeID)
+		duration = time.Since(start)
+		slog.Info("Database call completed", "operation", "GetRestaurantsForSupercharger", "request_id", requestID, "duration_ms", duration.Milliseconds())
 		return supercharger, restaurants, err
 	}
 
@@ -560,14 +567,14 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 
 	// Not found in database, fetch from API
 	// this field map ensure the essentials tier
-	superchargerDetails, err := GetPlaceDetails(ctx, broker, apiKey, placeID, FieldMaskSuperchargerDetails, ipAddress)
+	superchargerDetails, err := GetPlaceDetails(ctx, broker, apiKey, placeID, FieldMaskSuperchargerDetails, ipAddress, requestID)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// exit early if site not a supercharger
 	if !strings.Contains(strings.ToLower(superchargerDetails.DisplayName.Text), "supercharger") {
-		log.Printf("Warning: Place ID %s does not appear to be a supercharger (name: %s). Recording without restaurants", placeID, superchargerDetails.DisplayName.Text)
+		slog.Warn("Place does not appear to be a supercharger", "place_id", placeID, "name", superchargerDetails.DisplayName.Text)
 		// Store in database for future use
 		supercharger = &db.Supercharger{
 			PlaceID:        superchargerDetails.ID,
@@ -579,10 +586,13 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			IsSupercharger: false,
 		}
 
+		start := time.Now()
 		err = broker.Supercharger.Create(supercharger)
+		duration := time.Since(start)
+		slog.Info("Database call completed", "operation", "Create", "request_id", requestID, "duration_ms", duration.Milliseconds())
 		if err != nil {
 			// Log the error but don't fail the request since we already have the data
-			fmt.Printf("Warning: failed to cache supercharger %s in database: %v\n", placeID, err)
+			slog.Error("Failed to cache supercharger in database", "place_id", placeID, "error", err)
 		}
 		return supercharger, []db.RestaurantWithDistance{}, nil
 	}
@@ -593,7 +603,7 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 			Longitude: superchargerDetails.Location.Longitude,
 		},
 		Radius: 500, // 500 meter radius
-	}, true, ipAddress)
+	}, true, ipAddress, requestID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -641,10 +651,13 @@ func GetSuperchargerWithCache(ctx context.Context, broker *db.Service, apiKey, p
 		IsSupercharger: true,
 	}
 
+	start = time.Now()
 	err = broker.Supercharger.AddSuperchargerWithRestaurants(supercharger, dbRestaurants)
+	duration = time.Since(start)
+	slog.Info("Database call completed", "operation", "AddSuperchargerWithRestaurants", "request_id", requestID, "duration_ms", duration.Milliseconds())
 	if err != nil {
 		// Log the error but don't fail the request since we already have the data
-		fmt.Printf("Warning: failed to cache supercharger %s in database: %v\n", placeID, err)
+		slog.Error("Failed to cache supercharger in database", "place_id", placeID, "error", err)
 	}
 
 	return supercharger, dbRestaurants, nil

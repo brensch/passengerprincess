@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/brensch/passengerprincess/pkg/db"
 )
@@ -55,7 +57,7 @@ type AutocompletePrediction struct {
 }
 
 // GetAutocompleteSuggestions fetches place autocomplete suggestions from Google Places API v1
-func GetAutocompleteSuggestions(ctx context.Context, broker *db.Service, apiKey, input string, sessionToken string, ipAddress string) ([]AutocompletePrediction, error) {
+func GetAutocompleteSuggestions(ctx context.Context, broker *db.Service, apiKey, input string, sessionToken string, ipAddress string, requestID string) ([]AutocompletePrediction, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key is missing")
 	}
@@ -94,11 +96,16 @@ func GetAutocompleteSuggestions(ctx context.Context, broker *db.Service, apiKey,
 
 	// Make the request
 	client := &http.Client{}
+	start := time.Now()
 	resp, err := client.Do(req)
+	duration := time.Since(start)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Log the API call
+	slog.Info("Maps API call completed", "request_id", requestID, "api", "places-autocomplete", "duration_ms", duration.Milliseconds())
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
@@ -141,7 +148,7 @@ func GetAutocompleteSuggestions(ctx context.Context, broker *db.Service, apiKey,
 		}
 		if err := broker.MapsCallLog.Create(logEntry); err != nil {
 			// Log error but don't fail the API call
-			fmt.Printf("Failed to log maps call: %v\n", err)
+			slog.Error("Failed to log maps call", "error", err)
 		}
 	}
 

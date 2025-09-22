@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -62,7 +63,7 @@ func Initialize(config *Config) error {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
-	log.Println("Database initialized and migrated successfully")
+	slog.Info("Database initialized and migrated successfully")
 
 	return nil
 }

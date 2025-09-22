@@ -18,7 +18,7 @@ func TestGetRoute(t *testing.T) {
 	origin := "Framingham, MA"
 	destination := "Boston, MA"
 
-	result, err := GetRoute(context.Background(), nil, apiKey, origin, destination, "", nil, nil)
+	result, err := GetRoute(context.Background(), nil, apiKey, origin, destination, "", nil, nil, "test-request-id")
 	if err != nil {
 		t.Fatalf("GetRoute failed: %v", err)
 	}

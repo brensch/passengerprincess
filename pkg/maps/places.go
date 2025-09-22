@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/brensch/passengerprincess/pkg/db"
 )
@@ -126,7 +128,7 @@ func circleToRectangle(circle Circle) Rectangle {
 
 // GetPlacesViaNearbySearch queries the Google Places API (Nearby Search - New) to find all places
 // of specified types within a circular search area.
-func GetPlacesViaNearbySearch(ctx context.Context, broker *db.Service, apiKey string, includedTypes []string, fieldMask string, targetCircle Circle, maxResults int, ipAddress string) ([]*PlaceDetails, error) {
+func GetPlacesViaNearbySearch(ctx context.Context, broker *db.Service, apiKey string, includedTypes []string, fieldMask string, targetCircle Circle, maxResults int, ipAddress string, requestID string) ([]*PlaceDetails, error) {
 	maxResults = 20
 	reqBody := nearbyRequestBody{
 		IncludedTypes: includedTypes,
@@ -156,11 +158,16 @@ func GetPlacesViaNearbySearch(ctx context.Context, broker *db.Service, apiKey st
 	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 	// Execute the request
+	start := time.Now()
 	resp, err := httpClient.Do(req)
+	duration := time.Since(start)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request to Google Places API: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Log the API call
+	slog.Info("Maps API call completed", "request_id", requestID, "api", "places-search-nearby", "duration_ms", duration.Milliseconds())
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -197,7 +204,7 @@ func GetPlacesViaNearbySearch(ctx context.Context, broker *db.Service, apiKey st
 		}
 		if err := broker.MapsCallLog.Create(logEntry); err != nil {
 			// Log error but don't fail the API call
-			fmt.Printf("Failed to log maps call: %v\n", err)
+			slog.Error("Failed to log maps call", "error", err)
 		}
 	}
 
@@ -206,7 +213,7 @@ func GetPlacesViaNearbySearch(ctx context.Context, broker *db.Service, apiKey st
 
 // GetPlacesViaTextSearch queries the Google Places API (Text Search - New) to find all places
 // matching a query within a specified circular search area. It now takes a 'circle' struct directly.
-func GetPlacesViaTextSearch(ctx context.Context, broker *db.Service, apiKey, query, fieldMask string, targetCircle Circle, strict bool, ipAddress string) ([]*PlaceDetails, error) {
+func GetPlacesViaTextSearch(ctx context.Context, broker *db.Service, apiKey, query, fieldMask string, targetCircle Circle, strict bool, ipAddress string, requestID string) ([]*PlaceDetails, error) {
 	reqBody := requestBody{
 		TextQuery: query,
 	}
@@ -243,11 +250,16 @@ func GetPlacesViaTextSearch(ctx context.Context, broker *db.Service, apiKey, que
 		req.Header.Set("X-Goog-FieldMask", fieldMask)
 
 		// 5. Execute the request using the package-level client.
+		start := time.Now()
 		resp, err := httpClient.Do(req)
+		duration := time.Since(start)
 		if err != nil {
 			return nil, fmt.Errorf("failed to send request to Google Places API: %w", err)
 		}
 		defer resp.Body.Close()
+
+		// Log the API call
+		slog.Info("Maps API call completed", "request_id", requestID, "api", "places-search-text", "page", i+1, "duration_ms", duration.Milliseconds())
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -283,7 +295,7 @@ func GetPlacesViaTextSearch(ctx context.Context, broker *db.Service, apiKey, que
 			}
 			if err := broker.MapsCallLog.Create(logEntry); err != nil {
 				// Log error but don't fail the API call
-				fmt.Printf("Failed to log maps call: %v\n", err)
+				slog.Error("Failed to log maps call", "error", err)
 			}
 		}
 
@@ -300,7 +312,7 @@ func GetPlacesViaTextSearch(ctx context.Context, broker *db.Service, apiKey, que
 }
 
 // GetPlaceDetails retrieves essential place information from Google Places API given a place ID
-func GetPlaceDetails(ctx context.Context, broker *db.Service, apiKey, placeID, fieldMask string, ipAddress string) (*PlaceDetails, error) {
+func GetPlaceDetails(ctx context.Context, broker *db.Service, apiKey, placeID, fieldMask string, ipAddress string, requestID string) (*PlaceDetails, error) {
 	url := fmt.Sprintf("%s/%s", placeDetailsEndpoint, placeID)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -311,11 +323,16 @@ func GetPlaceDetails(ctx context.Context, broker *db.Service, apiKey, placeID, f
 	req.Header.Set("X-Goog-Api-Key", apiKey)
 	req.Header.Set("X-Goog-FieldMask", fieldMask)
 
+	start := time.Now()
 	resp, err := httpClient.Do(req)
+	duration := time.Since(start)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request to Google Places API: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Log the API call
+	slog.Info("Maps API call completed", "request_id", requestID, "api", "places-details", "place_id", placeID, "duration_ms", duration.Milliseconds())
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -343,7 +360,7 @@ func GetPlaceDetails(ctx context.Context, broker *db.Service, apiKey, placeID, f
 		}
 		if err := broker.MapsCallLog.Create(logEntry); err != nil {
 			// Log error but don't fail the API call
-			fmt.Printf("Failed to log maps call: %v\n", err)
+			slog.Error("Failed to log maps call", "error", err)
 		}
 	}
 

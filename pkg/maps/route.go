@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -105,13 +106,13 @@ type SpeedReadingInterval struct {
 
 // GetRoute takes an API key and two location strings, then returns
 // information about the route with traffic-aware routing.
-func GetRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination, ipAddress string, latitude, longitude *float64) (*RouteInfo, error) {
+func GetRoute(ctx context.Context, broker *db.Service, apiKey, origin, destination, ipAddress string, latitude, longitude *float64, requestID string) (*RouteInfo, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key is missing. Please set the GOOGLE_MAPS_API_KEY environment variable")
 	}
 
 	// Get enhanced route data with traffic information
-	enhancedRoute, err := getEnhancedRouteData(ctx, broker, apiKey, origin, destination)
+	enhancedRoute, err := getEnhancedRouteData(ctx, broker, apiKey, origin, destination, requestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get route: %w", err)
 	}
@@ -136,7 +137,7 @@ func GetRoute(ctx context.Context, broker *db.Service, apiKey, origin, destinati
 		}
 		if err := broker.RouteCallLog.Create(logEntry); err != nil {
 			// Log error but don't fail the API call
-			fmt.Printf("Failed to log route call: %v\n", err)
+			slog.Error("Failed to log route call", "error", err)
 		}
 
 		// Also log the Maps API call
@@ -147,7 +148,7 @@ func GetRoute(ctx context.Context, broker *db.Service, apiKey, origin, destinati
 		}
 		if err := broker.MapsCallLog.Create(mapsLogEntry); err != nil {
 			// Log error but don't fail the API call
-			fmt.Printf("Failed to log maps call: %v\n", err)
+			slog.Error("Failed to log maps call", "error", err)
 		}
 	}
 
@@ -187,7 +188,7 @@ func parseWaypoint(location string) Waypoint {
 }
 
 // getEnhancedRouteData fetches traffic-aware route data from Google Routes API
-func getEnhancedRouteData(ctx context.Context, broker *db.Service, apiKey, origin, destination string) (*EnhancedRouteResponse, error) {
+func getEnhancedRouteData(ctx context.Context, broker *db.Service, apiKey, origin, destination string, requestID string) (*EnhancedRouteResponse, error) {
 	// Parse origin and destination waypoints
 	originWaypoint := parseWaypoint(origin)
 	destinationWaypoint := parseWaypoint(destination)
@@ -219,11 +220,16 @@ func getEnhancedRouteData(ctx context.Context, broker *db.Service, apiKey, origi
 	req.Header.Set("X-Goog-FieldMask", "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.travelAdvisory.speedReadingIntervals")
 
 	client := &http.Client{}
+	start := time.Now()
 	resp, err := client.Do(req)
+	duration := time.Since(start)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	// Log the API call
+	slog.Info("Maps API call completed", "request_id", requestID, "api", "routes-compute-routes", "duration_ms", duration.Milliseconds())
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

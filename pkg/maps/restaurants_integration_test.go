@@ -26,7 +26,7 @@ func TestGetPlaceDetailsViaTextSearch(t *testing.T) {
 	}
 
 	// Call the real API
-	places, err := GetPlacesViaTextSearch(context.Background(), nil, apiKey, query, "places.id", targetCircle, true, "")
+	places, err := GetPlacesViaTextSearch(context.Background(), nil, apiKey, query, "places.id", targetCircle, true, "", "test-request-id")
 	if err != nil {
 		t.Fatalf("GetPlaceIDsViaTextSearch failed: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestGetPlaceDetailsViaTextSearch(t *testing.T) {
 	}
 
 	// do 1 pro request to make sure all fields are populated
-	places, err = GetPlacesViaTextSearch(context.Background(), nil, apiKey, query, FieldMaskRestaurantTextSearch, targetCircle, false, "")
+	places, err = GetPlacesViaTextSearch(context.Background(), nil, apiKey, query, FieldMaskRestaurantTextSearch, targetCircle, false, "", "test-request-id")
 	if err != nil {
 		t.Fatalf("GetPlaceIDsViaTextSearch failed: %v", err)
 	}

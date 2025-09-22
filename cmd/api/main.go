@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"sort"
@@ -18,11 +18,15 @@ import (
 
 	"github.com/brensch/passengerprincess/pkg/db"
 	"github.com/brensch/passengerprincess/pkg/maps"
-	"gorm.io/gorm/logger"
 )
 
 // Global variable for the Google Maps API key.
 var googleAPIKey = os.Getenv("MAPS_API_KEY")
+
+// Context key type for request ID
+type contextKey string
+
+const requestIDKey contextKey = "requestID"
 
 // gzipResponseWriter wraps http.ResponseWriter to enable gzip compression
 type gzipResponseWriter struct {
@@ -75,6 +79,62 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
+// loggingMiddleware wraps an http.HandlerFunc to add request logging with request ID
+func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Generate request ID
+		requestID := generateRequestID()
+
+		// Add request ID to context
+		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
+		r = r.WithContext(ctx)
+
+		// Get client IP
+		ipAddress := getClientIP(r)
+
+		// Start timing
+		start := time.Now()
+
+		// Create a response writer wrapper to capture status code
+		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+		// Call the next handler
+		next(rw, r)
+
+		// Log the request
+		duration := time.Since(start)
+		slog.Info("API request completed",
+			"request_id", requestID,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"ip", ipAddress,
+			"status", rw.statusCode,
+			"duration", duration.Milliseconds(),
+		)
+	}
+}
+
+// responseWriter wraps http.ResponseWriter to capture the status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// generateRequestID generates a unique request ID
+func generateRequestID() string {
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to timestamp-based ID if crypto rand fails
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(bytes)
+}
+
 // generateSessionToken creates a random session token for Google Places Autocomplete
 func generateSessionToken() (string, error) {
 	bytes := make([]byte, 16)
@@ -85,38 +145,47 @@ func generateSessionToken() (string, error) {
 }
 
 func main() {
+	// Set up structured logging
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
 	// Check if the API key is set.
 	if googleAPIKey == "" {
 		googleAPIKey = "YOUR_GOOGLE_MAPS_API_KEY" // Fallback for local testing
-		log.Println("WARNING: MAPS_API_KEY environment variable not set. Using placeholder.")
+		slog.Warn("MAPS_API_KEY environment variable not set. Using placeholder.")
 	}
 	if googleAPIKey == "YOUR_GOOGLE_MAPS_API_KEY" {
-		log.Fatal("FATAL: Please replace 'YOUR_GOOGLE_MAPS_API_KEY' with your actual Google Maps API key.")
+		slog.Error("Please replace 'YOUR_GOOGLE_MAPS_API_KEY' with your actual Google Maps API key.")
+		os.Exit(1)
 	}
 
 	// Initialize database
 	config := &db.Config{
 		DatabasePath: "db/passengerprincess.db",
-		LogLevel:     logger.Warn,
+		LogLevel:     3, // Warn level
 	}
 	if err := db.Initialize(config); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 
 	// Register handlers.
 	http.Handle("/", http.FileServer(http.Dir("frontend/dist/"))) // Serve static files from frontend dist
-	http.HandleFunc("/autocomplete", withGzip(autocompleteHandler))
-	http.HandleFunc("/route", withGzip(routeHandler))
-	http.HandleFunc("/superchargers/viewport", withGzip(viewportHandler))
-	http.HandleFunc("/reverse-geocode", withGzip(reverseGeocodeHandler))
-	http.HandleFunc("/stats", statsHandler)
+	http.HandleFunc("/autocomplete", withGzip(loggingMiddleware(autocompleteHandler)))
+	http.HandleFunc("/route", withGzip(loggingMiddleware(routeHandler)))
+	http.HandleFunc("/superchargers/viewport", withGzip(loggingMiddleware(viewportHandler)))
+	http.HandleFunc("/reverse-geocode", withGzip(loggingMiddleware(reverseGeocodeHandler)))
+	http.HandleFunc("/stats", loggingMiddleware(statsHandler))
 
 	// Start the server.
 	port := "8040"
-	log.Printf("Server starting...")
-	log.Printf("Access the web interface at http://localhost:%s/", port)
+	slog.Info("Server starting")
+	slog.Info("Access the web interface", "url", "http://localhost:"+port+"/")
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		slog.Error("Failed to start server", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -148,7 +217,7 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 		// Generate new session token
 		newToken, err := generateSessionToken()
 		if err != nil {
-			log.Printf("Error generating session token: %v", err)
+			slog.Error("Error generating session token", "error", err)
 			writeJSONError(w, "Failed to generate session token", http.StatusInternalServerError)
 			return
 		}
@@ -162,10 +231,13 @@ func autocompleteHandler(w http.ResponseWriter, r *http.Request) {
 	// Get database service
 	service := db.GetDefaultService()
 
+	// Get request ID from context
+	requestID := r.Context().Value(requestIDKey).(string)
+
 	// Get autocomplete suggestions with session token
-	suggestions, err := maps.GetAutocompleteSuggestions(ctx, service, googleAPIKey, partial, sessionToken, getClientIP(r))
+	suggestions, err := maps.GetAutocompleteSuggestions(ctx, service, googleAPIKey, partial, sessionToken, getClientIP(r), requestID)
 	if err != nil {
-		log.Printf("Error getting autocomplete suggestions: %v", err)
+		slog.Error("Error getting autocomplete suggestions", "error", err, "request_id", requestID)
 		writeJSONError(w, "Failed to get autocomplete suggestions", http.StatusInternalServerError)
 		return
 	}
@@ -215,10 +287,13 @@ func routeHandler(w http.ResponseWriter, r *http.Request) {
 	// Get database service
 	service := db.GetDefaultService()
 
+	// Get request ID from context
+	requestID := r.Context().Value(requestIDKey).(string)
+
 	// Get route with superchargers
-	result, err := maps.GetSuperchargersOnRoute(ctx, service, googleAPIKey, origin, destination, ipAddress, latitude, longitude)
+	result, err := maps.GetSuperchargersOnRoute(ctx, service, googleAPIKey, origin, destination, ipAddress, latitude, longitude, requestID)
 	if err != nil {
-		log.Printf("Error getting superchargers on route: %v", err)
+		slog.Error("Error getting superchargers on route", "error", err, "request_id", requestID)
 		writeJSONError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -277,7 +352,7 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 	// Get superchargers within the viewport bounds
 	superchargers, err := service.Supercharger.GetByLocation(minLat, maxLat, minLng, maxLng)
 	if err != nil {
-		log.Printf("Error getting superchargers by location: %v", err)
+		slog.Error("Error getting superchargers by location", "error", err)
 		writeJSONError(w, "Failed to get superchargers", http.StatusInternalServerError)
 		return
 	}
@@ -285,7 +360,7 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 	// Get restaurants within the viewport bounds
 	restaurants, err := service.Restaurant.GetByLocation(minLat, maxLat, minLng, maxLng)
 	if err != nil {
-		log.Printf("Error getting restaurants by location: %v", err)
+		slog.Error("Error getting restaurants by location", "error", err)
 		writeJSONError(w, "Failed to get restaurants", http.StatusInternalServerError)
 		return
 	}
@@ -299,7 +374,7 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 	if len(superchargerIDs) > 0 {
 		mappings, err = service.Supercharger.GetMappingsForSuperchargers(superchargerIDs)
 		if err != nil {
-			log.Printf("Error getting mappings: %v", err)
+			slog.Error("Error getting mappings", "error", err)
 			writeJSONError(w, "Failed to get mappings", http.StatusInternalServerError)
 			return
 		}
@@ -350,24 +425,32 @@ func reverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
 	// Get database service
 	service := db.GetDefaultService()
 
+	// Get request ID from context
+	requestID := r.Context().Value(requestIDKey).(string)
+
 	// Call Google Maps Geocoding API
 	url := "https://maps.googleapis.com/maps/api/geocode/json?latlng=" + latStr + "," + lonStr + "&key=" + googleAPIKey
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		log.Printf("Error creating reverse geocoding request: %v", err)
+		slog.Error("Error creating reverse geocoding request", "error", err, "request_id", requestID)
 		writeJSONError(w, "Failed to create geocoding request", http.StatusInternalServerError)
 		return
 	}
 
 	client := &http.Client{}
+	start := time.Now()
 	resp, err := client.Do(req)
+	duration := time.Since(start)
 	if err != nil {
-		log.Printf("Error making reverse geocoding request: %v", err)
+		slog.Error("Error making reverse geocoding request", "error", err, "request_id", requestID)
 		writeJSONError(w, "Failed to geocode location", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
+
+	// Log the API call
+	slog.Info("Maps API call completed", "request_id", requestID, "api", "geocoding", "duration", duration.Milliseconds())
 
 	var geocodeData struct {
 		Status  string `json:"status"`
@@ -378,7 +461,7 @@ func reverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&geocodeData); err != nil {
-		log.Printf("Error decoding reverse geocoding response: %v", err)
+		slog.Error("Error decoding reverse geocoding response", "error", err)
 		writeJSONError(w, "Failed to decode geocoding response", http.StatusInternalServerError)
 		return
 	}
@@ -392,12 +475,12 @@ func reverseGeocodeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := service.MapsCallLog.Create(logEntry); err != nil {
 			// Log error but don't fail the API call
-			log.Printf("Failed to log maps call: %v", err)
+			slog.Error("Failed to log maps call", "error", err)
 		}
 	}
 
 	if geocodeData.Status != "OK" {
-		log.Printf("Reverse geocoding failed with status: %s, message: %s", geocodeData.Status, geocodeData.ErrorMessage)
+		slog.Warn("Reverse geocoding failed", "status", geocodeData.Status, "message", geocodeData.ErrorMessage)
 		// Fallback to coordinates if reverse geocoding fails
 		formattedCoords := strconv.FormatFloat(lat, 'f', 6, 64) + ", " + strconv.FormatFloat(lon, 'f', 6, 64)
 		w.Header().Set("Content-Type", "application/json")
@@ -448,7 +531,7 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 	// Get total API calls in last 30 days
 	totalCalls, err := service.MapsCallLog.Count()
 	if err != nil {
-		log.Printf("Error getting total calls: %v", err)
+		slog.Error("Error getting total calls", "error", err)
 		writeJSONError(w, "Failed to get statistics", http.StatusInternalServerError)
 		return
 	}
@@ -456,11 +539,11 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 	// Get all logs (simplified approach)
 	allLogs, err := service.MapsCallLog.GetBySKU("", 10000, 0)
 	if err != nil {
-		log.Printf("Error getting all logs: %v", err)
+		slog.Error("Error getting all logs", "error", err)
 		allLogs = []db.MapsCallLog{}
 	}
 
-	log.Printf("Retrieved %d total logs", len(allLogs))
+	slog.Info("Retrieved total logs", "count", len(allLogs))
 
 	// Aggregate by IP
 	ipStats := make(map[string]int)
@@ -487,7 +570,7 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 	// Get last 50 route calls
 	routeLogs, err := service.RouteCallLog.GetByIPAddress("", 50, 0)
 	if err != nil {
-		log.Printf("Error getting route logs: %v", err)
+		slog.Error("Error getting route logs", "error", err)
 		routeLogs = []db.RouteCallLog{}
 	}
 
