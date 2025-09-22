@@ -32,6 +32,57 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     const debounceRef = useRef<NodeJS.Timeout | number>()
 
     useEffect(() => {
+        const originInput = originRef.current
+        const destinationInput = destinationRef.current
+
+        const handleFocus = (event: FocusEvent) => {
+            const target = event.target as HTMLInputElement
+            // Small delay to allow keyboard to appear
+            setTimeout(() => {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'nearest'
+                })
+            }, 300)
+        }
+
+        if (originInput) {
+            originInput.addEventListener('focus', handleFocus)
+        }
+        if (destinationInput) {
+            destinationInput.addEventListener('focus', handleFocus)
+        }
+
+        return () => {
+            if (originInput) {
+                originInput.removeEventListener('focus', handleFocus)
+            }
+            if (destinationInput) {
+                destinationInput.removeEventListener('focus', handleFocus)
+            }
+        }
+    }, [])
+
+    useEffect(() => {
+        const dropdowns = document.querySelectorAll('.mobile-dropdown')
+
+        const handleTouchMove = (e: Event) => {
+            e.stopPropagation()
+        }
+
+        dropdowns.forEach(dropdown => {
+            dropdown.addEventListener('touchmove', handleTouchMove)
+        })
+
+        return () => {
+            dropdowns.forEach(dropdown => {
+                dropdown.removeEventListener('touchmove', handleTouchMove)
+            })
+        }
+    }, [showOriginSuggestions, showDestinationSuggestions])
+
+    useEffect(() => {
         if (!isError) {
             setFullError(null)
         }
@@ -315,7 +366,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                             onKeyDown={(e) => handleKeyDown(e, 'origin')}
                             onFocus={() => handleFocus('origin')}
                             onBlur={() => handleBlur('origin')}
-                            placeholder="Princess Pickup Point"
+                            placeholder="Current Location"
                             className={`w-full pl-16 pr-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
                          bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
                          focus:border-transparent transition-all duration-300 
