@@ -24,8 +24,9 @@ const AppContent = () => {
     const {
         searchFilters,
         filteredStationData,
-        searchTerm,
-        cuisineFilters,
+        selectedPlaces,
+        typedPlace,
+        selectedCuisines,
         updateFilters,
         clearFilters,
         filterCount
@@ -290,7 +291,7 @@ const AppContent = () => {
                             <ResultsTable
                                 stationData={filteredStationData}
                                 routeData={routeData}
-                                searchTerm={searchTerm}
+                                searchTerm={typedPlace}
                                 className="w-full"
                                 onShowSuperchargerPopup={(placeId) => {
 
@@ -356,8 +357,9 @@ const AppContent = () => {
             <FilterModal
                 isOpen={isFilterModalOpen}
                 onClose={() => setIsFilterModalOpen(false)}
-                searchTerm={searchTerm}
-                cuisineFilters={cuisineFilters}
+                selectedPlaces={selectedPlaces}
+                typedPlace={typedPlace}
+                selectedCuisines={selectedCuisines}
                 onFilter={updateFilters}
                 stationData={stationData}
             />

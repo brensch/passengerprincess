@@ -72,8 +72,9 @@ export interface ViewportResponse {
 
 // UI types
 export interface SearchFilters {
-    searchTerm: string
-    cuisineFilters: string[]
+    selectedPlaces: string[]
+    typedPlace: string
+    selectedCuisines: string[]
 }
 
 export type ViewMode = 'search' | 'results' | 'map'
