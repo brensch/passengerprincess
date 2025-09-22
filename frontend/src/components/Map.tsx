@@ -87,6 +87,12 @@ const Map = forwardRef<MapRef, MapProps>(({
     const [viewportMappings, setViewportMappings] = useState<RestaurantSuperchargerMapping[]>([])
     const { viewport } = useViewport()
 
+    // Caching state
+    const [allSuperchargers, setAllSuperchargers] = useState<Supercharger[]>([])
+    const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([])
+    const [allMappings, setAllMappings] = useState<RestaurantSuperchargerMapping[]>([])
+    const [coveredBounds, setCoveredBounds] = useState<{minLat: number, maxLat: number, minLng: number, maxLng: number} | null>(null)
+
     // Warning popup state
     const [showLocationWarning, setShowLocationWarning] = useState(false)
     const [locationPermission, setLocationPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
@@ -411,6 +417,71 @@ const Map = forwardRef<MapRef, MapProps>(({
         updateMarkers()
     }, [updateMarkers])
 
+    // Helper functions for caching
+    const isBoundsWithinCovered = (bounds: L.LatLngBounds, covered: {minLat: number, maxLat: number, minLng: number, maxLng: number}) => {
+        const { minLat, maxLat, minLng, maxLng } = covered
+        return bounds.getSouth() >= minLat && bounds.getNorth() <= maxLat && bounds.getWest() >= minLng && bounds.getEast() <= maxLng
+    }
+
+    const filterDataByBounds = (bounds: L.LatLngBounds) => {
+        const minLat = bounds.getSouth()
+        const maxLat = bounds.getNorth()
+        const minLng = bounds.getWest()
+        const maxLng = bounds.getEast()
+
+        const filteredSuperchargers = allSuperchargers.filter(sc =>
+            sc.latitude >= minLat && sc.latitude <= maxLat && sc.longitude >= minLng && sc.longitude <= maxLng
+        )
+        const filteredRestaurants = allRestaurants.filter(r =>
+            r.latitude >= minLat && r.latitude <= maxLat && r.longitude >= minLng && r.longitude <= maxLng
+        )
+        const superchargerIds = new Set(filteredSuperchargers.map(sc => sc.place_id))
+        const filteredMappings = allMappings.filter(m => superchargerIds.has(m.supercharger_id))
+
+        return {
+            superchargers: filteredSuperchargers,
+            restaurants: filteredRestaurants,
+            mappings: filteredMappings
+        }
+    }
+
+    const mergeData = (newData: ViewportResponse) => {
+        setAllSuperchargers(prev => {
+            const existingIds = new Set(prev.map(sc => sc.place_id))
+            const newOnes = newData.superchargers?.filter(sc => !existingIds.has(sc.place_id)) || []
+            return [...prev, ...newOnes]
+        })
+        setAllRestaurants(prev => {
+            const existingIds = new Set(prev.map(r => r.place_id))
+            const newOnes = newData.restaurants?.filter(r => !existingIds.has(r.place_id)) || []
+            return [...prev, ...newOnes]
+        })
+        setAllMappings(prev => {
+            const existingKeys = new Set(prev.map(m => `${m.restaurant_id}-${m.supercharger_id}`))
+            const newOnes = newData.mappings?.filter(m => !existingKeys.has(`${m.restaurant_id}-${m.supercharger_id}`)) || []
+            return [...prev, ...newOnes]
+        })
+    }
+
+    const updateCoveredBounds = (newBounds: L.LatLngBounds) => {
+        setCoveredBounds(prev => {
+            if (!prev) {
+                return {
+                    minLat: newBounds.getSouth(),
+                    maxLat: newBounds.getNorth(),
+                    minLng: newBounds.getWest(),
+                    maxLng: newBounds.getEast()
+                }
+            }
+            return {
+                minLat: Math.min(prev.minLat, newBounds.getSouth()),
+                maxLat: Math.max(prev.maxLat, newBounds.getNorth()),
+                minLng: Math.min(prev.minLng, newBounds.getWest()),
+                maxLng: Math.max(prev.maxLng, newBounds.getEast())
+            }
+        })
+    }
+
     // Handle viewport data fetching
     const fetchViewportData = useCallback(async () => {
         if (!mapRef.current) return
@@ -420,6 +491,16 @@ const Map = forwardRef<MapRef, MapProps>(({
         if (lastBoundsRef.current === boundsStr) return
         lastBoundsRef.current = boundsStr
 
+        // Check if current bounds are within covered bounds
+        if (coveredBounds && isBoundsWithinCovered(bounds, coveredBounds)) {
+            const filteredData = filterDataByBounds(bounds)
+            setViewportData(filteredData)
+            setViewportMappings(filteredData.mappings)
+            globalViewportData.mappings = filteredData.mappings
+            globalViewportData.listeners.forEach(l => l())
+            return
+        }
+
         setIsViewportLoading(true)
         const [minLng, minLat, maxLng, maxLat] = boundsStr.split(',').map(parseFloat)
         try {
@@ -428,6 +509,8 @@ const Map = forwardRef<MapRef, MapProps>(({
             )
             const data: ViewportResponse = await response.json()
             if (response.ok) {
+                mergeData(data)
+                updateCoveredBounds(bounds)
                 setViewportData(data)
                 setViewportMappings(data.mappings || [])
                 globalViewportData.mappings = data.mappings || []
@@ -438,7 +521,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         } finally {
             setIsViewportLoading(false)
         }
-    }, [])
+    }, [coveredBounds, allSuperchargers, allRestaurants, allMappings])
 
     // Set up viewport update handlers
     useEffect(() => {
