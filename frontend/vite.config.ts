@@ -17,11 +17,11 @@ export default defineConfig({
     },
     server: {
         proxy: {
-            '/api': 'http://localhost:8040',
-            '/route': 'http://localhost:8040',
-            '/superchargers': 'http://localhost:8040',
-            '/autocomplete': 'http://localhost:8040',
-            '/reverse-geocode': 'http://localhost:8040'
+            '/api': 'http://127.0.0.1:8040',
+            '/route': 'http://127.0.0.1:8040',
+            '/superchargers': 'http://127.0.0.1:8040',
+            '/autocomplete': 'http://127.0.0.1:8040',
+            '/reverse-geocode': 'http://127.0.0.1:8040'
         }
     }
 })
