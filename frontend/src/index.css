@@ -106,6 +106,24 @@ body, html {
   z-index: 9999; /* Ensure it stays above keyboard */
   /* Prevent the dropdown from being affected by keyboard resize */
   position: absolute !important;
+  /* Specific Android Chrome fixes */
+  contain: layout style paint;
+  /* Ensure smooth scrolling on all mobile browsers */
+  scroll-behavior: auto;
+  /* Force compositing layer for better touch performance */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Specific fix for Android Chrome */
+@supports (-webkit-appearance: none) {
+  .mobile-dropdown {
+    /* Android Chrome specific scrolling optimization */
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    /* Prevent scroll blocking */
+    touch-action: manipulation pan-y;
+  }
 }
 
 /* Android-specific fixes for virtual keyboard */

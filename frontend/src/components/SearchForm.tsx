@@ -63,7 +63,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         window.addEventListener('resize', handleViewportChange)
         // Also listen for orientationchange which is more reliable on mobile
         window.addEventListener('orientationchange', handleViewportChange)
-        
+
         // Listen for keyboard events specifically
         window.addEventListener('focusin', handleViewportChange)
         window.addEventListener('focusout', handleViewportChange)
@@ -393,23 +393,32 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
-                          overscroll-contain touch-pan-y"
-                          style={{ 
-                            WebkitOverflowScrolling: 'touch',
-                            touchAction: 'pan-y',
-                            overscrollBehavior: 'contain'
-                          }}>
+                        <div 
+                            className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                              rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown"
+                            onMouseDown={(e) => {
+                                // Handle suggestion clicks via event delegation
+                                const target = e.target as HTMLElement
+                                const suggestionDiv = target.closest('[data-suggestion-index]') as HTMLElement
+                                if (suggestionDiv) {
+                                    e.preventDefault()
+                                    const index = parseInt(suggestionDiv.getAttribute('data-suggestion-index') || '0')
+                                    const suggestion = originSuggestions[index]
+                                    if (suggestion) {
+                                        handleSuggestionClick(suggestion, 'origin')
+                                    }
+                                }
+                            }}
+                        >
                             {originSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
+                                    data-suggestion-index={index}
                                     className={`px-4 py-3 cursor-pointer transition-colors border-b border-princess-border last:border-b-0
                             ${index === selectedOriginIndex
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
-                                    onMouseDown={() => handleSuggestionClick(suggestion, 'origin')}
                                 >
                                     {suggestion.description}
                                 </div>
@@ -439,23 +448,32 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
-                          rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
-                          overscroll-contain touch-pan-y"
-                          style={{ 
-                            WebkitOverflowScrolling: 'touch',
-                            touchAction: 'pan-y',
-                            overscrollBehavior: 'contain'
-                          }}>
+                        <div 
+                            className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                              rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown"
+                            onMouseDown={(e) => {
+                                // Handle suggestion clicks via event delegation
+                                const target = e.target as HTMLElement
+                                const suggestionDiv = target.closest('[data-suggestion-index]') as HTMLElement
+                                if (suggestionDiv) {
+                                    e.preventDefault()
+                                    const index = parseInt(suggestionDiv.getAttribute('data-suggestion-index') || '0')
+                                    const suggestion = destinationSuggestions[index]
+                                    if (suggestion) {
+                                        handleSuggestionClick(suggestion, 'destination')
+                                    }
+                                }
+                            }}
+                        >
                             {destinationSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
+                                    data-suggestion-index={index}
                                     className={`px-4 py-3 cursor-pointer transition-colors border-b border-princess-border last:border-b-0
                             ${index === selectedDestinationIndex
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
-                                    onMouseDown={() => handleSuggestionClick(suggestion, 'destination')}
                                 >
                                     {suggestion.description}
                                 </div>
