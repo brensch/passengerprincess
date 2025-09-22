@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { StationData } from '../types'
+import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
 
 interface FilterModalProps {
     isOpen: boolean
@@ -36,6 +37,7 @@ const FilterModal = ({
     const [showCuisineSuggestions, setShowCuisineSuggestions] = useState(false)
     const [restaurantToCuisines, setRestaurantToCuisines] = useState<Record<string, string[]>>({})
     const [cuisineToRestaurants, setCuisineToRestaurants] = useState<Record<string, string[]>>({})
+    const [restaurantEmojis, setRestaurantEmojis] = useState<Record<string, string>>({})
 
     useEffect(() => {
         setLocalSelectedPlaces(selectedPlaces)
@@ -53,8 +55,8 @@ const FilterModal = ({
         const seenPlaceIds = new Set<string>()
         stationData.forEach(station => {
             station.restaurants?.forEach(restaurant => {
-                if (restaurant.primary_type_display) {
-                    const type = restaurant.primary_type_display.trim()
+                if (restaurant.primary_type) {
+                    const type = restaurant.primary_type.trim()
                     cuisineCountsMap[type] = (cuisineCountsMap[type] || 0) + 1
                 }
                 if (restaurant.name && restaurant.place_id) {
@@ -65,8 +67,8 @@ const FilterModal = ({
                         restaurantCountsMap[name] = (restaurantCountsMap[name] || 0) + 1
                     }
                     // Add to maps
-                    if (restaurant.primary_type_display) {
-                        const type = restaurant.primary_type_display.trim()
+                    if (restaurant.primary_type) {
+                        const type = restaurant.primary_type.trim()
                         if (!cuisineToRests[type]) cuisineToRests[type] = []
                         if (!cuisineToRests[type].includes(name)) {
                             cuisineToRests[type].push(name)
@@ -85,6 +87,16 @@ const FilterModal = ({
         setRestaurantNames(Object.keys(restaurantCountsMap).sort((a, b) => restaurantCountsMap[b] - restaurantCountsMap[a]))
         setRestaurantToCuisines(restToCuis)
         setCuisineToRestaurants(cuisineToRests)
+
+        // Build restaurant emojis map
+        const emojisMap: Record<string, string> = {}
+        Object.keys(restToCuis).forEach(name => {
+            const cuisines = restToCuis[name]
+            if (cuisines.length > 0) {
+                emojisMap[name] = getRestaurantEmoji(cuisines[0])
+            }
+        })
+        setRestaurantEmojis(emojisMap)
     }, [stationData])
 
     const filteredRestaurantNames = useMemo(() => {
@@ -175,35 +187,38 @@ const FilterModal = ({
                     {/* Places Section */}
                     <div className="p-6 pb-4">
                         <div className="relative">
-                            <input
-                                type="text"
-                                value={localTypedPlace}
-                                onChange={(e) => {
-                                    const value = e.target.value
-                                    setLocalTypedPlace(value)
-                                    onFilter(localSelectedPlaces, localSelectedContainingPlaces, value, localSelectedCuisines)
-                                    if (value.trim() === '') {
-                                        setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
+                            <div className="flex items-center">
+                                <span className="absolute left-4 text-2xl pointer-events-none">🔎</span>
+                                <input
+                                    type="text"
+                                    value={localTypedPlace}
+                                    onChange={(e) => {
+                                        const value = e.target.value
+                                        setLocalTypedPlace(value)
+                                        onFilter(localSelectedPlaces, localSelectedContainingPlaces, value, localSelectedCuisines)
+                                        if (value.trim() === '') {
+                                            setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
+                                            setShowPlaceSuggestions(true)
+                                        } else {
+                                            setPlaceSuggestions(filteredRestaurantNames.filter(name =>
+                                                name.toLowerCase().includes(value.toLowerCase())
+                                            ).slice(0, 40))
+                                            setShowPlaceSuggestions(true)
+                                        }
+                                    }}
+                                    onFocus={() => {
                                         setShowPlaceSuggestions(true)
-                                    } else {
-                                        setPlaceSuggestions(filteredRestaurantNames.filter(name =>
-                                            name.toLowerCase().includes(value.toLowerCase())
-                                        ).slice(0, 40))
-                                        setShowPlaceSuggestions(true)
-                                    }
-                                }}
-                                onFocus={() => {
-                                    setShowPlaceSuggestions(true)
-                                    if (localTypedPlace.trim() === '') {
-                                        setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
-                                    }
-                                }}
-                                onBlur={() => setTimeout(() => setShowPlaceSuggestions(false), 200)}
-                                className="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 
-                         focus:ring-princess-accent-lavender text-base bg-princess-surface 
-                         border border-princess-border"
-                                placeholder="Names"
-                            />
+                                        if (localTypedPlace.trim() === '') {
+                                            setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
+                                        }
+                                    }}
+                                    onBlur={() => setTimeout(() => setShowPlaceSuggestions(false), 200)}
+                                    className="w-full pl-16 pr-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
+                                         bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
+                                         focus:border-transparent transition-all duration-300"
+                                    placeholder="Names"
+                                />
+                            </div>
 
                             {showPlaceSuggestions && (
                                 <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-10 shadow-lg">
@@ -214,7 +229,7 @@ const FilterModal = ({
                                                 onClick={() => handlePlaceSelect(name)}
                                                 className="p-2 hover:bg-princess-surface-soft rounded cursor-pointer"
                                             >
-                                                {name} ({restaurantCounts[name]})
+                                                {restaurantEmojis[name]} {name} ({restaurantCounts[name]})
                                             </div>
                                         ))}
                                         {localTypedPlace.trim() !== '' && (
@@ -251,30 +266,33 @@ const FilterModal = ({
                     {/* Cuisines Section */}
                     <div className="p-6 pb-4">
                         <div className="relative">
-                            <input
-                                type="text"
-                                onChange={(e) => {
-                                    const value = e.target.value
-                                    if (value.trim() === '') {
+                            <div className="flex items-center">
+                                <span className="absolute left-4 text-2xl pointer-events-none">🍴</span>
+                                <input
+                                    type="text"
+                                    onChange={(e) => {
+                                        const value = e.target.value
+                                        if (value.trim() === '') {
+                                            setCuisineSuggestions(filteredCuisines)
+                                            setShowCuisineSuggestions(true)
+                                        } else {
+                                            setCuisineSuggestions(filteredCuisines.filter(cuisine =>
+                                                cuisine.toLowerCase().includes(value.toLowerCase())
+                                            ))
+                                            setShowCuisineSuggestions(true)
+                                        }
+                                    }}
+                                    onFocus={() => {
+                                        setShowCuisineSuggestions(true)
                                         setCuisineSuggestions(filteredCuisines)
-                                        setShowCuisineSuggestions(true)
-                                    } else {
-                                        setCuisineSuggestions(filteredCuisines.filter(cuisine =>
-                                            cuisine.toLowerCase().includes(value.toLowerCase())
-                                        ))
-                                        setShowCuisineSuggestions(true)
-                                    }
-                                }}
-                                onFocus={() => {
-                                    setShowCuisineSuggestions(true)
-                                    setCuisineSuggestions(filteredCuisines)
-                                }}
-                                onBlur={() => setTimeout(() => setShowCuisineSuggestions(false), 200)}
-                                className="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 
-                         focus:ring-princess-accent-lavender text-base bg-princess-surface 
-                         border border-princess-border"
-                                placeholder="Cuisines"
-                            />
+                                    }}
+                                    onBlur={() => setTimeout(() => setShowCuisineSuggestions(false), 200)}
+                                    className="w-full pl-16 pr-6 py-4 text-lg rounded-2xl border-2 border-princess-border 
+                                         bg-princess-surface focus:outline-none focus:ring-2 focus:ring-princess-accent-lavender 
+                                         focus:border-transparent transition-all duration-300"
+                                    placeholder="Cuisines"
+                                />
+                            </div>
 
                             {showCuisineSuggestions && (
                                 <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-10 shadow-lg">
@@ -285,7 +303,7 @@ const FilterModal = ({
                                                 onClick={() => handleCuisineSelect(cuisine)}
                                                 className="p-2 hover:bg-princess-surface-soft rounded cursor-pointer"
                                             >
-                                                {cuisine} ({cuisineCounts[cuisine]})
+                                                {getRestaurantEmoji(cuisine)} {cuisine} ({cuisineCounts[cuisine]})
                                             </div>
                                         ))}
                                     </div>
