@@ -24,6 +24,7 @@ const FilterModal = ({
     const [cuisineCounts, setCuisineCounts] = useState<Record<string, number>>({})
     const [restaurantCounts, setRestaurantCounts] = useState<Record<string, number>>({})
     const [restaurantNames, setRestaurantNames] = useState<string[]>([])
+    const [cuisineToRestaurants, setCuisineToRestaurants] = useState<Record<string, string[]>>({})
     const [suggestions, setSuggestions] = useState<string[]>([])
     const [showSuggestions, setShowSuggestions] = useState(false)
 
@@ -36,6 +37,7 @@ const FilterModal = ({
         // Extract cuisine and restaurant counts from station data
         const cuisineCountsMap: Record<string, number> = {}
         const restaurantCountsMap: Record<string, number> = {}
+        const cuisineToRests: Record<string, string[]> = {}
         stationData.forEach(station => {
             station.restaurants?.forEach(restaurant => {
                 if (restaurant.primary_type_display) {
@@ -45,6 +47,12 @@ const FilterModal = ({
                 if (restaurant.name) {
                     const name = restaurant.name.trim()
                     restaurantCountsMap[name] = (restaurantCountsMap[name] || 0) + 1
+                    // Add to cuisine map
+                    if (restaurant.primary_type_display) {
+                        const type = restaurant.primary_type_display.trim()
+                        if (!cuisineToRests[type]) cuisineToRests[type] = []
+                        cuisineToRests[type].push(name)
+                    }
                 }
             })
         })
@@ -52,6 +60,7 @@ const FilterModal = ({
         setAvailableCuisines(Object.keys(cuisineCountsMap).sort())
         setRestaurantCounts(restaurantCountsMap)
         setRestaurantNames(Object.keys(restaurantCountsMap).sort((a, b) => restaurantCountsMap[b] - restaurantCountsMap[a]))
+        setCuisineToRestaurants(cuisineToRests)
     }, [stationData])
 
     const handleCuisineToggle = (cuisine: string) => {
@@ -81,6 +90,20 @@ const FilterModal = ({
         onClose()
     }
 
+    const getFilteredRestaurantNames = () => {
+        if (localCuisineFilters.includes('') || localCuisineFilters.length === 0) {
+            return restaurantNames
+        } else {
+            const selectedRestaurants = new Set<string>()
+            localCuisineFilters.forEach(cuisine => {
+                if (cuisineToRestaurants[cuisine]) {
+                    cuisineToRestaurants[cuisine].forEach(name => selectedRestaurants.add(name))
+                }
+            })
+            return Array.from(selectedRestaurants).sort((a, b) => restaurantCounts[b] - restaurantCounts[a])
+        }
+    }
+
     const handleClear = () => {
         setLocalSearchTerm('')
         setLocalCuisineFilters([''])
@@ -107,10 +130,10 @@ const FilterModal = ({
                                     setLocalSearchTerm(value)
                                     onFilter(value, localCuisineFilters)
                                     if (value.trim() === '') {
-                                        setSuggestions(restaurantNames.slice(0, 10))
+                                        setSuggestions(getFilteredRestaurantNames().slice(0, 10))
                                         setShowSuggestions(true)
                                     } else {
-                                        setSuggestions(restaurantNames.filter(name =>
+                                        setSuggestions(getFilteredRestaurantNames().filter(name =>
                                             name.toLowerCase().includes(value.toLowerCase())
                                         ).slice(0, 10))
                                         setShowSuggestions(true)
@@ -119,7 +142,7 @@ const FilterModal = ({
                                 onFocus={() => {
                                     setShowSuggestions(true)
                                     if (localSearchTerm.trim() === '') {
-                                        setSuggestions(restaurantNames.slice(0, 10))
+                                        setSuggestions(getFilteredRestaurantNames().slice(0, 10))
                                     }
                                 }}
                                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
@@ -146,7 +169,7 @@ const FilterModal = ({
                                             </div>
                                         ))}
                                         <div className="text-xs text-princess-text-secondary p-2 border-t border-princess-border mt-2">
-                                            Only showing suggestions from along route. You can type a value not here and it will appear on the map in places not along your current route if you're really keen for that restaurant.
+                                            Only showing suggestions from along route for your current cuisine filters.
                                         </div>
                                     </div>
                                 </div>
