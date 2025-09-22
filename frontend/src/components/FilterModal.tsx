@@ -202,7 +202,7 @@ const FilterModal = ({
             className="fixed inset-0 flex items-center justify-center z-[1200] bg-black bg-opacity-50 backdrop-blur-sm"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose flex flex-col max-h-[80vh]">
+            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose flex flex-col max-h-[80vh] overflow-visible">
                 <div className="flex flex-col h-full">
                     <div className="p-6 pb-4">
                         <h2 className="text-3xl font-semibold my-0 font-dancing">Pick Places Please</h2>
@@ -246,7 +246,7 @@ const FilterModal = ({
                             </div>
 
                             {showPlaceSuggestions && (
-                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-10 shadow-lg mobile-dropdown">
+                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-50 shadow-lg mobile-dropdown">
                                     <div className="p-2">
                                         {placeSuggestions.map(name => (
                                             <div
@@ -321,7 +321,7 @@ const FilterModal = ({
                             </div>
 
                             {showCuisineSuggestions && (
-                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-10 shadow-lg mobile-dropdown">
+                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-50 shadow-lg mobile-dropdown">
                                     <div className="p-2">
                                         {cuisineSuggestions.map(cuisine => (
                                             <div

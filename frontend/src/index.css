@@ -91,17 +91,23 @@ body, html {
 
 /* Mobile dropdown scrolling fix */
 .mobile-dropdown {
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
   overscroll-behavior: contain;
   touch-action: pan-y; /* Allow vertical scrolling */
 }
 
-/* Ensure dropdowns are properly scrollable on mobile */
-@media (max-width: 768px) {
+/* Android-specific fixes */
+@media screen and (max-width: 768px) {
   .mobile-dropdown {
-    max-height: 200px; /* Ensure reasonable max height on mobile */
-    /* Additional mobile scrolling fixes */
-    -webkit-overflow-scrolling: touch;
+    -webkit-overflow-scrolling: auto; /* Android prefers auto over touch */
+    /* Ensure proper touch handling on Android */
+    touch-action: manipulation;
+    /* Android sometimes needs explicit height */
+    height: auto;
+    min-height: 0;
+    /* Try overflow: auto instead of overflow-y: auto for Android */
+    overflow: auto !important;
+    overflow-y: auto !important;
   }
 }
 
