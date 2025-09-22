@@ -31,6 +31,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     const originRef = useRef<HTMLInputElement>(null)
     const destinationRef = useRef<HTMLInputElement>(null)
     const debounceRef = useRef<NodeJS.Timeout | number>()
+    const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const { registerInput, unregisterInput } = useMobileInputFocus()
 
@@ -239,6 +240,27 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
         }
     }
 
+    // Enhanced touch handling for mobile dropdown scrolling
+    const handleSuggestionTouch = (suggestion: AutocompleteResult, type: 'origin' | 'destination') => {
+        // Clear any existing timeout
+        if (touchTimeoutRef.current) {
+            clearTimeout(touchTimeoutRef.current)
+        }
+        
+        // Set a delayed selection
+        touchTimeoutRef.current = setTimeout(() => {
+            handleSuggestionClick(suggestion, type)
+            touchTimeoutRef.current = null
+        }, 200) // Slightly longer delay to better detect scrolling
+    }
+
+    const cancelPendingTouch = () => {
+        if (touchTimeoutRef.current) {
+            clearTimeout(touchTimeoutRef.current)
+            touchTimeoutRef.current = null
+        }
+    }
+
     const handleMyLocationSelection = async (type: 'origin' | 'destination') => {
         try {
             const setValue = type === 'origin' ? setOrigin : setDestination
@@ -396,29 +418,23 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                         <div 
                             className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
                               rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown"
-                            onMouseDown={(e) => {
-                                // Handle suggestion clicks via event delegation
-                                const target = e.target as HTMLElement
-                                const suggestionDiv = target.closest('[data-suggestion-index]') as HTMLElement
-                                if (suggestionDiv) {
-                                    e.preventDefault()
-                                    const index = parseInt(suggestionDiv.getAttribute('data-suggestion-index') || '0')
-                                    const suggestion = originSuggestions[index]
-                                    if (suggestion) {
-                                        handleSuggestionClick(suggestion, 'origin')
-                                    }
-                                }
+                            onTouchMove={(e) => {
+                                // Cancel pending selection if user is scrolling
+                                cancelPendingTouch()
+                                // Allow scrolling within the dropdown
+                                e.stopPropagation()
                             }}
                         >
                             {originSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
-                                    data-suggestion-index={index}
                                     className={`px-4 py-3 cursor-pointer transition-colors border-b border-princess-border last:border-b-0
                             ${index === selectedOriginIndex
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
+                                    onTouchStart={() => handleSuggestionTouch(suggestion, 'origin')}
+                                    onMouseDown={() => handleSuggestionClick(suggestion, 'origin')}
                                 >
                                     {suggestion.description}
                                 </div>
@@ -451,29 +467,23 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                         <div 
                             className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
                               rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown"
-                            onMouseDown={(e) => {
-                                // Handle suggestion clicks via event delegation
-                                const target = e.target as HTMLElement
-                                const suggestionDiv = target.closest('[data-suggestion-index]') as HTMLElement
-                                if (suggestionDiv) {
-                                    e.preventDefault()
-                                    const index = parseInt(suggestionDiv.getAttribute('data-suggestion-index') || '0')
-                                    const suggestion = destinationSuggestions[index]
-                                    if (suggestion) {
-                                        handleSuggestionClick(suggestion, 'destination')
-                                    }
-                                }
+                            onTouchMove={(e) => {
+                                // Cancel pending selection if user is scrolling
+                                cancelPendingTouch()
+                                // Allow scrolling within the dropdown
+                                e.stopPropagation()
                             }}
                         >
                             {destinationSuggestions.map((suggestion, index) => (
                                 <div
                                     key={suggestion.place_id}
-                                    data-suggestion-index={index}
                                     className={`px-4 py-3 cursor-pointer transition-colors border-b border-princess-border last:border-b-0
                             ${index === selectedDestinationIndex
                                             ? 'bg-princess-accent-lavender text-princess-text-primary'
                                             : 'text-princess-text-primary hover:bg-princess-accent-lavender'
                                         }`}
+                                    onTouchStart={() => handleSuggestionTouch(suggestion, 'destination')}
+                                    onMouseDown={() => handleSuggestionClick(suggestion, 'destination')}
                                 >
                                     {suggestion.description}
                                 </div>
