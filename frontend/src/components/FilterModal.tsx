@@ -137,10 +137,10 @@ const FilterModal = ({
             className="fixed inset-0 flex items-center justify-center z-[1200] bg-black bg-opacity-50 backdrop-blur-sm"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-princess-surface border-2 border-princess-border flex flex-col h-[80vh]">
+            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-princess-surface border-2 border-princess-border flex flex-col max-h-[80vh]">
                 <div className="flex flex-col h-full">
                     <div className="p-6 pb-4">
-                        <h2 className="text-lg font-semibold mb-4 font-princess">Pick Places Please</h2>
+                        <h2 className="text-3xl font-semibold my-0 font-dancing">Pick Places Please</h2>
                     </div>
                     <div className="border-t border-princess-border"></div>
                     {/* Places Section */}
@@ -172,7 +172,7 @@ const FilterModal = ({
                                 className="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 
                          focus:ring-princess-accent-lavender text-base bg-princess-surface 
                          border border-princess-border"
-                                placeholder="places"
+                                placeholder="Names"
                             />
 
                             {showPlaceSuggestions && (
@@ -240,7 +240,7 @@ const FilterModal = ({
                                 className="w-full px-4 py-3 rounded-md shadow-sm focus:outline-none focus:ring-2 
                          focus:ring-princess-accent-lavender text-base bg-princess-surface 
                          border border-princess-border"
-                                placeholder="cuisines"
+                                placeholder="Cuisines"
                             />
 
                             {showCuisineSuggestions && (
