@@ -96,17 +96,6 @@ body, html {
   touch-action: pan-y; /* Allow vertical scrolling */
 }
 
-/* Android-specific fixes */
-@media screen and (max-width: 768px) {
-  .mobile-dropdown {
-    -webkit-overflow-scrolling: auto;
-    touch-action: manipulation;
-    overflow: scroll !important; /* Force scroll instead of auto on Android */
-    overflow-y: scroll !important;
-    overflow-x: hidden !important;
-  }
-}
-
 /* Leaflet CSS overrides */
 .leaflet-container {
   font-family: inherit;
