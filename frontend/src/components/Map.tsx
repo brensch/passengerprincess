@@ -6,7 +6,10 @@ import 'leaflet.markercluster'
 import { RouteResponse, StationData, SearchFilters, ViewportResponse, Supercharger, Restaurant, RestaurantSuperchargerMapping } from '../types'
 import { useViewport } from '../contexts/ViewportContext'
 import { getRestaurantEmoji } from '../utils/restaurantEmojiMapping'
+import PopupContent from './PopupContent'
+import { createRoot } from 'react-dom/client'
 
+const popupWidth = '200px'
 // Fix for default markers in Leaflet with Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -82,11 +85,6 @@ const Map = forwardRef<MapRef, MapProps>(({
     const [locationPermission, setLocationPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
     const [showPermissionModal, setShowPermissionModal] = useState(false)
 
-    const formatEpochMsToLocalTime = useCallback((epochMs: number): string => {
-        const date = new Date(epochMs)
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }, [])
-
     const handleRefresh = useCallback(() => {
         if (locationPermission !== 'granted') {
             setShowPermissionModal(true)
@@ -114,48 +112,45 @@ const Map = forwardRef<MapRef, MapProps>(({
         const routeStation = stationData.find(s => s.chargerInfo.supercharger.place_id === supercharger.place_id)
         const finalChargerId = chargerId || routeStation?.id
         const viewportSuperchargerData = viewportSuperchargers.current.get(supercharger.place_id)
-        const etaInfo = viewportSuperchargerData?.etaInfo
+        let etaInfo = viewportSuperchargerData?.etaInfo
 
-        // Get restaurant count from viewport mappings
-        const restaurantCount = viewportMappings.current.filter(m => m.supercharger_id === supercharger.place_id).length
+        // If no etaInfo from viewport, try to get from routeData
+        if (!etaInfo && routeData) {
+            const routeSupercharger = routeData.superchargers.find(s => s.supercharger.place_id === supercharger.place_id)
+            if (routeSupercharger) {
+                etaInfo = {
+                    arrival_time: routeSupercharger.arrival_time,
+                    distance_from_route: routeStation?.chargerInfo.distance_from_route || 0,
+                    distance_along_route: routeStation?.chargerInfo.distance_along_route || 0
+                }
+            }
+        }
 
-        let content = `
-            <div class="font-sans max-w-56 p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
-                <h3 class="font-semibold text-lg mb-0 text-princess-text-primary">${supercharger.name}</h3>
-                <p class="text-sm text-princess-text-secondary" style="margin: 0 0 0.25rem 0; padding: 0;">${supercharger.address}</p>
-        `
-        if (etaInfo) {
-            const distFromRoute = (etaInfo.distance_from_route || 0) / 1609.34
-            const totalDist = ((etaInfo.distance_along_route || 0) + (etaInfo.distance_from_route || 0)) / 1609.34
-            content += `
-                <div class="mt-1 text-sm text-princess-text-primary" style="display: grid; grid-template-columns: auto 1fr; gap: 0 0.75rem; align-items: center; line-height: 1;">
-                    <span style="font-weight: 600;">Arrival</span>
-                    <span>${formatEpochMsToLocalTime(etaInfo.arrival_time)}</span>
-                    <span style="font-weight: 600;">Distance</span>
-                    <span>${totalDist.toFixed(1)} mi</span>
-                    <span style="font-weight: 600;">Deviation</span>
-                    <span>${distFromRoute.toFixed(1)} mi</span>
-                    <span style="font-weight: 600;">Food spots</span>
-                    <span>${restaurantCount}</span>
-                </div>
-            `
+        // Get restaurant count - prefer from stationData for route stations, fallback to mappings
+        let restaurantCount = 0
+        if (routeStation) {
+            restaurantCount = routeStation.restaurants?.length || 0
         } else {
-            content += `<p class="text-sm text-princess-text-primary mt-1"><strong>Food spots:</strong> ${restaurantCount}</p>`
+            restaurantCount = viewportMappings.current.filter(m => m.supercharger_id === supercharger.place_id).length
         }
-        content += '<div class="flex flex-row flex-wrap gap-1.5 mt-2">'
-        if (finalChargerId) {
-            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-princess-lavender text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">View in Results</button>`
-        }
-        content += `
-            <button onclick="zoomToSupercharger(${supercharger.latitude}, ${supercharger.longitude})" class="px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">Zoom</button>
-            <button onclick="window.open('${supercharger.google_maps_uri}', '_blank')"
-                    class="px-3 py-1.5 bg-princess-peach text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">
-                Open in Maps
-            </button>
-        </div>
-        </div>`
-        return content
-    }, [stationData, formatEpochMsToLocalTime])
+
+        const container = document.createElement('div')
+        container.style.width = popupWidth
+        container.style.maxWidth = popupWidth
+        const root = createRoot(container)
+        root.render(
+            <PopupContent
+                type="supercharger"
+                supercharger={supercharger}
+                etaInfo={etaInfo}
+                restaurantCount={restaurantCount}
+                chargerId={finalChargerId}
+                onViewInResults={finalChargerId ? (id) => window.showChargerInResults?.(id) : undefined}
+                onZoom={(lat, lng) => window.zoomToSupercharger?.(lat, lng)}
+            />
+        )
+        return container
+    }, [stationData, routeData])
 
     const generateRestaurantPopupContent = useCallback((restaurant: Restaurant) => {
         const mapping = viewportMappings.current.find(m => m.restaurant_id === restaurant.place_id)
@@ -164,19 +159,19 @@ const Map = forwardRef<MapRef, MapProps>(({
             const walkingDistance = (mapping.distance / 1609.34 * 5280).toFixed(0) // Convert miles to feet
             distanceText = `Walking: ${walkingDistance} ft to supercharger`
         }
-        const emoji = getRestaurantEmoji(restaurant.primary_type)
-        return `
-            <div class="font-sans max-w-xs p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
-                <h3 class="font-semibold text-lg mb-1 text-princess-text-primary">${restaurant.name}</h3>
-                <p class="text-sm text-princess-text-secondary mb-1">${emoji} ${restaurant.primary_type_display || 'Restaurant'}</p>
-                ${restaurant.rating ? `<p class="text-sm mb-1 text-princess-text-primary">Rating: ${'⭐'.repeat(Math.floor(restaurant.rating))} (${restaurant.rating})</p>` : ''}
-                ${distanceText ? `<p class="text-sm text-princess-text-secondary mb-1">${distanceText}</p>` : ''}
-                <button onclick="window.open('${restaurant.google_maps_uri}', '_blank')"
-                        class="mt-2 px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">
-                    Open in Maps
-                </button>
-            </div>
-        `
+
+        const container = document.createElement('div')
+        container.style.width = popupWidth
+        container.style.maxWidth = popupWidth
+        const root = createRoot(container)
+        root.render(
+            <PopupContent
+                type="restaurant"
+                restaurant={restaurant}
+                distanceText={distanceText || undefined}
+            />
+        )
+        return container
     }, [])
 
     useImperativeHandle(ref, () => ({
@@ -197,7 +192,7 @@ const Map = forwardRef<MapRef, MapProps>(({
             const station = stationData.find(s => s.chargerInfo.supercharger.place_id === placeId)
             if (station) {
                 const supercharger = station.chargerInfo.supercharger
-                L.popup({ className: 'custom-popup' })
+                L.popup({ className: 'custom-popup', maxWidth: 400 })
                     .setLatLng([supercharger.latitude, supercharger.longitude])
                     .setContent(generateSuperchargerPopupContent(supercharger, station.id))
                     .openOn(map)
@@ -216,7 +211,7 @@ const Map = forwardRef<MapRef, MapProps>(({
             for (const station of stationData) {
                 const restaurant = station.restaurants?.find(r => r.place_id === placeId)
                 if (restaurant) {
-                    L.popup({ className: 'custom-popup' })
+                    L.popup({ className: 'custom-popup', maxWidth: 400 })
                         .setLatLng([restaurant.latitude, restaurant.longitude])
                         .setContent(generateRestaurantPopupContent(restaurant))
                         .openOn(map)
@@ -347,7 +342,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                     })
                 })
                 const routeStation = stationData.find(s => s.chargerInfo.supercharger.place_id === supercharger.place_id)
-                marker.bindPopup(() => generateSuperchargerPopupContent(supercharger, routeStation?.id), { className: 'custom-popup' })
+                marker.bindPopup(() => generateSuperchargerPopupContent(supercharger, routeStation?.id), { className: 'custom-popup', maxWidth: 400 })
 
                 viewportSuperchargers.current.set(supercharger.place_id, {
                     data: supercharger,
@@ -368,7 +363,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                         iconAnchor: routeRestaurant ? [12, 12] : [10, 10]
                     })
                 })
-                marker.bindPopup(() => generateRestaurantPopupContent(restaurant), { className: 'custom-popup' })
+                marker.bindPopup(() => generateRestaurantPopupContent(restaurant), { className: 'custom-popup', maxWidth: 400 })
                 viewportRestaurants.current.set(restaurant.place_id, { data: restaurant, marker })
             }
         })
