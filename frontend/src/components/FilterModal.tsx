@@ -130,19 +130,19 @@ const FilterModal = ({
                                     setLocalSearchTerm(value)
                                     onFilter(value, localCuisineFilters)
                                     if (value.trim() === '') {
-                                        setSuggestions(getFilteredRestaurantNames().slice(0, 10))
+                                        setSuggestions(getFilteredRestaurantNames().slice(0, 20))
                                         setShowSuggestions(true)
                                     } else {
                                         setSuggestions(getFilteredRestaurantNames().filter(name =>
                                             name.toLowerCase().includes(value.toLowerCase())
-                                        ).slice(0, 10))
+                                        ).slice(0, 20))
                                         setShowSuggestions(true)
                                     }
                                 }}
                                 onFocus={() => {
                                     setShowSuggestions(true)
                                     if (localSearchTerm.trim() === '') {
-                                        setSuggestions(getFilteredRestaurantNames().slice(0, 10))
+                                        setSuggestions(getFilteredRestaurantNames().slice(0, 20))
                                     }
                                 }}
                                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}

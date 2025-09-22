@@ -261,11 +261,13 @@ const Map = forwardRef<MapRef, MapProps>(({
             }
         })
 
+        const viewportRestaurantsLayer = L.layerGroup().addTo(map)
+
         layersRef.current = {
             route: L.layerGroup().addTo(map),
             userLocation: L.layerGroup().addTo(map),
             viewportSuperchargers: viewportSuperchargersLayer.addTo(map),
-            viewportRestaurants: L.layerGroup().addTo(map)
+            viewportRestaurants: viewportRestaurantsLayer
         }
         mapRef.current = map
 
@@ -301,10 +303,9 @@ const Map = forwardRef<MapRef, MapProps>(({
                     linkedSuperchargerIds.add(mapping.supercharger_id)
                 }
             })
-            const routeSuperchargerIds = new Set(stationData.map(s => s.chargerInfo.supercharger.place_id))
 
             viewportData.superchargers?.forEach(sc => {
-                if (bounds.contains(L.latLng(sc.latitude, sc.longitude)) && (linkedSuperchargerIds.has(sc.place_id) || routeSuperchargerIds.has(sc.place_id))) {
+                if (bounds.contains(L.latLng(sc.latitude, sc.longitude)) && linkedSuperchargerIds.has(sc.place_id)) {
                     targetVisibleSuperchargerIds.add(sc.place_id)
                 }
             })
@@ -317,7 +318,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         }
 
         const targetVisibleRestaurantIds = new Set<string>()
-        if (filteredRestaurants.length <= 100) { // Performance guard
+        if ((viewportData.restaurants?.length || 0) <= 200) {
             filteredRestaurants.forEach(r => {
                 if (bounds.contains(L.latLng(r.latitude, r.longitude))) {
                     targetVisibleRestaurantIds.add(r.place_id)
@@ -398,7 +399,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             if (restaurantData) restaurantData.marker.addTo(rLayer)
         })
 
-        // *** THIS IS THE FIX ***
         restToRemoveIds.forEach(id => {
             const restaurantData = viewportRestaurants.current.get(id)
             if (restaurantData) rLayer.removeLayer(restaurantData.marker)
@@ -427,7 +427,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                 `/superchargers/viewport?min_lat=${minLat}&max_lat=${maxLat}&min_lng=${minLng}&max_lng=${maxLng}`
             )
             const data: ViewportResponse = await response.json()
-            if (response.ok && mapRef.current?.getBounds().toBBoxString() === boundsStr) {
+            if (response.ok) {
                 setViewportData(data)
                 setViewportMappings(data.mappings || [])
                 globalViewportData.mappings = data.mappings || []
