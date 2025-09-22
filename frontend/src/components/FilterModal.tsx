@@ -222,7 +222,7 @@ const FilterModal = ({
                                                 onClick={() => handleContainingPlaceSelect(localTypedPlace)}
                                                 className="p-2 hover:bg-princess-surface-soft rounded cursor-pointer text-princess-text-secondary border-t border-princess-border mt-2"
                                             >
-                                                Add "{localTypedPlace}" (matches containing)
+                                                Anything containing "{localTypedPlace}"
                                             </div>
                                         )}
                                     </div>
