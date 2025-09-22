@@ -103,7 +103,7 @@ const FilterModal = ({
                                 onClick={() => handleCuisineToggle('')}
                                 className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 
                         border touch-manipulation select-none ${localCuisineFilters.includes('') || localCuisineFilters.length === 0
-                                        ? 'bg-princess-surface-soft text-princess-text-primary border-princess-lavender'
+                                        ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
                                         : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft active:scale-95'
                                     }`}
                             >
@@ -116,7 +116,7 @@ const FilterModal = ({
                                     onClick={() => handleCuisineToggle(cuisine)}
                                     className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200 
                           border touch-manipulation select-none ${localCuisineFilters.includes(cuisine)
-                                            ? 'bg-princess-surface-soft text-princess-text-primary border-princess-lavender'
+                                            ? 'bg-princess-accent-lavender text-princess-text-primary border-princess-accent-lavender'
                                             : 'bg-princess-surface text-princess-text-primary border-princess-border md:hover:bg-princess-surface-soft active:scale-95'
                                         }`}
                                 >
@@ -139,8 +139,8 @@ const FilterModal = ({
                     <button
                         onClick={handleApply}
                         className="px-3 py-2 text-xs font-medium rounded-lg transition-all duration-300
-                     bg-princess-surface-soft text-princess-text-primary border border-princess-lavender
-                     hover:bg-princess-lavender"
+                     bg-princess-accent-lavender text-princess-text-primary border border-princess-accent-lavender
+                     hover:bg-princess-accent-rose"
                     >
                         Perfect!
                     </button>

@@ -99,33 +99,41 @@ const Map = forwardRef<MapRef, MapProps>(({
         const finalChargerId = chargerId || routeStation?.id
         const viewportSuperchargerData = viewportSuperchargers.current.get(supercharger.place_id)
         const etaInfo = viewportSuperchargerData?.etaInfo
-        const restaurantCount = routeStation?.restaurants?.length || 0
+
+        // Get restaurant count from viewport mappings
+        const restaurantCount = viewportMappings.current.filter(m => m.supercharger_id === supercharger.place_id).length
 
         let content = `
-            <div class="font-sans max-w-xs p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
-                <h3 class="font-semibold text-lg mb-1 text-princess-text-primary">${supercharger.name}</h3>
-                <p class="text-sm text-princess-text-secondary mb-1">${supercharger.address}</p>
-                <p class="text-sm text-princess-text-primary mb-1">🍽️ ${restaurantCount} food spots nearby</p>
+            <div class="font-sans max-w-56 p-3 bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose rounded-lg shadow-lg border border-princess-border">
+                <h3 class="font-semibold text-lg mb-0 text-princess-text-primary">${supercharger.name}</h3>
+                <p class="text-sm text-princess-text-secondary" style="margin: 0 0 0.25rem 0; padding: 0;">${supercharger.address}</p>
         `
         if (etaInfo) {
             const distFromRoute = (etaInfo.distance_from_route || 0) / 1609.34
             const totalDist = ((etaInfo.distance_along_route || 0) + (etaInfo.distance_from_route || 0)) / 1609.34
             content += `
-                <div class="mt-1 text-sm text-princess-text-primary space-y-0.5">
-                    <p><strong>Arrival:</strong> ${formatEpochMsToLocalTime(etaInfo.arrival_time)}</p>
-                    <p><strong>Total Distance:</strong> ${totalDist.toFixed(1)} mi</p>
-                    <p><strong>Deviation:</strong> ${distFromRoute.toFixed(1)} mi</p>
+                <div class="mt-1 text-sm text-princess-text-primary" style="display: grid; grid-template-columns: auto 1fr; gap: 0 0.75rem; align-items: center; line-height: 1;">
+                    <span style="font-weight: 600;">Arrival</span>
+                    <span>${formatEpochMsToLocalTime(etaInfo.arrival_time)}</span>
+                    <span style="font-weight: 600;">Distance</span>
+                    <span>${totalDist.toFixed(1)} mi</span>
+                    <span style="font-weight: 600;">Deviation</span>
+                    <span>${distFromRoute.toFixed(1)} mi</span>
+                    <span style="font-weight: 600;">Food spots</span>
+                    <span>${restaurantCount}</span>
                 </div>
             `
+        } else {
+            content += `<p class="text-sm text-princess-text-primary mt-1"><strong>Food spots:</strong> ${restaurantCount}</p>`
         }
-        content += '<div class="flex flex-col gap-1.5 mt-2">'
+        content += '<div class="flex flex-row flex-wrap gap-1.5 mt-2">'
         if (finalChargerId) {
-            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-princess-lavender text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">View in Results</button>`
+            content += `<button onclick="showChargerInResults('${finalChargerId}')" class="px-3 py-1.5 bg-princess-lavender text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">View in Results</button>`
         }
         content += `
-            <button onclick="zoomToSupercharger(${supercharger.latitude}, ${supercharger.longitude})" class="px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">Zoom</button>
+            <button onclick="zoomToSupercharger(${supercharger.latitude}, ${supercharger.longitude})" class="px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">Zoom</button>
             <button onclick="window.open('${supercharger.google_maps_uri}', '_blank')"
-                    class="px-3 py-1.5 bg-princess-peach text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">
+                    class="px-3 py-1.5 bg-princess-peach text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">
                 Open in Maps
             </button>
         </div>
@@ -148,7 +156,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                 ${restaurant.rating ? `<p class="text-sm mb-1 text-princess-text-primary">Rating: ${'⭐'.repeat(Math.floor(restaurant.rating))} (${restaurant.rating})</p>` : ''}
                 ${distanceText ? `<p class="text-sm text-princess-text-secondary mb-1">${distanceText}</p>` : ''}
                 <button onclick="window.open('${restaurant.google_maps_uri}', '_blank')"
-                        class="mt-2 px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200 shadow-md">
+                        class="mt-2 px-3 py-1.5 bg-princess-mint text-princess-text-primary rounded-md text-sm font-medium transition-all duration-200">
                     Open in Maps
                 </button>
             </div>
