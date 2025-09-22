@@ -70,6 +70,7 @@ const Map = forwardRef<MapRef, MapProps>(({
 
     // Viewport state
     const [viewportData, setViewportData] = useState<ViewportResponse | null>(null)
+    const [isViewportLoading, setIsViewportLoading] = useState(false)
     const lastBoundsRef = useRef<string | null>(null)
     const viewportSuperchargers = useRef<Map<string, ViewportSuperchargerData>>(new globalThis.Map())
     const viewportRestaurants = useRef<Map<string, { data: Restaurant, marker: L.Marker }>>(new globalThis.Map())
@@ -411,6 +412,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         if (lastBoundsRef.current === boundsStr) return
         lastBoundsRef.current = boundsStr
 
+        setIsViewportLoading(true)
         const [minLng, minLat, maxLng, maxLat] = boundsStr.split(',').map(parseFloat)
         try {
             const response = await fetch(
@@ -423,6 +425,8 @@ const Map = forwardRef<MapRef, MapProps>(({
             }
         } catch (error) {
             console.error("Failed to load viewport data:", error)
+        } finally {
+            setIsViewportLoading(false)
         }
     }, [])
 
@@ -533,6 +537,11 @@ const Map = forwardRef<MapRef, MapProps>(({
 
     return (
         <div ref={mapContainerRef} className={`map-container ${className} relative`} style={{ height: '100%', width: '100%' }}>
+            {isViewportLoading && (
+                <div className="absolute top-4 left-4 z-[1000] flex items-center space-x-2">
+                    <span className="text-2xl animate-pulse">🧠</span>
+                </div>
+            )}
             {locationPermission === 'granted' && (
                 <div className="absolute top-4 right-4 z-[1000] flex flex-col space-y-2">
                     <button onClick={handleGoToUserLocation} className="px-3 py-2 text-sm rounded-lg bg-gradient-to-r from-princess-accent-lavender to-princess-accent-rose text-princess-text-primary shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center space-x-1" title="Go to your location">
