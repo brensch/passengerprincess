@@ -16,6 +16,8 @@ const AppContent = () => {
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+    const [initialOrigin, setInitialOrigin] = useState('')
+    const [initialDestination, setInitialDestination] = useState('')
 
     const mapRef = useRef<MapRef>(null)
     const { routeData, stationData, isLoading, error, searchRoute, clearRoute } = useRoute()
@@ -96,6 +98,8 @@ const AppContent = () => {
         setViewMode('search')
         clearRoute()
         clearFilters()
+        setInitialOrigin('')
+        setInitialDestination('')
         // Clear URL parameters
         window.history.replaceState({}, '', window.location.pathname)
     }
@@ -169,7 +173,39 @@ const AppContent = () => {
 
             handleRouteSearch(decodedOrigin, decodedDestination)
         }
-    }, [])    // Utility function to decode polyline
+    }, [])
+
+    // Handle browser back/forward navigation
+    useEffect(() => {
+        const handlePopState = () => {
+            const params = new URLSearchParams(window.location.search)
+            const origin = params.get('origin')
+            const destination = params.get('destination')
+
+            if (origin && destination) {
+                const decodedOrigin = decodeURIComponent(origin)
+                const decodedDestination = decodeURIComponent(destination)
+
+                setInitialOrigin(decodedOrigin)
+                setInitialDestination(decodedDestination)
+                // Clear current route and search again
+                clearRoute()
+                handleRouteSearch(decodedOrigin, decodedDestination)
+            } else {
+                // No params, clear route and go back to search
+                setInitialOrigin('')
+                setInitialDestination('')
+                clearRoute()
+                setViewMode('search')
+            }
+        }
+
+        window.addEventListener('popstate', handlePopState)
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState)
+        }
+    }, [clearRoute, setViewMode])    // Utility function to decode polyline
     const decodePolyline = (encoded: string): [number, number][] => {
         const coordinates: [number, number][] = []
         let index = 0
@@ -233,6 +269,8 @@ const AppContent = () => {
                         statusMessage={error || ''}
                         isError={!!error}
                         userLocation={userLocation}
+                        initialOrigin={initialOrigin}
+                        initialDestination={initialDestination}
                     />
                 </div>
             )}

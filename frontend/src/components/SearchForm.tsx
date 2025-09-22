@@ -7,9 +7,11 @@ interface SearchFormProps {
     statusMessage: string
     isError: boolean
     userLocation: [number, number] | null
+    initialOrigin?: string
+    initialDestination?: string
 }
 
-const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation: _userLocation }: SearchFormProps) => {
+const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation: _userLocation, initialOrigin = '', initialDestination = '' }: SearchFormProps) => {
     const [origin, setOrigin] = useState('')
     const [destination, setDestination] = useState('')
     const [originSuggestions, setOriginSuggestions] = useState<AutocompleteResult[]>([])
@@ -41,11 +43,25 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
         if (urlOrigin) {
             setOrigin(decodeURIComponent(urlOrigin))
+        } else if (initialOrigin) {
+            setOrigin(initialOrigin)
         }
         if (urlDestination) {
             setDestination(decodeURIComponent(urlDestination))
+        } else if (initialDestination) {
+            setDestination(initialDestination)
         }
     }, []) // Empty dependency array - only run once on mount
+
+    // Update inputs when initial props change (for back/forward navigation)
+    useEffect(() => {
+        if (initialOrigin) {
+            setOrigin(initialOrigin)
+        }
+        if (initialDestination) {
+            setDestination(initialDestination)
+        }
+    }, [initialOrigin, initialDestination])
 
     const handleSearch = (e: any) => {
         e.preventDefault()
