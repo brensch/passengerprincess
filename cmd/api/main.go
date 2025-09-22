@@ -365,8 +365,6 @@ func viewportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("Restaurants in viewport:", len(restaurants))
-
 	// Get mappings for the superchargers
 	var superchargerIDs []string
 	for _, sc := range superchargers {
