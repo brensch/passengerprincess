@@ -91,7 +91,7 @@ const Map = forwardRef<MapRef, MapProps>(({
     const [allSuperchargers, setAllSuperchargers] = useState<Supercharger[]>([])
     const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([])
     const [allMappings, setAllMappings] = useState<RestaurantSuperchargerMapping[]>([])
-    const [coveredBounds, setCoveredBounds] = useState<{minLat: number, maxLat: number, minLng: number, maxLng: number} | null>(null)
+    const [coveredBounds, setCoveredBounds] = useState<{ minLat: number, maxLat: number, minLng: number, maxLng: number } | null>(null)
 
     // Warning popup state
     const [showLocationWarning, setShowLocationWarning] = useState(false)
@@ -418,7 +418,7 @@ const Map = forwardRef<MapRef, MapProps>(({
     }, [updateMarkers])
 
     // Helper functions for caching
-    const isBoundsWithinCovered = (bounds: L.LatLngBounds, covered: {minLat: number, maxLat: number, minLng: number, maxLng: number}) => {
+    const isBoundsWithinCovered = (bounds: L.LatLngBounds, covered: { minLat: number, maxLat: number, minLng: number, maxLng: number }) => {
         const { minLat, maxLat, minLng, maxLng } = covered
         return bounds.getSouth() >= minLat && bounds.getNorth() <= maxLat && bounds.getWest() >= minLng && bounds.getEast() <= maxLng
     }
