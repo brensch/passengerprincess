@@ -259,7 +259,7 @@ const Map = forwardRef<MapRef, MapProps>(({
                 const childCount = cluster.getChildCount()
                 let size = 40 + Math.floor(childCount / 50) * 10
                 return L.divIcon({
-                    html: `<div style="background-color: #FFB3C6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #6B4D7C; font-weight: bold; font-size: 12px;">${childCount}</div>`,
+                    html: `<div style="background-color: rgba(255, 179, 198, 0.8); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #6B4D7C; font-weight: bold; font-size: 12px;">${childCount}</div>`,
                     className: 'custom-cluster-icon',
                     iconSize: [size, size],
                     iconAnchor: [size / 2, size / 2]

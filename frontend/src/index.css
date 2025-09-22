@@ -125,7 +125,7 @@ body, html {
 
 .charger-icon {
   z-index: 1000 !important;
-  background: #FFB3C6; /* princess-accent-rose */
+  background: rgba(255, 179, 198, 0.8); /* princess-accent-rose with slight transparency */
   border-radius: 50%;
   padding: 2px;
   display: flex;
