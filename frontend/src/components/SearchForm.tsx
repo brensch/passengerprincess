@@ -75,26 +75,18 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
     useEffect(() => {
         const positionDropdowns = () => {
-            const isMobile = window.innerWidth <= 768
-
             if (showOriginSuggestions && originRef.current && originDropdownRef.current) {
                 const inputRect = originRef.current.getBoundingClientRect()
+                const containerRect = originRef.current.parentElement?.getBoundingClientRect()
                 const dropdown = originDropdownRef.current
 
-                if (isMobile) {
-                    // Use fixed positioning on mobile
-                    dropdown.style.position = 'fixed'
-                    dropdown.style.top = `${inputRect.bottom + 8}px`
-                    dropdown.style.left = `${inputRect.left}px`
-                    dropdown.style.right = `${window.innerWidth - inputRect.right}px`
-                    dropdown.style.width = 'auto'
-                } else {
-                    // Reset to absolute positioning on desktop
+                if (containerRect) {
+                    // Position relative to container like FilterModal
                     dropdown.style.position = 'absolute'
-                    dropdown.style.top = ''
-                    dropdown.style.left = ''
-                    dropdown.style.right = ''
-                    dropdown.style.width = ''
+                    dropdown.style.top = `${inputRect.bottom - containerRect.top + 8}px`
+                    dropdown.style.left = `${inputRect.left - containerRect.left}px`
+                    dropdown.style.right = `${containerRect.right - inputRect.right}px`
+                    dropdown.style.width = 'auto'
                 }
             } else if (originDropdownRef.current) {
                 // Reset styles when dropdown is hidden
@@ -107,22 +99,16 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
             if (showDestinationSuggestions && destinationRef.current && destinationDropdownRef.current) {
                 const inputRect = destinationRef.current.getBoundingClientRect()
+                const containerRect = destinationRef.current.parentElement?.getBoundingClientRect()
                 const dropdown = destinationDropdownRef.current
 
-                if (isMobile) {
-                    // Use fixed positioning on mobile
-                    dropdown.style.position = 'fixed'
-                    dropdown.style.top = `${inputRect.bottom + 8}px`
-                    dropdown.style.left = `${inputRect.left}px`
-                    dropdown.style.right = `${window.innerWidth - inputRect.right}px`
-                    dropdown.style.width = 'auto'
-                } else {
-                    // Reset to absolute positioning on desktop
+                if (containerRect) {
+                    // Position relative to container like FilterModal
                     dropdown.style.position = 'absolute'
-                    dropdown.style.top = ''
-                    dropdown.style.left = ''
-                    dropdown.style.right = ''
-                    dropdown.style.width = ''
+                    dropdown.style.top = `${inputRect.bottom - containerRect.top + 8}px`
+                    dropdown.style.left = `${inputRect.left - containerRect.left}px`
+                    dropdown.style.right = `${containerRect.right - inputRect.right}px`
+                    dropdown.style.width = 'auto'
                 }
             } else if (destinationDropdownRef.current) {
                 // Reset styles when dropdown is hidden
@@ -475,7 +461,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
-                        <div ref={originDropdownRef} className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                        <div ref={originDropdownRef} className="absolute bg-princess-surface border-2 border-princess-border 
                           rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
                           overscroll-contain touch-pan-y"
                             style={{
@@ -521,7 +507,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
-                        <div ref={destinationDropdownRef} className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                        <div ref={destinationDropdownRef} className="absolute bg-princess-surface border-2 border-princess-border 
                           rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
                           overscroll-contain touch-pan-y"
                             style={{
