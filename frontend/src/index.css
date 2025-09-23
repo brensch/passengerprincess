@@ -9,16 +9,18 @@ html, body {
   position: relative;
   height: 100%;
   width: 100%;
-  /* Use the stable viewport height that doesn't change when browser UI hides/shows */
-  height: 100vh;
-  height: 100svh; /* Small viewport height for stable layout on mobile */
+  /* Use dynamic viewport height that adjusts when keyboard appears/disappears */
+  height: 100dvh;
+  height: 100svh; /* Small viewport height fallback */
+  height: 100vh; /* Viewport height fallback */
 }
 
 #root {
   overflow: hidden;
   position: relative;
-  height: 100vh;
-  height: 100svh; /* Small viewport height for stable layout on mobile */
+  height: 100dvh;
+  height: 100svh; /* Small viewport height fallback */
+  height: 100vh; /* Viewport height fallback */
   width: 100vw;
 }
 
@@ -335,20 +337,23 @@ mark {
 @media (max-width: 768px) {
   /* Prevent mobile browser from hiding UI on tap */
   html {
-    height: 100vh;
-    height: 100svh; /* Small viewport height for stable layout */
+    height: 100dvh;
+    height: 100svh; /* Small viewport height fallback */
+    height: 100vh; /* Viewport height fallback */
     touch-action: manipulation; /* Optimize touch for panning/zooming only */
   }
 
   body {
-    height: 100vh;
-    height: 100svh; /* Small viewport height for stable layout */
+    height: 100dvh;
+    height: 100svh; /* Small viewport height fallback */
+    height: 100vh; /* Viewport height fallback */
     overflow: hidden;
   }
 
   #root {
-    height: 100vh;
+    height: 100dvh;
     height: 100svh;
+    height: 100vh;
   }
 
   .leaflet-container {
