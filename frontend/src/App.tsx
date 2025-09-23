@@ -274,7 +274,7 @@ const AppContent = () => {
 
 
     return (
-        <div className="h-screen overflow-hidden bg-princess-surface" style={{ position: 'relative', height: '100dvh' }}>
+        <div className="overflow-hidden bg-princess-surface" style={{ position: 'relative', height: '100dvh', width: '100vw' }}>
             {viewMode === 'search' && (
                 <div className="h-full flex items-center justify-center bg-gradient-to-b from-princess-surface to-princess-lavender">
                     <SearchForm
@@ -305,7 +305,7 @@ const AppContent = () => {
                                 stationData={filteredStationData}
                                 routeData={routeData}
                                 searchTerm={typedPlace}
-                                className="w-full"
+                                className="w-full h-full"
                                 onShowSuperchargerPopup={(placeId) => {
 
                                     // Find the supercharger in station data
@@ -343,7 +343,7 @@ const AppContent = () => {
                                 stationData={filteredStationData}
                                 userLocation={userLocation}
                                 searchFilters={searchFilters}
-                                className="w-full"
+                                className="w-full h-full"
                                 onRefresh={handleRefresh}
                                 isLoading={isLoading}
                             />
