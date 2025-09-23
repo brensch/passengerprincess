@@ -53,10 +53,22 @@ const AppContent = () => {
                     })
 
                     // Jump directly to the first row (no smooth scrolling)
-                    targetRows[0].scrollIntoView({
-                        behavior: 'auto',
-                        block: 'center'
-                    })
+                    const tableContainer = document.querySelector('.h-full.overflow-y-auto') as HTMLElement
+                    if (tableContainer) {
+                        const rowRect = targetRows[0].getBoundingClientRect()
+                        const containerRect = tableContainer.getBoundingClientRect()
+                        const scrollTop = tableContainer.scrollTop
+                        const targetScrollTop = scrollTop + rowRect.top - containerRect.top - 60 // 60px buffer from top
+                        tableContainer.scrollTo({
+                            top: targetScrollTop,
+                            behavior: 'auto'
+                        })
+                    } else {
+                        targetRows[0].scrollIntoView({
+                            behavior: 'auto',
+                            block: 'nearest'
+                        })
+                    }
 
                     // Remove highlight after 2 seconds
                     setTimeout(() => {

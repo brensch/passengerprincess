@@ -589,7 +589,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
             {showErrorPopup && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowErrorPopup(false)}>
-                    <div className="bg-princess-surface p-6 rounded-xl max-w-md w-full mx-4 max-h-[80dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-princess-surface p-6 rounded-xl max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <h3 className="text-lg font-semibold mb-4 text-princess-text-primary">Error Details</h3>
                         <p className="text-princess-text-secondary mb-4 whitespace-pre-wrap">{fullError}</p>
                         <button
