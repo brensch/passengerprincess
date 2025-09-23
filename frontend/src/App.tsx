@@ -275,11 +275,8 @@ const AppContent = () => {
 
     return (
         <div className="overflow-hidden bg-princess-surface" style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
+            height: '100dvh',
             width: '100vw',
-            height: '100vh',
             overscrollBehavior: 'none'
         }}>
             {viewMode === 'search' && (
