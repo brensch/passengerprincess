@@ -8,9 +8,10 @@ html, body {
   overflow-x: hidden;
   position: relative;
   width: 100%;
-  /* Use dynamic viewport height for proper iOS support */
-  height: 100dvh;
-  height: 100vh; /* Fallback */
+  /* Use fixed viewport height for iOS */
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   /* Prevent overscroll on iOS */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
@@ -22,14 +23,12 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 
 #root {
   overflow: hidden;
   position: relative;
-  /* Use dynamic viewport height for proper iOS support */
-  height: 100dvh;
-  height: 100vh; /* Fallback */
   width: 100vw;
   /* Prevent iOS bounce scrolling */
   overscroll-behavior: none;
@@ -77,8 +76,7 @@ html, body {
 }
 
 body, html {
-  height: 100dvh;
-  height: 100vh; /* Fallback */
+  height: 100vh;
   margin: 0;
   padding: 0;
   background: var(--princess-surface);
@@ -322,21 +320,16 @@ mark {
 /* Mobile-specific styles to prevent layout issues */
 @media (max-width: 768px) {
   html {
-    height: 100dvh;
-    height: 100vh; /* Fallback */
+    height: 100vh;
     touch-action: manipulation;
   }
 
   body {
-    height: 100dvh;
-    height: 100vh; /* Fallback */
+    height: 100vh;
     /* REMOVED: `overflow: hidden;` which was trapping positioned elements */
   }
 
-  #root {
-    height: 100dvh;
-    height: 100vh; /* Fallback */
-  }
+  /* #root height is handled by fixed positioning in App.tsx */
 
   .leaflet-container {
     max-height: 100% !important;
@@ -362,9 +355,7 @@ mark {
   }
 
   .h-screen {
-    height: 100dvh !important;
-    height: 100vh !important; /* Fallback */
-    max-height: 100dvh !important;
-    max-height: 100vh !important; /* Fallback */
+    height: 100vh !important;
+    max-height: 100vh !important;
   }
 }
