@@ -29,6 +29,8 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
     const originRef = useRef<HTMLInputElement>(null)
     const destinationRef = useRef<HTMLInputElement>(null)
+    const originDropdownRef = useRef<HTMLDivElement>(null)
+    const destinationDropdownRef = useRef<HTMLDivElement>(null)
     const debounceRef = useRef<NodeJS.Timeout | number>()
 
     useEffect(() => {
@@ -68,6 +70,81 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                 dropdown.removeEventListener('touchend', handleTouchEnd)
             })
             window.removeEventListener('scroll', handleWindowScroll)
+        }
+    }, [showOriginSuggestions, showDestinationSuggestions])
+
+    useEffect(() => {
+        const positionDropdowns = () => {
+            const isMobile = window.innerWidth <= 768
+            
+            if (showOriginSuggestions && originRef.current && originDropdownRef.current) {
+                const inputRect = originRef.current.getBoundingClientRect()
+                const dropdown = originDropdownRef.current
+                
+                if (isMobile) {
+                    // Use fixed positioning on mobile
+                    dropdown.style.position = 'fixed'
+                    dropdown.style.top = `${inputRect.bottom + 8}px`
+                    dropdown.style.left = `${inputRect.left}px`
+                    dropdown.style.right = `${window.innerWidth - inputRect.right}px`
+                    dropdown.style.width = 'auto'
+                } else {
+                    // Reset to absolute positioning on desktop
+                    dropdown.style.position = 'absolute'
+                    dropdown.style.top = ''
+                    dropdown.style.left = ''
+                    dropdown.style.right = ''
+                    dropdown.style.width = ''
+                }
+            } else if (originDropdownRef.current) {
+                // Reset styles when dropdown is hidden
+                originDropdownRef.current.style.position = 'absolute'
+                originDropdownRef.current.style.top = ''
+                originDropdownRef.current.style.left = ''
+                originDropdownRef.current.style.right = ''
+                originDropdownRef.current.style.width = ''
+            }
+            
+            if (showDestinationSuggestions && destinationRef.current && destinationDropdownRef.current) {
+                const inputRect = destinationRef.current.getBoundingClientRect()
+                const dropdown = destinationDropdownRef.current
+                
+                if (isMobile) {
+                    // Use fixed positioning on mobile
+                    dropdown.style.position = 'fixed'
+                    dropdown.style.top = `${inputRect.bottom + 8}px`
+                    dropdown.style.left = `${inputRect.left}px`
+                    dropdown.style.right = `${window.innerWidth - inputRect.right}px`
+                    dropdown.style.width = 'auto'
+                } else {
+                    // Reset to absolute positioning on desktop
+                    dropdown.style.position = 'absolute'
+                    dropdown.style.top = ''
+                    dropdown.style.left = ''
+                    dropdown.style.right = ''
+                    dropdown.style.width = ''
+                }
+            } else if (destinationDropdownRef.current) {
+                // Reset styles when dropdown is hidden
+                destinationDropdownRef.current.style.position = 'absolute'
+                destinationDropdownRef.current.style.top = ''
+                destinationDropdownRef.current.style.left = ''
+                destinationDropdownRef.current.style.right = ''
+                destinationDropdownRef.current.style.width = ''
+            }
+        }
+
+        // Position immediately
+        positionDropdowns()
+        
+        // Reposition on scroll or resize
+        const handleReposition = () => positionDropdowns()
+        window.addEventListener('scroll', handleReposition)
+        window.addEventListener('resize', handleReposition)
+        
+        return () => {
+            window.removeEventListener('scroll', handleReposition)
+            window.removeEventListener('resize', handleReposition)
         }
     }, [showOriginSuggestions, showDestinationSuggestions])
 
@@ -398,7 +475,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showOriginSuggestions && originSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                        <div ref={originDropdownRef} className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
                           rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
                           overscroll-contain touch-pan-y"
                             style={{
@@ -444,7 +521,7 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                     </div>
 
                     {showDestinationSuggestions && destinationSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
+                        <div ref={destinationDropdownRef} className="absolute top-full left-0 right-0 mt-2 bg-princess-surface border-2 border-princess-border 
                           rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 mobile-dropdown
                           overscroll-contain touch-pan-y"
                             style={{
