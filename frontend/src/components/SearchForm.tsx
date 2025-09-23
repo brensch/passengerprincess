@@ -76,11 +76,11 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     useEffect(() => {
         const positionDropdowns = () => {
             const isMobile = window.innerWidth <= 768
-            
+
             if (showOriginSuggestions && originRef.current && originDropdownRef.current) {
                 const inputRect = originRef.current.getBoundingClientRect()
                 const dropdown = originDropdownRef.current
-                
+
                 if (isMobile) {
                     // Use fixed positioning on mobile
                     dropdown.style.position = 'fixed'
@@ -104,11 +104,11 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
                 originDropdownRef.current.style.right = ''
                 originDropdownRef.current.style.width = ''
             }
-            
+
             if (showDestinationSuggestions && destinationRef.current && destinationDropdownRef.current) {
                 const inputRect = destinationRef.current.getBoundingClientRect()
                 const dropdown = destinationDropdownRef.current
-                
+
                 if (isMobile) {
                     // Use fixed positioning on mobile
                     dropdown.style.position = 'fixed'
@@ -136,12 +136,12 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
 
         // Position immediately
         positionDropdowns()
-        
+
         // Reposition on scroll or resize
         const handleReposition = () => positionDropdowns()
         window.addEventListener('scroll', handleReposition)
         window.addEventListener('resize', handleReposition)
-        
+
         return () => {
             window.removeEventListener('scroll', handleReposition)
             window.removeEventListener('resize', handleReposition)
