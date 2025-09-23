@@ -126,10 +126,10 @@ const FilterModal = ({
                 const rect = placeInputRef.current.getBoundingClientRect()
                 const parentRect = placeInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
                 if (parentRect) {
-                    setPlaceDropdownStyle({ 
-                        top: rect.bottom - parentRect.top, 
-                        left: rect.left - parentRect.left, 
-                        width: rect.width 
+                    setPlaceDropdownStyle({
+                        top: rect.bottom - parentRect.top,
+                        left: rect.left - parentRect.left,
+                        width: rect.width
                     })
                 }
             }
@@ -137,10 +137,10 @@ const FilterModal = ({
                 const rect = cuisineInputRef.current.getBoundingClientRect()
                 const parentRect = cuisineInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
                 if (parentRect) {
-                    setCuisineDropdownStyle({ 
-                        top: rect.bottom - parentRect.top, 
-                        left: rect.left - parentRect.left, 
-                        width: rect.width 
+                    setCuisineDropdownStyle({
+                        top: rect.bottom - parentRect.top,
+                        left: rect.left - parentRect.left,
+                        width: rect.width
                     })
                 }
             }
@@ -273,10 +273,10 @@ const FilterModal = ({
                                             const rect = placeInputRef.current.getBoundingClientRect()
                                             const parentRect = placeInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
                                             if (parentRect) {
-                                                setPlaceDropdownStyle({ 
-                                                    top: rect.bottom - parentRect.top + 2, 
-                                                    left: rect.left - parentRect.left, 
-                                                    width: rect.width 
+                                                setPlaceDropdownStyle({
+                                                    top: rect.bottom - parentRect.top + 2,
+                                                    left: rect.left - parentRect.left,
+                                                    width: rect.width
                                                 })
                                             }
                                         }
@@ -369,10 +369,10 @@ const FilterModal = ({
                                             const rect = cuisineInputRef.current.getBoundingClientRect()
                                             const parentRect = cuisineInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
                                             if (parentRect) {
-                                                setCuisineDropdownStyle({ 
-                                                    top: rect.bottom - parentRect.top + 2, 
-                                                    left: rect.left - parentRect.left, 
-                                                    width: rect.width 
+                                                setCuisineDropdownStyle({
+                                                    top: rect.bottom - parentRect.top + 2,
+                                                    left: rect.left - parentRect.left,
+                                                    width: rect.width
                                                 })
                                             }
                                         }
