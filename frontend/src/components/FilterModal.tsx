@@ -124,11 +124,25 @@ const FilterModal = ({
         const handleReposition = () => {
             if (showPlaceSuggestions && placeInputRef.current) {
                 const rect = placeInputRef.current.getBoundingClientRect()
-                setPlaceDropdownStyle({ top: rect.bottom, left: rect.left, width: rect.width })
+                const parentRect = placeInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
+                if (parentRect) {
+                    setPlaceDropdownStyle({ 
+                        top: rect.bottom - parentRect.top, 
+                        left: rect.left - parentRect.left, 
+                        width: rect.width 
+                    })
+                }
             }
             if (showCuisineSuggestions && cuisineInputRef.current) {
                 const rect = cuisineInputRef.current.getBoundingClientRect()
-                setCuisineDropdownStyle({ top: rect.bottom, left: rect.left, width: rect.width })
+                const parentRect = cuisineInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
+                if (parentRect) {
+                    setCuisineDropdownStyle({ 
+                        top: rect.bottom - parentRect.top, 
+                        left: rect.left - parentRect.left, 
+                        width: rect.width 
+                    })
+                }
             }
         }
 
@@ -257,7 +271,14 @@ const FilterModal = ({
                                         // Calculate and set position when input is focused
                                         if (placeInputRef.current) {
                                             const rect = placeInputRef.current.getBoundingClientRect()
-                                            setPlaceDropdownStyle({ top: rect.bottom + 2, left: rect.left, width: rect.width })
+                                            const parentRect = placeInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
+                                            if (parentRect) {
+                                                setPlaceDropdownStyle({ 
+                                                    top: rect.bottom - parentRect.top + 2, 
+                                                    left: rect.left - parentRect.left, 
+                                                    width: rect.width 
+                                                })
+                                            }
                                         }
                                         setShowPlaceSuggestions(true)
                                         if (localTypedPlace.trim() === '') {
@@ -272,10 +293,10 @@ const FilterModal = ({
                                 />
                             </div>
 
-                            {/* UPDATED: Dropdown now uses fixed positioning and dynamic styles */}
+                            {/* FIXED: Dropdown now uses absolute positioning relative to parent container */}
                             {showPlaceSuggestions && placeDropdownStyle && (
                                 <div
-                                    className="bg-princess-surface border border-princess-border rounded-xl max-h-60 overflow-y-auto z-[9999] shadow-lg mobile-dropdown"
+                                    className="absolute bg-princess-surface border border-princess-border rounded-xl max-h-60 overflow-y-auto z-[9999] shadow-lg mobile-dropdown"
                                     style={{
                                         top: `${placeDropdownStyle.top}px`,
                                         left: `${placeDropdownStyle.left}px`,
@@ -346,7 +367,14 @@ const FilterModal = ({
                                         // Calculate and set position when input is focused
                                         if (cuisineInputRef.current) {
                                             const rect = cuisineInputRef.current.getBoundingClientRect()
-                                            setCuisineDropdownStyle({ top: rect.bottom + 2, left: rect.left, width: rect.width })
+                                            const parentRect = cuisineInputRef.current.parentElement?.parentElement?.getBoundingClientRect()
+                                            if (parentRect) {
+                                                setCuisineDropdownStyle({ 
+                                                    top: rect.bottom - parentRect.top + 2, 
+                                                    left: rect.left - parentRect.left, 
+                                                    width: rect.width 
+                                                })
+                                            }
                                         }
                                         setShowCuisineSuggestions(true)
                                         setCuisineSuggestions(filteredCuisines)
@@ -359,10 +387,10 @@ const FilterModal = ({
                                 />
                             </div>
 
-                            {/* UPDATED: Dropdown now uses fixed positioning and dynamic styles */}
+                            {/* FIXED: Dropdown now uses absolute positioning relative to parent container */}
                             {showCuisineSuggestions && cuisineDropdownStyle && (
                                 <div
-                                    className="bg-princess-surface border border-princess-border rounded-xl max-h-60 overflow-y-auto z-[9999] shadow-lg mobile-dropdown"
+                                    className="absolute bg-princess-surface border border-princess-border rounded-xl max-h-60 overflow-y-auto z-[9999] shadow-lg mobile-dropdown"
                                     style={{
                                         top: `${cuisineDropdownStyle.top}px`,
                                         left: `${cuisineDropdownStyle.left}px`,

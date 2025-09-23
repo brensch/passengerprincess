@@ -89,8 +89,8 @@ body, html {
 
 /* Mobile dropdown scrolling fix */
 .mobile-dropdown {
-  /* THIS IS THE KEY FIX: Position relative to the viewport, not the document */
-  position: fixed; 
+  /* CHANGED: Position absolute relative to parent container, not viewport */
+  position: absolute;
   z-index: 9999; /* Ensure it's on top of all other content */
 
   -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
