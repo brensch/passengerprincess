@@ -7,18 +7,17 @@
 html, body {
   overflow-x: hidden;
   position: relative;
-  height: 100%;
   width: 100%;
-  /* Use small viewport height for consistent behavior */
+  /* Use small viewport height (svh) for a stable layout that isn't affected by browser UI appearing/disappearing */
   height: 100svh;
-  height: 100vh; /* Viewport height fallback */
+  height: 100vh; /* Fallback for older browsers */
 }
 
 #root {
   overflow: hidden;
   position: relative;
   height: 100svh;
-  height: 100vh; /* Viewport height fallback */
+  height: 100vh; /* Fallback */
   width: 100vw;
 }
 
@@ -31,7 +30,6 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  /* Additional mobile fixes */
   overflow: hidden;
   touch-action: pan-x pan-y; /* Allow panning but prevent other gestures */
 }
@@ -92,61 +90,17 @@ body, html {
 /* Mobile dropdown scrolling fix */
 .mobile-dropdown {
   -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
-  overscroll-behavior: contain;
-  touch-action: pan-y; /* Allow vertical scrolling */
-  /* Enhanced Android scrolling fixes */
-  -webkit-transform: translateZ(0); /* Force hardware acceleration */
-  transform: translateZ(0);
-  scrollbar-width: thin; /* Firefox */
-  /* Enhanced Android Chrome fixes for touch zone issues */
-  will-change: scroll-position;
-  /* Prevent any interference with touch events */
+  overscroll-behavior: contain; /* Prevent scrolling parent elements */
+  touch-action: pan-y; /* Allow vertical scrolling only */
   pointer-events: auto;
-  /* Fixed positioning to prevent touch zone drift on Android */
-  position: fixed !important;
-  /* Ensure touch events work across the entire dropdown area */
-  -webkit-user-select: none;
-  user-select: none;
-  /* Force stacking context to prevent interference */
-  z-index: 9999;
-  /* Ensure full coverage of touch area */
-  contain: layout style paint;
-}
-
-/* Android-specific fixes for virtual keyboard */
-@supports (-webkit-touch-callout: none) {
-  .mobile-dropdown {
-    /* Additional iOS-specific handling */
-    -webkit-overflow-scrolling: touch;
-    isolation: isolate;
-  }
+  /* Removed transform: translateZ(0) and will-change which were causing the Android scroll bug */
 }
 
 /* Enhanced touch interaction for dropdown items */
 .mobile-dropdown > div {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation; /* Prevent double-tap to zoom */
-  /* Ensure consistent touch handling on Android */
-  position: relative;
-  z-index: 1;
 }
-
-/* Android-specific dropdown fixes */
-@supports (touch-action: pan-y) {
-  .mobile-dropdown {
-    /* Ensure proper touch scrolling on Android */
-    touch-action: pan-y !important;
-    /* Force hardware acceleration for smooth scrolling */
-    will-change: transform, scroll-position;
-    /* Prevent touch zone drift */
-    backface-visibility: hidden;
-    /* Optimize for touch interactions */
-    -webkit-transform-style: preserve-3d;
-    transform-style: preserve-3d;
-  }
-}
-
-
 
 /* Leaflet CSS overrides */
 .leaflet-container {
@@ -184,7 +138,7 @@ body, html {
 
 .charger-icon {
   z-index: 1000 !important;
-  background: rgba(255, 179, 198, 0.8); /* princess-accent-rose with slight transparency */
+  background: rgba(255, 179, 198, 0.8);
   border-radius: 50%;
   padding: 2px;
   display: flex;
@@ -222,7 +176,7 @@ body, html {
   line-height: 1;
   text-align: center;
   text-shadow: 0 0 3px white, 0 0 5px white;
-  z-index: 10000 !important; /* Ensure princess marker is always on top */
+  z-index: 10000 !important;
   position: relative !important;
 }
 
@@ -348,17 +302,16 @@ mark {
 
 /* Mobile-specific styles to prevent layout issues */
 @media (max-width: 768px) {
-  /* Prevent mobile browser from hiding UI on tap */
   html {
     height: 100svh;
-    height: 100vh; /* Viewport height fallback */
-    touch-action: manipulation; /* Optimize touch for panning/zooming only */
+    height: 100vh; /* Fallback */
+    touch-action: manipulation;
   }
 
   body {
     height: 100svh;
-    height: 100vh; /* Viewport height fallback */
-    overflow: hidden;
+    height: 100vh; /* Fallback */
+    /* REMOVED: `overflow: hidden;` which was trapping positioned elements */
   }
 
   #root {
@@ -367,40 +320,32 @@ mark {
   }
 
   .leaflet-container {
-    /* Ensure map container respects parent bounds on mobile */
     max-height: 100% !important;
     max-width: 100% !important;
-    /* Ensure map stays below other UI elements */
     z-index: 1 !important;
-    /* Prevent fullscreen behaviors */
     touch-action: pan-x pan-y !important;
   }
   
-  /* Hide any potential map controls that could interfere */
   .leaflet-control-zoom {
     display: none !important;
   }
   
-  /* Ensure map doesn't overflow its container */
   .map-container {
     overflow: hidden !important;
     position: relative !important;
-    /* Prevent browser from expanding map */
     height: 100% !important;
     max-height: 100% !important;
     touch-action: pan-x pan-y !important;
   }
   
-  /* Prevent map from taking up more space than allocated */
   .leaflet-container .leaflet-control-container {
     pointer-events: auto;
   }
 
-  /* Ensure app layout stays consistent */
   .h-screen {
-    height: 100vh !important;
     height: 100svh !important;
-    max-height: 100vh !important;
     max-height: 100svh !important;
+    height: 100vh !important; /* Fallback */
+    max-height: 100vh !important; /* Fallback */
   }
 }
