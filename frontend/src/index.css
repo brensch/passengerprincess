@@ -108,6 +108,9 @@ body, html {
   z-index: 9999; /* Ensure it stays above keyboard */
   /* Prevent the dropdown from being affected by keyboard resize */
   position: absolute !important;
+  /* Ensure touch events are captured */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Android-specific fixes for virtual keyboard */
@@ -125,15 +128,7 @@ body, html {
   touch-action: manipulation; /* Prevent double-tap to zoom */
 }
 
-/* Prevent body scroll when dropdown is active on mobile */
-@media (max-width: 768px) {
-  body:has(.mobile-dropdown:hover),
-  body:has(.mobile-dropdown:focus-within) {
-    overflow: hidden;
-    position: fixed;
-    width: 100%;
-  }
-}
+
 
 /* Leaflet CSS overrides */
 .leaflet-container {

@@ -34,16 +34,19 @@ const SearchForm = ({ onSearch, isLoading, statusMessage, isError, userLocation:
     useEffect(() => {
         const dropdowns = document.querySelectorAll('.mobile-dropdown')
 
-        const handleTouchStart = (_e: Event) => {
-            // Debug: touchstart on dropdown
+        const handleTouchStart = (e: Event) => {
+            // Prevent page scroll when touching dropdown
+            e.stopPropagation()
         }
 
         const handleTouchMove = (e: Event) => {
-
+            // Let the dropdown handle its own scrolling
+            e.stopPropagation()
         }
 
-        const handleTouchEnd = (_e: Event) => {
-            // Debug: touchend on dropdown
+        const handleTouchEnd = (e: Event) => {
+            // Prevent any default behavior on touch end
+            e.stopPropagation()
         }
 
         dropdowns.forEach(dropdown => {
