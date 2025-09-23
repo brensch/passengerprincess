@@ -13,6 +13,13 @@ interface FilterModalProps {
     stationData: StationData[]
 }
 
+// Style interface for our fixed-position dropdown
+interface DropdownStyle {
+    top: number
+    left: number
+    width: number
+}
+
 const FilterModal = ({
     isOpen,
     onClose,
@@ -39,6 +46,10 @@ const FilterModal = ({
     const [cuisineToRestaurants, setCuisineToRestaurants] = useState<Record<string, string[]>>({})
     const [restaurantEmojis, setRestaurantEmojis] = useState<Record<string, string>>({})
 
+    // State to hold the dynamic position of our fixed dropdowns
+    const [placeDropdownStyle, setPlaceDropdownStyle] = useState<DropdownStyle | null>(null)
+    const [cuisineDropdownStyle, setCuisineDropdownStyle] = useState<DropdownStyle | null>(null)
+
     const placeInputRef = useRef<HTMLInputElement>(null)
     const cuisineInputRef = useRef<HTMLInputElement>(null)
 
@@ -50,7 +61,7 @@ const FilterModal = ({
     }, [selectedPlaces, selectedContainingPlaces, typedPlace, selectedCuisines])
 
     useEffect(() => {
-        // Extract cuisine and restaurant counts from station data
+        // This effect for processing stationData remains unchanged
         const cuisineCountsMap: Record<string, number> = {}
         const restaurantCountsMap: Record<string, number> = {}
         const restToCuis: Record<string, string[]> = {}
@@ -69,7 +80,6 @@ const FilterModal = ({
                         seenPlaceIds.add(placeId)
                         restaurantCountsMap[name] = (restaurantCountsMap[name] || 0) + 1
                     }
-                    // Add to maps
                     if (restaurant.primary_type_display) {
                         const type = restaurant.primary_type_display.trim()
                         if (!cuisineToRests[type]) cuisineToRests[type] = []
@@ -91,13 +101,10 @@ const FilterModal = ({
         setRestaurantToCuisines(restToCuis)
         setCuisineToRestaurants(cuisineToRests)
 
-        // Build restaurant emojis map
         const emojisMap: Record<string, string> = {}
         Object.keys(restToCuis).forEach(name => {
             const cuisines = restToCuis[name]
             if (cuisines.length > 0) {
-                // For emoji mapping, we need to find the primary_type (raw) for this restaurant
-                // since the emoji mapping is based on raw types, not display types
                 let rawType = ''
                 stationData.forEach(station => {
                     station.restaurants?.forEach(restaurant => {
@@ -111,6 +118,32 @@ const FilterModal = ({
         })
         setRestaurantEmojis(emojisMap)
     }, [stationData])
+
+    // This new effect handles repositioning the dropdown if the window is resized or scrolled
+    useEffect(() => {
+        const handleReposition = () => {
+            if (showPlaceSuggestions && placeInputRef.current) {
+                const rect = placeInputRef.current.getBoundingClientRect()
+                setPlaceDropdownStyle({ top: rect.bottom, left: rect.left, width: rect.width })
+            }
+            if (showCuisineSuggestions && cuisineInputRef.current) {
+                const rect = cuisineInputRef.current.getBoundingClientRect()
+                setCuisineDropdownStyle({ top: rect.bottom, left: rect.left, width: rect.width })
+            }
+        }
+
+        if (showPlaceSuggestions || showCuisineSuggestions) {
+            window.addEventListener('resize', handleReposition)
+            // Use capture phase (true) to catch scroll events early
+            window.addEventListener('scroll', handleReposition, true)
+        }
+
+        return () => {
+            window.removeEventListener('resize', handleReposition)
+            window.removeEventListener('scroll', handleReposition, true)
+        }
+    }, [showPlaceSuggestions, showCuisineSuggestions])
+
 
     const filteredRestaurantNames = useMemo(() => {
         if (localSelectedCuisines.length === 0) return restaurantNames
@@ -191,7 +224,7 @@ const FilterModal = ({
             className="fixed inset-0 flex items-center justify-center z-[1200] bg-black bg-opacity-50 backdrop-blur-sm"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose flex flex-col max-h-[80dvh] overflow-visible">
+            <div className="rounded-xl max-w-lg w-full mx-4 shadow-2xl bg-gradient-to-br from-princess-lavender via-princess-lilac to-princess-rose flex flex-col max-h-[80svh] overflow-visible">
                 <div className="flex flex-col h-full">
                     <div className="p-6 pb-4">
                         <h2 className="text-3xl font-semibold my-0 font-dancing">Pick Places Please</h2>
@@ -212,15 +245,20 @@ const FilterModal = ({
                                         onFilter(localSelectedPlaces, localSelectedContainingPlaces, value, localSelectedCuisines)
                                         if (value.trim() === '') {
                                             setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
-                                            setShowPlaceSuggestions(true)
                                         } else {
                                             setPlaceSuggestions(filteredRestaurantNames.filter(name =>
                                                 name.toLowerCase().includes(value.toLowerCase())
                                             ).slice(0, 40))
-                                            setShowPlaceSuggestions(true)
                                         }
+                                        // Ensure suggestions are shown on change
+                                        if (!showPlaceSuggestions) setShowPlaceSuggestions(true)
                                     }}
                                     onFocus={() => {
+                                        // Calculate and set position when input is focused
+                                        if (placeInputRef.current) {
+                                            const rect = placeInputRef.current.getBoundingClientRect()
+                                            setPlaceDropdownStyle({ top: rect.bottom + 2, left: rect.left, width: rect.width })
+                                        }
                                         setShowPlaceSuggestions(true)
                                         if (localTypedPlace.trim() === '') {
                                             setPlaceSuggestions(filteredRestaurantNames.slice(0, 40))
@@ -234,8 +272,16 @@ const FilterModal = ({
                                 />
                             </div>
 
-                            {showPlaceSuggestions && (
-                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-50 shadow-lg mobile-dropdown">
+                            {/* UPDATED: Dropdown now uses fixed positioning and dynamic styles */}
+                            {showPlaceSuggestions && placeDropdownStyle && (
+                                <div
+                                    className="bg-princess-surface border border-princess-border rounded-xl max-h-60 overflow-y-auto z-[9999] shadow-lg mobile-dropdown"
+                                    style={{
+                                        top: `${placeDropdownStyle.top}px`,
+                                        left: `${placeDropdownStyle.left}px`,
+                                        width: `${placeDropdownStyle.width}px`,
+                                    }}
+                                >
                                     <div className="p-2">
                                         {placeSuggestions.map(name => (
                                             <div
@@ -289,15 +335,19 @@ const FilterModal = ({
                                         const value = e.target.value
                                         if (value.trim() === '') {
                                             setCuisineSuggestions(filteredCuisines)
-                                            setShowCuisineSuggestions(true)
                                         } else {
                                             setCuisineSuggestions(filteredCuisines.filter(cuisine =>
                                                 cuisine.toLowerCase().includes(value.toLowerCase())
                                             ))
-                                            setShowCuisineSuggestions(true)
                                         }
+                                        if (!showCuisineSuggestions) setShowCuisineSuggestions(true)
                                     }}
                                     onFocus={() => {
+                                        // Calculate and set position when input is focused
+                                        if (cuisineInputRef.current) {
+                                            const rect = cuisineInputRef.current.getBoundingClientRect()
+                                            setCuisineDropdownStyle({ top: rect.bottom + 2, left: rect.left, width: rect.width })
+                                        }
                                         setShowCuisineSuggestions(true)
                                         setCuisineSuggestions(filteredCuisines)
                                     }}
@@ -309,8 +359,16 @@ const FilterModal = ({
                                 />
                             </div>
 
-                            {showCuisineSuggestions && (
-                                <div className="absolute top-full left-0 right-0 bg-princess-surface border border-princess-border rounded-xl mt-1 max-h-60 overflow-y-auto z-50 shadow-lg mobile-dropdown">
+                            {/* UPDATED: Dropdown now uses fixed positioning and dynamic styles */}
+                            {showCuisineSuggestions && cuisineDropdownStyle && (
+                                <div
+                                    className="bg-princess-surface border border-princess-border rounded-xl max-h-60 overflow-y-auto z-[9999] shadow-lg mobile-dropdown"
+                                    style={{
+                                        top: `${cuisineDropdownStyle.top}px`,
+                                        left: `${cuisineDropdownStyle.left}px`,
+                                        width: `${cuisineDropdownStyle.width}px`,
+                                    }}
+                                >
                                     <div className="p-2">
                                         {cuisineSuggestions.map(cuisine => (
                                             <div
@@ -319,7 +377,6 @@ const FilterModal = ({
                                                 className="p-2 hover:bg-princess-surface-soft rounded cursor-pointer"
                                             >
                                                 {(() => {
-                                                    // Find the raw primary_type for this display cuisine to get the right emoji
                                                     let rawType = ''
                                                     stationData.forEach(station => {
                                                         station.restaurants?.forEach(restaurant => {
@@ -351,16 +408,16 @@ const FilterModal = ({
                         <button
                             onClick={handleClear}
                             className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
-                     bg-transparent text-princess-text-primary border-2 border-princess-border
-                     hover:bg-princess-surface-soft"
+                       bg-transparent text-princess-text-primary border-2 border-princess-border
+                       hover:bg-princess-surface-soft"
                         >
                             Clear All
                         </button>
                         <button
                             onClick={handleApply}
                             className="px-3 py-2 text-xs font-medium rounded-xl transition-all duration-300
-                     bg-princess-accent-lavender text-princess-text-primary border border-princess-accent-lavender
-                     hover:bg-princess-accent-rose"
+                       bg-princess-accent-lavender text-princess-text-primary border border-princess-accent-lavender
+                       hover:bg-princess-accent-rose"
                         >
                             Perfect
                         </button>
@@ -372,3 +429,4 @@ const FilterModal = ({
 }
 
 export default FilterModal
+

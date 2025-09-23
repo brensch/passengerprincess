@@ -89,11 +89,14 @@ body, html {
 
 /* Mobile dropdown scrolling fix */
 .mobile-dropdown {
+  /* THIS IS THE KEY FIX: Position relative to the viewport, not the document */
+  position: fixed; 
+  z-index: 9999; /* Ensure it's on top of all other content */
+
   -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
   overscroll-behavior: contain; /* Prevent scrolling parent elements */
   touch-action: pan-y; /* Allow vertical scrolling only */
   pointer-events: auto;
-  /* Removed transform: translateZ(0) and will-change which were causing the Android scroll bug */
 }
 
 /* Enhanced touch interaction for dropdown items */
