@@ -58,7 +58,7 @@ const AppContent = () => {
                         const rowRect = targetRows[0].getBoundingClientRect()
                         const containerRect = tableContainer.getBoundingClientRect()
                         const scrollTop = tableContainer.scrollTop
-                        const targetScrollTop = scrollTop + rowRect.top - containerRect.top - 60 // 60px buffer from top
+                        const targetScrollTop = scrollTop + rowRect.top - containerRect.top - 80 // 80px buffer from top for iOS
                         tableContainer.scrollTo({
                             top: targetScrollTop,
                             behavior: 'auto'

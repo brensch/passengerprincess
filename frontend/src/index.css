@@ -8,15 +8,14 @@ html, body {
   overflow-x: hidden;
   position: relative;
   width: 100%;
-  /* Use small viewport height (svh) for a stable layout that isn't affected by browser UI appearing/disappearing */
-  height: 100svh;
-  height: 100vh; /* Fallback for older browsers */
+  /* Use viewport height - no dynamic URL bar hiding on iOS */
+  height: 100vh;
   /* iOS safe area support */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
-/* Prevent overscroll on iOS */
+  /* Prevent overscroll on iOS */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
 }
@@ -33,11 +32,10 @@ html, body {
   overflow: hidden;
   position: relative;
   /* iOS safe area adjustments */
-  height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right));
   /* Fallbacks */
-  height: 100svh;
-  height: 100vh; /* Fallback for older browsers */
+  height: 100vh;
   width: 100vw;
   /* Prevent iOS bounce scrolling */
   overscroll-behavior: none;
@@ -329,19 +327,16 @@ mark {
 /* Mobile-specific styles to prevent layout issues */
 @media (max-width: 768px) {
   html {
-    height: 100svh;
-    height: 100vh; /* Fallback */
+    height: 100vh;
     touch-action: manipulation;
   }
 
   body {
-    height: 100svh;
-    height: 100vh; /* Fallback */
+    height: 100vh;
     /* REMOVED: `overflow: hidden;` which was trapping positioned elements */
   }
 
   #root {
-    height: 100svh;
     height: 100vh;
   }
 
@@ -369,9 +364,7 @@ mark {
   }
 
   .h-screen {
-    height: 100svh !important;
-    max-height: 100svh !important;
-    height: 100vh !important; /* Fallback */
-    max-height: 100vh !important; /* Fallback */
+    height: 100vh !important;
+    max-height: 100vh !important;
   }
 }
