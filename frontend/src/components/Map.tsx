@@ -367,7 +367,7 @@ const Map = forwardRef<MapRef, MapProps>(({
         }
 
         const targetVisibleRestaurantIds = new Set<string>()
-        if ((viewportData.restaurants?.length || 0) <= 200) {
+        if (filteredRestaurants.length < 100) {
             filteredRestaurants.forEach(r => {
                 if (bounds.contains(L.latLng(r.latitude, r.longitude))) {
                     targetVisibleRestaurantIds.add(r.place_id)
@@ -429,6 +429,13 @@ const Map = forwardRef<MapRef, MapProps>(({
 
         const scMarkersToAdd = scToAddIds.map(id => viewportSuperchargers.current.get(id)?.marker).filter((m): m is L.Marker => !!m)
         const scMarkersToRemove = scToRemoveIds.map(id => viewportSuperchargers.current.get(id)?.marker).filter((m): m is L.Marker => !!m)
+
+        // Close any open popups for superchargers being removed
+        scMarkersToRemove.forEach(marker => {
+            if (marker.getPopup() && marker.getPopup()?.isOpen()) {
+                mapRef.current?.closePopup(marker.getPopup()!)
+            }
+        })
 
         if (scMarkersToAdd.length > 0) scLayer.addLayers(scMarkersToAdd)
         if (scMarkersToRemove.length > 0) scLayer.removeLayers(scMarkersToRemove)
@@ -582,37 +589,6 @@ const Map = forwardRef<MapRef, MapProps>(({
             map.off('moveend zoomend', debouncedViewportUpdate)
         }
     }, [fetchViewportData])
-
-    // Filter viewport restaurants based on search filters
-    useEffect(() => {
-        if (!viewportData?.restaurants) return
-
-        const filteredRestaurants = viewportData.restaurants.filter(restaurant => {
-            const nameMatch = searchFilters.selectedPlaces.some(p => restaurant.name === p) ||
-                searchFilters.selectedContainingPlaces.some(p => restaurant.name.toLowerCase().includes(p.toLowerCase())) ||
-                (searchFilters.selectedPlaces.length === 0 && searchFilters.selectedContainingPlaces.length === 0 &&
-                    (searchFilters.typedPlace === '' || restaurant.name.toLowerCase().includes(searchFilters.typedPlace.toLowerCase())))
-            const cuisineMatch = searchFilters.selectedCuisines.length === 0 ||
-                searchFilters.selectedCuisines.some(cuisine =>
-                    (restaurant.primary_type_display || '').toLowerCase().includes(cuisine.toLowerCase())
-                )
-            return nameMatch && cuisineMatch
-        })
-
-        const layer = layersRef.current?.viewportRestaurants
-        if (!layer) return
-
-        layer.clearLayers()
-
-        if (filteredRestaurants.length < 100) {
-            filteredRestaurants.forEach(restaurant => {
-                const existing = viewportRestaurants.current.get(restaurant.place_id)
-                if (existing) {
-                    layer.addLayer(existing.marker)
-                }
-            })
-        }
-    }, [viewportData, searchFilters])
 
     // Update route polyline
     useEffect(() => {
