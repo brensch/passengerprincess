@@ -274,7 +274,7 @@ const AppContent = () => {
 
 
     return (
-        <div className="h-screen overflow-hidden bg-princess-surface" style={{ position: 'relative', height: '100svh' }}>
+        <div className="h-screen overflow-hidden bg-princess-surface" style={{ position: 'relative' }}>
             {viewMode === 'search' && (
                 <div className="h-full flex items-center justify-center bg-gradient-to-b from-princess-surface to-princess-lavender">
                     <SearchForm

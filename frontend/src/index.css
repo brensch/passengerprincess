@@ -11,14 +11,37 @@ html, body {
   /* Use small viewport height (svh) for a stable layout that isn't affected by browser UI appearing/disappearing */
   height: 100svh;
   height: 100vh; /* Fallback for older browsers */
+  /* iOS safe area support */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+/* Prevent overscroll on iOS */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+/* iOS specific fixes */
+* {
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   overflow: hidden;
   position: relative;
+  /* iOS safe area adjustments */
+  height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right));
+  /* Fallbacks */
   height: 100svh;
-  height: 100vh; /* Fallback */
+  height: 100vh; /* Fallback for older browsers */
   width: 100vw;
+  /* Prevent iOS bounce scrolling */
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
 }
 
 /* Prevent map from taking over viewport on mobile */
