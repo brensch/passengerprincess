@@ -287,8 +287,17 @@ const Map = forwardRef<MapRef, MapProps>(({
             tapTolerance: 15
         } as any).setView([37.7749, -122.4194], 6)
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
+        // Esri World Light Gray: keyless, no watermark, similar look to the old CARTO light basemap.
+        // Native tiles stop at zoom 16, so Leaflet upscales them beyond that.
+        const esriAttribution = 'Tiles © Esri'
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: esriAttribution,
+            maxNativeZoom: 16,
+            maxZoom: 19
+        }).addTo(map)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+            attribution: esriAttribution,
+            maxNativeZoom: 16,
             maxZoom: 19
         }).addTo(map)
 
