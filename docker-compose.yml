@@ -10,6 +10,7 @@ services:
     volumes:
       - ./db:/root/db
     container_name: ppp
+    restart: unless-stopped
     networks:
       - home_default
 
