@@ -287,17 +287,9 @@ const Map = forwardRef<MapRef, MapProps>(({
             tapTolerance: 15
         } as any).setView([37.7749, -122.4194], 6)
 
-        // Esri World Light Gray: keyless, no watermark, similar look to the old CARTO light basemap.
-        // Native tiles stop at zoom 16, so Leaflet upscales them beyond that.
-        const esriAttribution = 'Tiles © Esri'
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-            attribution: esriAttribution,
-            maxNativeZoom: 16,
-            maxZoom: 19
-        }).addTo(map)
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-            attribution: esriAttribution,
-            maxNativeZoom: 16,
+        // Esri World Topo: keyless, unwatermarked, readable labels at all zooms.
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri — Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
             maxZoom: 19
         }).addTo(map)
 
