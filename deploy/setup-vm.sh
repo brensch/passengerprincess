@@ -11,7 +11,8 @@ install -m 644 /tmp/ppp.service /etc/systemd/system/ppp.service
 install -d -m 755 /etc/caddy/Caddyfile.d
 install -m 644 /tmp/ppp.caddyfile /etc/caddy/Caddyfile.d/ppp.caddyfile
 rm -f /tmp/ppp.service /tmp/ppp.caddyfile
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null && systemctl reload caddy
+out=$(caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1) || { echo "$out"; exit 1; }
+systemctl reload caddy
 systemctl daemon-reload
 systemctl enable ppp >/dev/null 2>&1
 echo "ppp set up; run make deploy"
