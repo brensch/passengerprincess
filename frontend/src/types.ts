@@ -26,7 +26,6 @@ export interface Supercharger {
     longitude: number
     google_maps_uri: string
     last_updated: string
-    is_supercharger: boolean
 }
 
 export interface RestaurantSuperchargerMapping {
