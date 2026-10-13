@@ -1,0 +1,23 @@
+# ppp on the schlift.com VM (installed by deploy/setup-vm.sh). Listens on 8040
+# (firewalled; only Caddy reaches it, as ppp.brensch.com). The Maps API key is
+# in /etc/ppp.env (root-only); data in /opt/ppp/db.
+[Unit]
+Description=ppp (passengerprincess)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ppp
+WorkingDirectory=/opt/ppp
+EnvironmentFile=/etc/ppp.env
+ExecStart=/opt/ppp/ppp
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/ppp/db
+
+[Install]
+WantedBy=multi-user.target

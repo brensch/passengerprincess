@@ -80,3 +80,5 @@ test-databases/
 *.db*
 
 dist/
+# cross-build output (make build)
+deploy/out/
